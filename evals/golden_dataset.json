@@ -1,0 +1,12 @@
+[
+  {
+    "case_id": "eval_01_measurements_partial",
+    "doc_id": "REPLACE_WITH_YOUR_INDEXED_DOC_ID",
+    "video_url": "https://www.youtube.com/watch?v=YOUR_TEST_VIDEO_ID",
+    "target_scope": "Chapter 1",
+    "expected_missed_topics": [
+      "Parallax Error",
+      "Beam Balance vs Electronic Balance"
+    ]
+  }
+]

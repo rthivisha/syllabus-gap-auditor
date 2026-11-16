@@ -1,0 +1,834 @@
+{
+  "doc_id": "book1-claude-code-en-43f90304c613",
+  "doc_name": "book1-claude-code-en.pdf",
+  "page_count": 108,
+  "sections": [
+    {
+      "section_idx": 1,
+      "section_title": "Introduction",
+      "start_page": 8,
+      "end_page": 10,
+      "summary": "Introduction\nThis book is not asking whether a model can write code. It asks how\nto keep a code\u2010writing model from steering an engineering system\noff course once it is plugged into terminals, repositories, and team\nworkflows.\nThis is not a stitched set of source comments, and not a feature tour. It fo\u2010\ncuses on how Claude Code constrains an unstable model into a sustainable\nengineering order, where control plane, main loop, tool permissions, context\ngovernance, recovery paths, multi\u2010agent verification, and team practices form\none coherent skeleton.\nThis book starts from three reading assumptions:\n\u2027 The center of gravity is not model capability, but how the harness orga\u2010\nnizes constraints and execution\n\u2027 The goal is not line\u2010by\u2010line function narration, but why the runtime had\nto grow this way\n\u2027 The value is not personal trick collection, but turning structure into\nreusable team practice\nR"
+    },
+    {
+      "section_idx": 2,
+      "section_title": "Preface",
+      "start_page": 10,
+      "end_page": 13,
+      "summary": "Preface: Harness, Terminals, and\nEngineering Constraints\nIn recent years people have liked to call code\u2010writing models\u201cagents.\u201dThe term\ncarries visible optimism, as if reading a repo, calling tools, and producing a\ndecent patch were enough for independent work in engineering environments.\nBut engineering environments have consequences. Terminals, filesystems, and\nGit history are not abstract space; every change leaves a trace.\nA model that only outputs text mostly creates interpretation cost when it fails. A\nmodel that can run commands, write files, access networks, and modify repos\u2010\nitories leaves execution artifacts when it fails. Directories change, processes\nbreak, configuration gets damaged, and history becomes difficult to audit. At\nthat point the key question is no longer whether the model is smart enough,\nbut whether the system imposes enough constraint.\nThat is what this book di"
+    },
+    {
+      "section_idx": 3,
+      "section_title": "Chapter 1 Why Harness Engineering Matters",
+      "start_page": 13,
+      "end_page": 13,
+      "summary": "Chapter 1 Why Harness\nEngineering Matters\n1.1 The core problem is keeping the model from go\u2010\ning off script\nOnce a speaking probability distribution can touch shell, Git, networks, and\nlocal files, the problem shifts from \u201cthe answer is not good enough\u201dto \u201cex\u2010\necution caused real damage.\u201dHarness Engineering is about constraining that\nunstable core component into a manageable system. It addresses one practical\nfact: models are not trustworthy by default.\nThat judgment is not always pleasant, but it is usually useful. Ignore it, and the\nproblem usually resurfaces in logs and incident reports.\n1.2 Claude Code\u2019s first harness layer: a constrained\nconversation system\nOn the surface, Claude Code looks like a CLI that talks with users and can patch\ncode. In implementation terms, it was never designed as a bare model wrap\u2010\nper. It was designed as a conversation system with context boundaries, ru"
+    },
+    {
+      "section_idx": 4,
+      "section_title": "1.1 The core problem is keeping the model from going off script",
+      "start_page": 13,
+      "end_page": 13,
+      "summary": "Chapter 1 Why Harness\nEngineering Matters\n1.1 The core problem is keeping the model from go\u2010\ning off script\nOnce a speaking probability distribution can touch shell, Git, networks, and\nlocal files, the problem shifts from \u201cthe answer is not good enough\u201dto \u201cex\u2010\necution caused real damage.\u201dHarness Engineering is about constraining that\nunstable core component into a manageable system. It addresses one practical\nfact: models are not trustworthy by default.\nThat judgment is not always pleasant, but it is usually useful. Ignore it, and the\nproblem usually resurfaces in logs and incident reports.\n1.2 Claude Code\u2019s first harness layer: a constrained\nconversation system\nOn the surface, Claude Code looks like a CLI that talks with users and can patch\ncode. In implementation terms, it was never designed as a bare model wrap\u2010\nper. It was designed as a conversation system with context boundaries, ru"
+    },
+    {
+      "section_idx": 5,
+      "section_title": "1.2 Claude Code\u2019s first harness layer: a constrained conversation system",
+      "start_page": 13,
+      "end_page": 14,
+      "summary": "Chapter 1 Why Harness\nEngineering Matters\n1.1 The core problem is keeping the model from go\u2010\ning off script\nOnce a speaking probability distribution can touch shell, Git, networks, and\nlocal files, the problem shifts from \u201cthe answer is not good enough\u201dto \u201cex\u2010\necution caused real damage.\u201dHarness Engineering is about constraining that\nunstable core component into a manageable system. It addresses one practical\nfact: models are not trustworthy by default.\nThat judgment is not always pleasant, but it is usually useful. Ignore it, and the\nproblem usually resurfaces in logs and incident reports.\n1.2 Claude Code\u2019s first harness layer: a constrained\nconversation system\nOn the surface, Claude Code looks like a CLI that talks with users and can patch\ncode. In implementation terms, it was never designed as a bare model wrap\u2010\nper. It was designed as a conversation system with context boundaries, ru"
+    },
+    {
+      "section_idx": 6,
+      "section_title": "1.3 The second harness layer: the agent depends on a continuous loop",
+      "start_page": 14,
+      "end_page": 15,
+      "summary": "CHAPTER 1 WHY HARNESS ENGINEERING MATTERS\n7\n\u2027 Starting at src/constants/prompts.ts:199, it adds engineering con\u2010\nstraints for task execution, such as avoiding unauthorized edits, not\nclaiming validation is done when it is not, and not inventing abstractions\nfor convenience\nPause on this point. Many prompt discussions still sit at the rhetorical level of\n\u201cwhat kind of assistant are you.\u201dClaude Code places prompt inside runtime\ncontrol structure. These texts define execution boundaries, failure behavior,\nand reporting responsibility.\nMore importantly, this prompt is assembled in segments.\nIn getSystem-\nPrompt() at src/constants/prompts.ts:444, static and dynamic parts are\nexplicitly split, with memory, language, output style, MCP instructions, and\nscratchpad injected by section. In src/utils/systemPrompt.ts:28, default\nprompt, custom prompt, agent prompt, and appended prompt are then\ncompo"
+    },
+    {
+      "section_idx": 7,
+      "section_title": "1.4 The third harness layer: tool calls must obey scheduling discipline",
+      "start_page": 15,
+      "end_page": 16,
+      "summary": "CHAPTER 1 WHY HARNESS ENGINEERING MATTERS\n8\nClaude Code\u2019s core is not one isolated API call.\nIt is query() starting at\nsrc/query.ts:219 and especially queryLoop() starting at src/query.ts:241.\nThe key point in this implementation is explicit acknowledgment that agent\nsystems depend on stateful multi\u2010turn execution.\nAt src/query.ts:268, the system puts messages, toolUseContext, autoCom-\npactTracking, maxOutputTokensRecoveryCount, hasAttemptedReactiveCom-\npact, pendingToolUseSummary, turnCount, transition, and more into one\ncross\u2010iteration state object. Once a conversation system is designed this way,\nit is formally admitting that unresolved issues from the last turn enter the next\nturn, and the system must continue from there.\nThat is the core harness mindset. The real question is whether behavior re\u2010\nmains consistent across continuous turns:\n\u2027 Is there a budget concept?\n\u2027 Is there a reco"
+    },
+    {
+      "section_idx": 8,
+      "section_title": "1.5 The fourth harness layer: the most dangerous tool needs the strictest rules",
+      "start_page": 16,
+      "end_page": 17,
+      "summary": "CHAPTER 1 WHY HARNESS ENGINEERING MATTERS\n9\nClaude Code\u2019s answer is direct. Runtime chooses parallel or serial execution\naccording to tool properties.\nIn runTools() at src/services/tools/toolOrchestration.ts:19, tool calls\nare first grouped by partitionToolCalls(). At src/services/tools/toolOrchestration\nthe system reads tool schema and calls isConcurrencySafe() to decide\nwhether a tool is safe for parallel execution.\nConcurrency\u2010safe calls run\nin batches; unsafe calls run one by one.\nIn parallel paths, context mod\u2010\nifiers are buffered first and then replayed in original block order, see\nsrc/services/tools/toolOrchestration.ts:31 to :63.\nThis is representative. It shows Claude Code does not treat tools as natural\nextension of model capability, but as managed execution units requiring\nscheduling discipline.\nA tool system without scheduling discipline only\namplifies model instability into "
+    },
+    {
+      "section_idx": 9,
+      "section_title": "1.6 The fifth harness layer: errors are part of the main path",
+      "start_page": 17,
+      "end_page": 17,
+      "summary": "CHAPTER 1 WHY HARNESS ENGINEERING MATTERS\n10\nExternal systems do not forgive bad execution just because model tone sounds\nconfident.\n1.6 The fifth harness layer: errors are part of the\nmain path\nMany software systems treat failure paths as exceptions and success paths as\nthe main text. Agent systems cannot do that. Failures here are not occasional;\nthey are structurally present. Models hit token limits, trigger prompt too long,\nhit max_output_tokens, face tool denial, user interrupts, hook blockage, API\nretries, and more. If all these are handled as afterthought catch blocks, the\nsystem may look alive while constantly rolling trouble forward.\nClaude Code does not do this in query loop. Look at autocompact handling af\u2010\nter src/query.ts:453, and comments around context limit and blocking logic\nafter src/query.ts:592: failures are handled as persistent structural condi\u2010\ntions.\nThis is one m"
+    },
+    {
+      "section_idx": 10,
+      "section_title": "1.7 The first principle extractable from source",
+      "start_page": 17,
+      "end_page": 19,
+      "summary": "CHAPTER 1 WHY HARNESS ENGINEERING MATTERS\n10\nExternal systems do not forgive bad execution just because model tone sounds\nconfident.\n1.6 The fifth harness layer: errors are part of the\nmain path\nMany software systems treat failure paths as exceptions and success paths as\nthe main text. Agent systems cannot do that. Failures here are not occasional;\nthey are structurally present. Models hit token limits, trigger prompt too long,\nhit max_output_tokens, face tool denial, user interrupts, hook blockage, API\nretries, and more. If all these are handled as afterthought catch blocks, the\nsystem may look alive while constantly rolling trouble forward.\nClaude Code does not do this in query loop. Look at autocompact handling af\u2010\nter src/query.ts:453, and comments around context limit and blocking logic\nafter src/query.ts:592: failures are handled as persistent structural condi\u2010\ntions.\nThis is one m"
+    },
+    {
+      "section_idx": 11,
+      "section_title": "Chapter 2 Prompt Is Not Personality",
+      "start_page": 19,
+      "end_page": 19,
+      "summary": "Chapter 2 Prompt Is Not\nPersonality, Prompt Is the Control\nPlane\n2.1 Treating prompt as persona is a common misun\u2010\nderstanding\nWhen people hear\u201csystem prompt,\u201dthey first think of familiar rhetoric: who\nyou are, what you are good at, ideally with a stable personality. That framing\nis enough for chat\u2010only systems and clearly insufficient for an agent that reads\nfiles, calls tools, touches shell, handles permissions, and executes across turns.\nPersona answers\u201cwhat it looks like\u201d; a control plane answers\u201cwhat it can do,\nwhen, what happens on failure, who owns fallback.\u201dThey are different layers.\nClaude Code implementation shows this directly: its system prompt is a layered\nassembly of behavioral blocks \u2014closer to a runtime protocol than to a character\nbiography.\n2.2 In source, Claude Code prompt is layered from\nthe beginning\nIn getSystemPrompt() at src/constants/prompts.ts:444, Claude Code r"
+    },
+    {
+      "section_idx": 12,
+      "section_title": "2.1 Treating prompt as persona is a common misunderstanding",
+      "start_page": 19,
+      "end_page": 19,
+      "summary": "Chapter 2 Prompt Is Not\nPersonality, Prompt Is the Control\nPlane\n2.1 Treating prompt as persona is a common misun\u2010\nderstanding\nWhen people hear\u201csystem prompt,\u201dthey first think of familiar rhetoric: who\nyou are, what you are good at, ideally with a stable personality. That framing\nis enough for chat\u2010only systems and clearly insufficient for an agent that reads\nfiles, calls tools, touches shell, handles permissions, and executes across turns.\nPersona answers\u201cwhat it looks like\u201d; a control plane answers\u201cwhat it can do,\nwhen, what happens on failure, who owns fallback.\u201dThey are different layers.\nClaude Code implementation shows this directly: its system prompt is a layered\nassembly of behavioral blocks \u2014closer to a runtime protocol than to a character\nbiography.\n2.2 In source, Claude Code prompt is layered from\nthe beginning\nIn getSystemPrompt() at src/constants/prompts.ts:444, Claude Code r"
+    },
+    {
+      "section_idx": 13,
+      "section_title": "2.2 In source, Claude Code prompt is layered from the beginning",
+      "start_page": 19,
+      "end_page": 20,
+      "summary": "Chapter 2 Prompt Is Not\nPersonality, Prompt Is the Control\nPlane\n2.1 Treating prompt as persona is a common misun\u2010\nderstanding\nWhen people hear\u201csystem prompt,\u201dthey first think of familiar rhetoric: who\nyou are, what you are good at, ideally with a stable personality. That framing\nis enough for chat\u2010only systems and clearly insufficient for an agent that reads\nfiles, calls tools, touches shell, handles permissions, and executes across turns.\nPersona answers\u201cwhat it looks like\u201d; a control plane answers\u201cwhat it can do,\nwhen, what happens on failure, who owns fallback.\u201dThey are different layers.\nClaude Code implementation shows this directly: its system prompt is a layered\nassembly of behavioral blocks \u2014closer to a runtime protocol than to a character\nbiography.\n2.2 In source, Claude Code prompt is layered from\nthe beginning\nIn getSystemPrompt() at src/constants/prompts.ts:444, Claude Code r"
+    },
+    {
+      "section_idx": 14,
+      "section_title": "2.3 Prompt value is not text itself, but precedence structure",
+      "start_page": 20,
+      "end_page": 21,
+      "summary": "CHAPTER 2 PROMPT IS NOT PERSONALITY\n13\nFirst is identity and mission. At src/constants/prompts.ts:175, the system\nstates it is an interactive agent that uses available tools to complete software\nengineering tasks, including safety constraints such as not guessing URLs.\nThen come system\u2010level rules.\nStarting at src/constants/prompts.ts:186,\nthe system explicitly defines:\n\u2027 Which text users can see\n\u2027 That tool calls may trigger permission approval\n\u2027 That denied actions must not be mechanically retried\n\u2027 That system reminders may appear inside tool results and user messages\n\u2027 That context may be automatically compacted\nThese rules share one obvious property: they do not care whether the model\n\u201clooks like a smart assistant.\u201dThey care whether it is a disciplined executor.\nThat is control\u2010plane tone; its primary mission is boundary definition.\nThen, starting at src/constants/prompts.ts:199, co"
+    },
+    {
+      "section_idx": 15,
+      "section_title": "2.4 Prompt is not static copy; it is connected to memory systems",
+      "start_page": 21,
+      "end_page": 22,
+      "summary": "CHAPTER 2 PROMPT IS NOT PERSONALITY\n14\n2. coordinator system prompt\n3. agent system prompt\n4. custom system prompt\n5. default system prompt\nThen appendSystemPrompt is uniformly appended.\nThe proactive\u2010mode handling is even more direct. After src/utils/systemPrompt.ts:99,\nwhen agent prompt and proactive mode co\u2010exist, agent prompt no longer re\u2010\nplaces default prompt; it is appended after.\nA general constitution can be\nextended by a job description, but must not be wiped out by it.\nSkeleton: the prompt\u2010assembly precedence chain\n// skeleton: buildEffectiveSystemPrompt()\n(src/utils/systemPrompt.ts:28)\nsources = [override, coordinator, agent, custom, default]\nbase = first_present(sources)\n// higher precedence replaces default who\nif proactive_mode and agent:\nbase = default + agent\n// special case: layer, not replace\nreturn base + appendSystemPrompt\n// append is always last\nassert exists uniqu"
+    },
+    {
+      "section_idx": 16,
+      "section_title": "2.5 A real control plane must include caching and compute cost",
+      "start_page": 22,
+      "end_page": 23,
+      "summary": "CHAPTER 2 PROMPT IS NOT PERSONALITY\n15\na unified format and then merges them into prompt\u2010adjacent context. It even\nlabels provenance explicitly: project\u2010level instructions, user\u2010private project\ninstructions, shared team memory, or cross\u2010session persisted auto memory.\nIn buildMemoryLines() at src/memdir/memdir.ts:187, the system turns\nmemory\u2010writing rules themselves into part of prompt:\n\u2027 Memory is a file\u2010based persistence system\n\u2027 MEMORY.md is an index, not body text\n\u2027 Frontmatter should be written in specific form\n\u2027 Certain information should not be saved\n\u2027 Plans and tasks should not be misused as memory entries\nThis is crucial. It extends prompt duty from \u201cconstrain current behavior\u201d\nto \u201cconstrain how future knowledge is deposited.\u201dThis is beyond ordinary\nprompting and closer to a knowledge\u2010governance protocol for runtime partici\u2010\npants.\nIn other words, Claude Code does not only use pr"
+    },
+    {
+      "section_idx": 17,
+      "section_title": "2.6 Users can override prompt, but cannot bypass this structure",
+      "start_page": 23,
+      "end_page": 24,
+      "summary": "CHAPTER 2 PROMPT IS NOT PERSONALITY\n16\nresolveSystemPromptSections() prefers cache reuse and recomputes only\nwhen necessary.\nclearSystemPromptSections() clears section state after\n/clear or /compact.\nThis may look like optimization, but it is still control\u2010plane design. A produc\u2010\ntion prompt system cannot optimize only expressive power while ignoring\nthroughput, latency, and cache behavior. In getSystemPrompt(), Claude Code\neven places explicit boundaries between static and dynamic prompt segments\nafter src/constants/prompts.ts:560. That means design explicitly assumes\nsome content is turn\u2010stable while other content changes per turn; they must\nnot be mixed in a way that burns cache.\nOnce a system starts asking \u201cwhich part of prompt invalidates cache,\u201dit has\nstopped treating prompt as copywriting. Copywriting optimizes completeness\nof expression. Control planes optimize governability, reu"
+    },
+    {
+      "section_idx": 18,
+      "section_title": "2.7 Why prompt here is closer to constitution than dialogue lines",
+      "start_page": 24,
+      "end_page": 24,
+      "summary": "CHAPTER 2 PROMPT IS NOT PERSONALITY\n17\n2.7 Why prompt here is closer to constitution than\ndialogue lines\nPut previous sections together and the conclusion is clear:\nClaude Code prompt is constitution\u2010like.\nDialogue lines are what characters say on stage. A constitution defines power\nboundaries, duty relations, and exception handling. Claude Code prompt is\ncloser to the latter because it satisfies structural conditions:\n\u2027 It is layered, not monolithic\n\u2027 It has precedence, not \u201clatest write wins\u201d\n\u2027 It forms a full control plane together with memory, CLAUDE.md, agent in\u2010\nstructions, and MCP instructions\n\u2027 It has cache and dynamic section mechanics, not ad hoc text concatena\u2010\ntion\n\u2027 It is tightly coupled to runtime, not floating outside the system as decora\u2010\ntion\nThat is also why \u201cwriting a good prompt\u201din isolation has limited value. The\nharder question is where prompt sits in system archite"
+    },
+    {
+      "section_idx": 19,
+      "section_title": "2.8 The second principle extractable from source",
+      "start_page": 24,
+      "end_page": 26,
+      "summary": "CHAPTER 2 PROMPT IS NOT PERSONALITY\n17\n2.7 Why prompt here is closer to constitution than\ndialogue lines\nPut previous sections together and the conclusion is clear:\nClaude Code prompt is constitution\u2010like.\nDialogue lines are what characters say on stage. A constitution defines power\nboundaries, duty relations, and exception handling. Claude Code prompt is\ncloser to the latter because it satisfies structural conditions:\n\u2027 It is layered, not monolithic\n\u2027 It has precedence, not \u201clatest write wins\u201d\n\u2027 It forms a full control plane together with memory, CLAUDE.md, agent in\u2010\nstructions, and MCP instructions\n\u2027 It has cache and dynamic section mechanics, not ad hoc text concatena\u2010\ntion\n\u2027 It is tightly coupled to runtime, not floating outside the system as decora\u2010\ntion\nThat is also why \u201cwriting a good prompt\u201din isolation has limited value. The\nharder question is where prompt sits in system archite"
+    },
+    {
+      "section_idx": 20,
+      "section_title": "Chapter 3 Query Loop",
+      "start_page": 26,
+      "end_page": 26,
+      "summary": "Chapter 3 Query Loop: The\nHeartbeat of an Agent System\n3.1 To judge maturity, first ask whether the system\nhas a loop\nImagining a code\u2010writing model as an upgraded Q&A API is the easiest mistake:\nonce the system starts calling tools, spanning turns, handling interrupts, per\u2010\nsisting state, and compacting context, one\u2010shot Q&A collapses. Claude Code\nstructurally admits that agents depend on continuous, stateful execution.\nquery() at src/query.ts:219 is shell; queryLoop() at src/query.ts:241 is\ncore.\nIt maintains cross\u2010iteration state, performs pre\u2010governance, streams\nmodel output, then decides whether to execute tools, recover, compact,\ncontinue, or terminate.\nThe key word is lifecycle. Whether a system deserves to be called an agent is\ndetermined less by how it talks and more by whether it still knows what it is\ndoing several turns later.\n3.2 State is core business, not baggage\nMany syst"
+    },
+    {
+      "section_idx": 21,
+      "section_title": "3.1 To judge maturity, first ask whether the system has a loop",
+      "start_page": 26,
+      "end_page": 26,
+      "summary": "Chapter 3 Query Loop: The\nHeartbeat of an Agent System\n3.1 To judge maturity, first ask whether the system\nhas a loop\nImagining a code\u2010writing model as an upgraded Q&A API is the easiest mistake:\nonce the system starts calling tools, spanning turns, handling interrupts, per\u2010\nsisting state, and compacting context, one\u2010shot Q&A collapses. Claude Code\nstructurally admits that agents depend on continuous, stateful execution.\nquery() at src/query.ts:219 is shell; queryLoop() at src/query.ts:241 is\ncore.\nIt maintains cross\u2010iteration state, performs pre\u2010governance, streams\nmodel output, then decides whether to execute tools, recover, compact,\ncontinue, or terminate.\nThe key word is lifecycle. Whether a system deserves to be called an agent is\ndetermined less by how it talks and more by whether it still knows what it is\ndoing several turns later.\n3.2 State is core business, not baggage\nMany syst"
+    },
+    {
+      "section_idx": 22,
+      "section_title": "3.2 State is core business, not baggage",
+      "start_page": 26,
+      "end_page": 29,
+      "summary": "Chapter 3 Query Loop: The\nHeartbeat of an Agent System\n3.1 To judge maturity, first ask whether the system\nhas a loop\nImagining a code\u2010writing model as an upgraded Q&A API is the easiest mistake:\nonce the system starts calling tools, spanning turns, handling interrupts, per\u2010\nsisting state, and compacting context, one\u2010shot Q&A collapses. Claude Code\nstructurally admits that agents depend on continuous, stateful execution.\nquery() at src/query.ts:219 is shell; queryLoop() at src/query.ts:241 is\ncore.\nIt maintains cross\u2010iteration state, performs pre\u2010governance, streams\nmodel output, then decides whether to execute tools, recover, compact,\ncontinue, or terminate.\nThe key word is lifecycle. Whether a system deserves to be called an agent is\ndetermined less by how it talks and more by whether it still knows what it is\ndoing several turns later.\n3.2 State is core business, not baggage\nMany syst"
+    },
+    {
+      "section_idx": 23,
+      "section_title": "3.3 The first duty of query loop is input governance",
+      "start_page": 29,
+      "end_page": 29,
+      "summary": "CHAPTER 3 QUERY LOOP\n22\nassert hasAttemptedReactiveCompact \u21d2no further compact\n# no self-\nloop\n3.3 The first duty of query loop is input governance\nFrom outside, people often assume the core action of an agent is \u201ccall the\nmodel.\u201dIn engineering, what matters more is often the long preparation be\u2010\nfore that call. Claude Code makes this explicit in queryLoop().\nBefore entering model stage, runtime does all of the following:\n\u2027 Start memory prefetch, see src/query.ts:297\n\u2027 Prefetch skill discovery, see src/query.ts:323\n\u2027 Slice valid messages after compact boundary, see src/query.ts:365\n\u2027 Apply tool result budget, see src/query.ts:369\n\u2027 Perform history snip, see src/query.ts:396\n\u2027 Perform microcompact, see src/query.ts:412\n\u2027 Perform context collapse, see src/query.ts:428\n\u2027 Attempt autocompact last, see src/query.ts:453\nThis sequence is an architectural statement by itself. It tells you Claude"
+    },
+    {
+      "section_idx": 24,
+      "section_title": "3.4 Model invocation is one phase of the loop, not the loop itself",
+      "start_page": 29,
+      "end_page": 30,
+      "summary": "CHAPTER 3 QUERY LOOP\n22\nassert hasAttemptedReactiveCompact \u21d2no further compact\n# no self-\nloop\n3.3 The first duty of query loop is input governance\nFrom outside, people often assume the core action of an agent is \u201ccall the\nmodel.\u201dIn engineering, what matters more is often the long preparation be\u2010\nfore that call. Claude Code makes this explicit in queryLoop().\nBefore entering model stage, runtime does all of the following:\n\u2027 Start memory prefetch, see src/query.ts:297\n\u2027 Prefetch skill discovery, see src/query.ts:323\n\u2027 Slice valid messages after compact boundary, see src/query.ts:365\n\u2027 Apply tool result budget, see src/query.ts:369\n\u2027 Perform history snip, see src/query.ts:396\n\u2027 Perform microcompact, see src/query.ts:412\n\u2027 Perform context collapse, see src/query.ts:428\n\u2027 Attempt autocompact last, see src/query.ts:453\nThis sequence is an architectural statement by itself. It tells you Claude"
+    },
+    {
+      "section_idx": 25,
+      "section_title": "3.5 A heartbeat must handle interrupts, or it is just inertia",
+      "start_page": 30,
+      "end_page": 31,
+      "summary": "CHAPTER 3 QUERY LOOP\n23\nThat means model output in Claude Code is an event stream, not just final prose.\nEvents may contain:\n\u2027 assistant text\n\u2027 tool_use blocks\n\u2027 usage updates\n\u2027 stop reasons\n\u2027 API errors\nThis is particularly clear after src/query.ts:826. The system stores assistant\nmessages, extracts tool_use blocks, decides follow\u2010up needs, and can dispatch\ntools to StreamingToolExecutor while streaming is still in progress.\nEngineering\u2010wise, this is a structural shift. Once output becomes event stream,\narchitecture is no longer plain request\u2010response, but a drive\u2010schedule\u2010feedback\nprocess. Streaming is not just about seeing words sooner; it lets runtime sched\u2010\nule next actions before model output fully ends.\nThat is why query loop, not model call, is the heartbeat. Model call is one con\u2010\ntraction inside heartbeat. What keeps the system alive is the full cycle: input\nintake, stream cons"
+    },
+    {
+      "section_idx": 26,
+      "section_title": "3.6 A heartbeat must also recover, or it is fragile repetition",
+      "start_page": 31,
+      "end_page": 32,
+      "summary": "CHAPTER 3 QUERY LOOP\n24\nlater.\nExternal systems, UI, and transcripts need a consistent causal chain.\nEven \u201cinterrupted\u201dmust be complete interruption.\nThis matters because once an agent enters multi\u2010tool, multi\u2010turn mode, exter\u2010\nnal expectations become more than \u201cdid it answer.\u201dThe system must leave\ninterpretable traces. Non\u2010interpretable traces eventually become operations\nproblems, audit problems, or latent team liabilities no one can explain.\nSo interrupt handling is core runtime duty. Started actions need closure, even\nif closure says \u201cnot finished.\u201d\n3.6 A heartbeat must also recover, or it is fragile rep\u2010\netition\nIf interrupts are external shocks, recovery is internal slack. Loops without re\u2010\ncovery capability eventually expose one common flaw: they treated luck as de\u2010\nsign.\nClaude Code\u2019s recovery is layered, not simplistic retry. Prompt\u2010too\u2010long and\nmax\u2010output\u2010tokens are typical cas"
+    },
+    {
+      "section_idx": 27,
+      "section_title": "3.7 Stop conditions cannot be singular, or failure and completion get conflated",
+      "start_page": 32,
+      "end_page": 33,
+      "summary": "CHAPTER 3 QUERY LOOP\n25\n3.7 Stop conditions cannot be singular, or failure and\ncompletion get conflated\nIn ordinary chat systems, stop condition is simple: answer exists, end. Agent\nsystems cannot be this lazy. In one session, \u201cthis turn ended\u201ddoes not equal\n\u201ctask completed,\u201dand does not equal \u201csystem succeeded.\u201d\nClaude Code query loop distinguishes at least:\n\u2027 Streaming completed with tool_use, requiring follow\u2010up\n\u2027 No tool_use, entering stop hooks and further checks\n\u2027 User interruption\n\u2027 Prompt\u2010too\u2010long recovery branch\n\u2027 Max\u2010output\u2010tokens recovery branch\n\u2027 Stop\u2010hook blockage requiring loop re\u2010entry\n\u2027 API errors returning directly\nYou can see this from src/query.ts:1062 through :1305. The stop\u2010hooks sec\u2010\ntion around :1267 to :1305 is especially important: it explicitly prevents dead\nloops like \u201cstill too long after compact, blocked by hook, compact again for\u2010\never.\u201d\nThis is worth attent"
+    },
+    {
+      "section_idx": 28,
+      "section_title": "3.8 QueryEngine proves this belongs to conversation lifecycle",
+      "start_page": 33,
+      "end_page": 36,
+      "summary": "CHAPTER 3 QUERY LOOP\n26\nEvent order\nPre\u2010state\nTrigger\nNext\nuser interrupt\nany\nabort signal\ndrain remaining\nresults, yield\nsynthetic\ntool_result\nprompt_too_long\ncompact not yet\ntried\nrecoverable error\ncollapse drain /\nreactive compact\nmax_output_tokenscap < MAX\nstop reason\nraise maxOutput-\nTokensOverride,\nre\u2010run\nmax_output_tokenscap = MAX\nstop reason\nappend meta user\nmsg, continue\nwriting\nstop hook block +\nPTL recurs\nhasAttemptedReactiveCompact\ndouble failure\nskip stop hooks,\nsurface error\nAPI error\n\u2014\napi_error\nreturn directly,\nno retry\n3.8 QueryEngine proves this belongs to conversation\nlifecycle\nIf queryLoop() were not enough evidence, QueryEngine makes it explicit.\nAt src/QueryEngine.ts:176, source states:\nQueryEngine owns the query lifecycle and session state for a conver\u2010\nsation.\nThis line states the chapter\u2019s point directly. QueryEngine owns conversation\nlifecycle, not one call. At "
+    },
+    {
+      "section_idx": 29,
+      "section_title": "3.9 The third principle extractable from source",
+      "start_page": 36,
+      "end_page": 37,
+      "summary": "CHAPTER 3 QUERY LOOP\n29\nThis means query loop is the actual execution center of conversation runtime.\nOuter UI, SDK, and session persistence all orbit it. To understand Claude Code\nyou cannot stop at listing tools or reading prompt text. You must inspect how\nthis loop turns those constraints into continuous behavior.\n3.9 The third principle extractable from source\nThis chapter can be compressed into one line:\nThe core capability of an agent system is maintaining a recoverable\nexecution loop.\nThe skeleton, invariants, and stop\u2010condition matrix above already line up the\nevidence. One line suffices to close: a mature agent heartbeat must simultane\u2010\nously govern cross\u2010turn state, input governance, streaming consumption, the\ninterrupt ledger, and the distinction between {completion, failure, recovery,\ncontinuation}.\nWithout these structures, systems may still produce attractive demos, but the"
+    },
+    {
+      "section_idx": 30,
+      "section_title": "Chapter 4 Tools, Permissions, and Interrupts",
+      "start_page": 37,
+      "end_page": 37,
+      "summary": "Chapter 4 Tools, Permissions, and\nInterrupts: Why Agents Cannot\nTouch the World Directly\n4.1 Once models call tools, the nature of risk changes\nA text\u2010only model mostly costs communication time when wrong. Once it starts\ncalling tools, risk changes in kind: tools are not opinions but actions, and ac\u2010\ntions touch the real world. A wrong explanation stays at understanding level; a\nwrong command deletes files, kills processes, mangles Git history. Capability\ngrowth comes with consequence growth.\nSo the central question is simple: who constrains these tools? Claude Code\u2019s\nanswer is to turn tools into managed execution interfaces, not let models reach\nout directly.\n4.2 Tool orchestration is part of behavioral constitu\u2010\ntion\nrunTools() at src/services/tools/toolOrchestration.ts:19 does some\u2010\nthing representative: it does not directly execute the tool_use list \u2014it batches\nby concurrency safety."
+    },
+    {
+      "section_idx": 31,
+      "section_title": "4.1 Once models call tools, the nature of risk changes",
+      "start_page": 37,
+      "end_page": 37,
+      "summary": "Chapter 4 Tools, Permissions, and\nInterrupts: Why Agents Cannot\nTouch the World Directly\n4.1 Once models call tools, the nature of risk changes\nA text\u2010only model mostly costs communication time when wrong. Once it starts\ncalling tools, risk changes in kind: tools are not opinions but actions, and ac\u2010\ntions touch the real world. A wrong explanation stays at understanding level; a\nwrong command deletes files, kills processes, mangles Git history. Capability\ngrowth comes with consequence growth.\nSo the central question is simple: who constrains these tools? Claude Code\u2019s\nanswer is to turn tools into managed execution interfaces, not let models reach\nout directly.\n4.2 Tool orchestration is part of behavioral constitu\u2010\ntion\nrunTools() at src/services/tools/toolOrchestration.ts:19 does some\u2010\nthing representative: it does not directly execute the tool_use list \u2014it batches\nby concurrency safety."
+    },
+    {
+      "section_idx": 32,
+      "section_title": "4.2 Tool orchestration is part of behavioral constitution",
+      "start_page": 37,
+      "end_page": 38,
+      "summary": "Chapter 4 Tools, Permissions, and\nInterrupts: Why Agents Cannot\nTouch the World Directly\n4.1 Once models call tools, the nature of risk changes\nA text\u2010only model mostly costs communication time when wrong. Once it starts\ncalling tools, risk changes in kind: tools are not opinions but actions, and ac\u2010\ntions touch the real world. A wrong explanation stays at understanding level; a\nwrong command deletes files, kills processes, mangles Git history. Capability\ngrowth comes with consequence growth.\nSo the central question is simple: who constrains these tools? Claude Code\u2019s\nanswer is to turn tools into managed execution interfaces, not let models reach\nout directly.\n4.2 Tool orchestration is part of behavioral constitu\u2010\ntion\nrunTools() at src/services/tools/toolOrchestration.ts:19 does some\u2010\nthing representative: it does not directly execute the tool_use list \u2014it batches\nby concurrency safety."
+    },
+    {
+      "section_idx": 33,
+      "section_title": "4.3 A lot happens before a tool actually runs",
+      "start_page": 38,
+      "end_page": 38,
+      "summary": "CHAPTER 4 TOOLS, PERMISSIONS, AND INTERRUPTS\n31\nfastest tool mutate context first; it buffers contextModifier callbacks and re\u2010\nplays them in original block order. Execution is parallel while semantic context\nevolution stays deterministic.\nClassic engineering conservatism: concurrency may improve throughput but\nmust not break causality. Mature agent systems do not idolize parallelism \u2014\nthey treat it as an exception that must prove safety, not a default freedom.\n4.3 A lot happens before a tool actually runs\nMany people assume that once tool_use appears, execution naturally follows.\nRobust systems do not work that way. After src/services/tools/toolExecution.ts:30,\nrunToolUse() is already wrapped with permission logic, hooks, telemetry, and\nsynthetic error materialization \u2014pre\u2010checks, in\u2010flight events, post\u2010execution\ncorrection, and failure compensation.\nTools here are not ordinary internal"
+    },
+    {
+      "section_idx": 34,
+      "section_title": "4.4 Permission comes before capability",
+      "start_page": 38,
+      "end_page": 39,
+      "summary": "CHAPTER 4 TOOLS, PERMISSIONS, AND INTERRUPTS\n31\nfastest tool mutate context first; it buffers contextModifier callbacks and re\u2010\nplays them in original block order. Execution is parallel while semantic context\nevolution stays deterministic.\nClassic engineering conservatism: concurrency may improve throughput but\nmust not break causality. Mature agent systems do not idolize parallelism \u2014\nthey treat it as an exception that must prove safety, not a default freedom.\n4.3 A lot happens before a tool actually runs\nMany people assume that once tool_use appears, execution naturally follows.\nRobust systems do not work that way. After src/services/tools/toolExecution.ts:30,\nrunToolUse() is already wrapped with permission logic, hooks, telemetry, and\nsynthetic error materialization \u2014pre\u2010checks, in\u2010flight events, post\u2010execution\ncorrection, and failure compensation.\nTools here are not ordinary internal"
+    },
+    {
+      "section_idx": 35,
+      "section_title": "4.5 Permission results are runtime semantics, not booleans",
+      "start_page": 39,
+      "end_page": 41,
+      "summary": "CHAPTER 4 TOOLS, PERMISSIONS, AND INTERRUPTS\n32\n\u2027 deny: reject directly\n\u2027 ask:\nroute to coordinator, swarm worker, classifier, or interactive\napproval\n\u2027 allow: execute\nThis structurally rejects a common dangerous idea: if the model understood\nuser intent, it has authority to execute. It does not. Intent understanding is not\nauthorization, and certainly not persistent authorization. Systems must split\n\u201ccan do\u201dfrom \u201cmay do.\u201d\nFrom this angle, permission clarifies agent role: model can propose actions,\nbut runtime, rules, and user decide release. Capability and authority are delib\u2010\nerately separated.\nSkeleton: the permission chain\n// skeleton: useCanUseTool()\n(src/hooks/useCanUseTool.tsx:27)\ndecision = hasPermissionsToUseTool(tool, input, ctx)\nmatch decision:\ncase allow:\nreturn exec(tool, input)\ncase deny:\nreturn reject(reason)\ncase ask:\nreturn route_to(coordinator | swarm_worker | classifie"
+    },
+    {
+      "section_idx": 36,
+      "section_title": "4.6 StreamingToolExecutor proves interrupt is first-class semantics",
+      "start_page": 41,
+      "end_page": 44,
+      "summary": "CHAPTER 4 TOOLS, PERMISSIONS, AND INTERRUPTS\n34\nWhy this matters: a permission system must let runtime clearly express why a\nstep did not continue. When an agent says \u201cI need confirmation,\u201dit is declar\u2010\ning responsibility boundaries. Once boundaries are explicit, refusal, approval,\ncache rules, temporary grant, and persistent grant all have a place.\nPut simply, if an agent cannot distinguish \u201cI can do this,\u201d\u201cI cannot do this,\u201d\nand\u201cI must ask,\u201dit should not touch a terminal. Terminals do not fill missing\nsemantics. Terminals only execute.\n4.6 StreamingToolExecutor proves interrupt is first\u2010\nclass semantics\nOnce tools are parallel and streaming, interrupt handling becomes immedi\u2010\nately complex. Runtime now faces a queue with states like queued, executing,\ncompleted, yielded, not one single action.\nAfter src/services/tools/StreamingToolExecutor.ts:34, Claude Code ex\u2010\nplicitly makes this a d"
+    },
+    {
+      "section_idx": 37,
+      "section_title": "4.7 Why Bash is always more suspect than other tools",
+      "start_page": 44,
+      "end_page": 44,
+      "summary": "CHAPTER 4 TOOLS, PERMISSIONS, AND INTERRUPTS\n37\n4.7 Why Bash is always more suspect than other tools\nIn Claude Code\u2019s tool world, Bash is a risk amplifier, not a normal tool. It\nis too general \u2014a file\u2010read tool will not casually kill processes, a grep tool will\nnot secretly push commits, but Bash can do almost everything. Claude Code\u2019s\ndistrust is explicit.\nFirst\nlayer\nis\nprompt\nguidance\nin\nsrc/tools/BashTool/prompt.ts:42\nand below:\ndetailed rules for git,\nPRs,\ndangerous commands,\nhooks,\nforce\npush,\nand\ninteractive\nflags\n\u2014disciplined\nverbosity\nwhere\nconse\u2010\nquences are large.\nSecond layer is permission and safety classification.\nsrc/tools/BashTool/bashPermissions.ts:1 handles shell semantics, com\u2010\nmand prefixes, redirection, wrappers, safe env vars, classifier routing, and rule\nmatching; after :95 a subcommand\u2010count cap prevents compound commands\nfrom escaping checks.\nBash is a dangerous "
+    },
+    {
+      "section_idx": 38,
+      "section_title": "4.8 Tool systems protect users and protect runtime itself",
+      "start_page": 44,
+      "end_page": 45,
+      "summary": "CHAPTER 4 TOOLS, PERMISSIONS, AND INTERRUPTS\n37\n4.7 Why Bash is always more suspect than other tools\nIn Claude Code\u2019s tool world, Bash is a risk amplifier, not a normal tool. It\nis too general \u2014a file\u2010read tool will not casually kill processes, a grep tool will\nnot secretly push commits, but Bash can do almost everything. Claude Code\u2019s\ndistrust is explicit.\nFirst\nlayer\nis\nprompt\nguidance\nin\nsrc/tools/BashTool/prompt.ts:42\nand below:\ndetailed rules for git,\nPRs,\ndangerous commands,\nhooks,\nforce\npush,\nand\ninteractive\nflags\n\u2014disciplined\nverbosity\nwhere\nconse\u2010\nquences are large.\nSecond layer is permission and safety classification.\nsrc/tools/BashTool/bashPermissions.ts:1 handles shell semantics, com\u2010\nmand prefixes, redirection, wrappers, safe env vars, classifier routing, and rule\nmatching; after :95 a subcommand\u2010count cap prevents compound commands\nfrom escaping checks.\nBash is a dangerous "
+    },
+    {
+      "section_idx": 39,
+      "section_title": "4.9 The fourth principle extractable from source",
+      "start_page": 45,
+      "end_page": 46,
+      "summary": "CHAPTER 4 TOOLS, PERMISSIONS, AND INTERRUPTS\n38\n\u2027 what was unfinished\n\u2027 why it stopped\nThat is another core harness meaning: preserving order for the system itself.\nMany constraints look like misoperation prevention on the surface, but at\ndeeper level they prevent runtime from collapsing into unexplainable state\nfragments.\n4.9 The fourth principle extractable from source\nThis chapter can be compressed to one line:\nTools are managed execution interfaces; permission is an organ of\nthe agent system.\nClaude Code source supports this jointly:\n\u2027 toolOrchestration.ts batches before execution, so scheduling comes\nbefore impulse\n\u2027 toolExecution.ts wraps hooks, permission, telemetry, and synthetic er\u2010\nrors around execution, so calls are never bare\n\u2027 useCanUseTool.tsx splits authorization into allow / deny / ask, mak\u2010\ning authority a first\u2010class semantic branch\n\u2027 StreamingToolExecutor.ts defines in"
+    },
+    {
+      "section_idx": 40,
+      "section_title": "Chapter 5 Context Governance",
+      "start_page": 46,
+      "end_page": 46,
+      "summary": "Chapter 5 Context Governance:\nMemory, CLAUDE.md, and Compact\nas a Budgeting Regime\n5.1 As context grows, systems develop a low\u2010level il\u2010\nlusion\n\u201cMore information makes systems smarter\u201dis a dangerous myth. Agent systems\nare not libraries; context is not a warehouse where \u201cstored\u201dequals \u201cowned.\u201d\nIt is an expensive, inflation\u2010prone, self\u2010polluting budget. Claude Code source\nis unsentimental about this: what to load, what to truncate, what to preserve\nlong\u2010term, and what to summarize short\u2010term are serious runtime governance\ndecisions.\nSo this chapter asks: how does Claude Code avoid being crushed by what\nit remembers?\n\u201cRemember more\u201dand \u201cgovern memory\u201dlook close but\nengineering\u2010wise are different regimes.\n5.2 The CLAUDE.md system: long\u2010lived instructions\ncannot be mixed with ad hoc chat\nAt the top of src/utils/claudemd.ts, Claude Code already defines memory\nlayers clearly. Instruction sourc"
+    },
+    {
+      "section_idx": 41,
+      "section_title": "5.1 As context grows, systems develop a low-level illusion",
+      "start_page": 46,
+      "end_page": 46,
+      "summary": "Chapter 5 Context Governance:\nMemory, CLAUDE.md, and Compact\nas a Budgeting Regime\n5.1 As context grows, systems develop a low\u2010level il\u2010\nlusion\n\u201cMore information makes systems smarter\u201dis a dangerous myth. Agent systems\nare not libraries; context is not a warehouse where \u201cstored\u201dequals \u201cowned.\u201d\nIt is an expensive, inflation\u2010prone, self\u2010polluting budget. Claude Code source\nis unsentimental about this: what to load, what to truncate, what to preserve\nlong\u2010term, and what to summarize short\u2010term are serious runtime governance\ndecisions.\nSo this chapter asks: how does Claude Code avoid being crushed by what\nit remembers?\n\u201cRemember more\u201dand \u201cgovern memory\u201dlook close but\nengineering\u2010wise are different regimes.\n5.2 The CLAUDE.md system: long\u2010lived instructions\ncannot be mixed with ad hoc chat\nAt the top of src/utils/claudemd.ts, Claude Code already defines memory\nlayers clearly. Instruction sourc"
+    },
+    {
+      "section_idx": 42,
+      "section_title": "5.2 The CLAUDE.md system: long-lived instructions cannot be mixed with ad hoc chat",
+      "start_page": 46,
+      "end_page": 47,
+      "summary": "Chapter 5 Context Governance:\nMemory, CLAUDE.md, and Compact\nas a Budgeting Regime\n5.1 As context grows, systems develop a low\u2010level il\u2010\nlusion\n\u201cMore information makes systems smarter\u201dis a dangerous myth. Agent systems\nare not libraries; context is not a warehouse where \u201cstored\u201dequals \u201cowned.\u201d\nIt is an expensive, inflation\u2010prone, self\u2010polluting budget. Claude Code source\nis unsentimental about this: what to load, what to truncate, what to preserve\nlong\u2010term, and what to summarize short\u2010term are serious runtime governance\ndecisions.\nSo this chapter asks: how does Claude Code avoid being crushed by what\nit remembers?\n\u201cRemember more\u201dand \u201cgovern memory\u201dlook close but\nengineering\u2010wise are different regimes.\n5.2 The CLAUDE.md system: long\u2010lived instructions\ncannot be mixed with ad hoc chat\nAt the top of src/utils/claudemd.ts, Claude Code already defines memory\nlayers clearly. Instruction sourc"
+    },
+    {
+      "section_idx": 43,
+      "section_title": "5.3 MEMORY.md is an index, not a diary",
+      "start_page": 47,
+      "end_page": 48,
+      "summary": "CHAPTER 5 CONTEXT GOVERNANCE\n40\n\u2027 project memory, such as root CLAUDE.md, .claude/CLAUDE.md, .claude/rules/*.md\n\u2027 local memory, such as CLAUDE.local.md\nThese files are loaded by precedence and directory proximity. Project rules\ncloser to current working directory get higher priority. More private and local\nrules are loaded later, thus placed closer to model attention front.\nThis is critical. It shows Claude Code refuses to blend long\u2010lived collaboration\npolicy with temporary chat context. Team norms, personal preferences, and\nrepository constraints outlive any single user message. If you force all of them\ninto chat history, systems oscillate between two bad extremes: either reinject\neverything every turn (context waste), or rely on model recollection (eventual\nfailure).\nclaudemd.ts solves this by making stable rules discoverable, layered, and com\u2010\nposable persistent instruction systems. "
+    },
+    {
+      "section_idx": 44,
+      "section_title": "5.4 Session memory: short-term continuity cannot be brute-forced by chat logs",
+      "start_page": 48,
+      "end_page": 49,
+      "summary": "CHAPTER 5 CONTEXT GOVERNANCE\n41\nThat is why memdir.ts sets hard limits: MAX_ENTRYPOINT_LINES\n=\n200 and\nMAX_ENTRYPOINT_BYTES\n=\n25_000. Beyond those, runtime triggers trunca-\nteEntrypointContent() and appends an explicit warning: only partial load\nperformed; move details into topic files.\nThis feels like design from someone who has seen too many runaway indexes.\nIt does not trust everyone to stay concise, so it enforces \u201centrypoint must stay\nshort.\u201dOnce an entry file tries to be both table of contents and full text, it even\u2010\ntually becomes neither.\nFrom a Harness Engineering perspective, the principle is clear: long\u2010term\nmemory must split into entrypoint and body. Entrypoint gives low\u2010cost ad\u2010\ndressing; body carries dense content. Mix them and entrypoint fails, then the\nmemory system degrades into decoration.\n5.4 Session memory: short\u2010term continuity cannot\nbe brute\u2010forced by chat logs\nLon"
+    },
+    {
+      "section_idx": 45,
+      "section_title": "5.5 Autocompact: context governance is budget governance first",
+      "start_page": 49,
+      "end_page": 50,
+      "summary": "CHAPTER 5 CONTEXT GOVERNANCE\n42\n\u2027 Use Edit tool only to update notes file\n\u2027 Do not talk about note\u2010taking itself\n\u2027 Do not alter template structure\n\u2027 Keep Current State aligned with latest work\n\u2027 Keep every section dense but budget\u2010aware\nThis means session memory in Claude Code is not \u201csave another copy of chat\nhistory.\u201dIt distills the session into an operational continuation brief. It does not\nseek full replay; it seeks the minimum structure needed to continue working.\nThere is also a highly practical detail: prompts.ts sets MAX_SECTION_LENGTH =\n2000 and MAX_TOTAL_SESSION_MEMORY_TOKENS = 12000. Beyond budget, run\u2010\ntime asks for aggressive condensation, with explicit priority on Current State\nand Errors & Corrections.\nThis says a lot. Mature systems treat \u201cpreserve what is most useful for contin\u2010\nuation\u201das virtue. Context budget is working memory, and working memory\nmust stay operable.\n5."
+    },
+    {
+      "section_idx": 46,
+      "section_title": "5.6 compactConversation() shows summaries must rebuild working context",
+      "start_page": 50,
+      "end_page": 52,
+      "summary": "CHAPTER 5 CONTEXT GOVERNANCE\n43\nBudget thresholds\nName\nValue\nPurpose\nSource\nMAX_ENTRYPOINT_LINES\n200\nline cap for\nMEMORY.md index\nmemdir/memdir.ts\nMAX_ENTRYPOINT_BYTES\n25_000\nbyte cap for the\nindex file\nmemdir/memdir.ts\nMAX_SECTION_LENGTH2_000\nper\u2010section cap in\nsession memory\nSessionMemory/prompts.ts\nMAX_TOTAL_SESSION_MEMORY_TOKENS\n12_000\ntotal budget for\nsession memory\nSessionMemory/prompts.ts\nMAX_OUTPUT_TOKENS_FOR_SUMMARY\n20_000\noutput reserve for\ncompact\nsummary\ncompact/autoCompact.ts\nAUTOCOMPACT_BUFFER_TOKENS\n13_000\nautocompact\nearly\u2010warning\nbuffer\ncompact/autoCompact.ts\nMAX_CONSECUTIVE_AUTOCOMPACT_FAILURES\n3\ncircuit\u2010breaker\nthreshold\ncompact/autoCompact.ts\nAutoCompactTrackingState is also revealing. It tracks not only compacted, but\nalso turnCounter, turnId, and consecutiveFailures. So autocompact is a\ntracked runtime behavior that can fail and be rate\u2010limited.\nSource even notes a "
+    },
+    {
+      "section_idx": 47,
+      "section_title": "5.7 Context governance is about preserving work semantics",
+      "start_page": 52,
+      "end_page": 52,
+      "summary": "CHAPTER 5 CONTEXT GOVERNANCE\n45\n5.7 Context governance is about preserving work se\u2010\nmantics\nIf you read the latter half of compact.ts, one consistent preference appears:\nClaude Code preserves working semantics.\nIt restores recently accessed file attachments because they encode local\nworking reality. It restores plan mode because otherwise models may forget\nthey still operate under planning discipline. It keeps invoked\u2010skill content but\ntoken\u2010caps each skill so post\u2010compact stage is not hijacked by skill payloads.\nOne source phrase captures this well: per\u2010skill truncation beats dropping.\nEven when cutting, keep critical leading constraints rather than dropping\nwhole blocks. That is governance, not brute throttling. Throttling cuts blindly.\nGovernance decides what to cut and what to preserve.\nA stable lesson follows: context systems should prioritize preserving action\nsemantics, not preser"
+    },
+    {
+      "section_idx": 48,
+      "section_title": "5.8 The fifth principle extractable from source",
+      "start_page": 52,
+      "end_page": 54,
+      "summary": "CHAPTER 5 CONTEXT GOVERNANCE\n45\n5.7 Context governance is about preserving work se\u2010\nmantics\nIf you read the latter half of compact.ts, one consistent preference appears:\nClaude Code preserves working semantics.\nIt restores recently accessed file attachments because they encode local\nworking reality. It restores plan mode because otherwise models may forget\nthey still operate under planning discipline. It keeps invoked\u2010skill content but\ntoken\u2010caps each skill so post\u2010compact stage is not hijacked by skill payloads.\nOne source phrase captures this well: per\u2010skill truncation beats dropping.\nEven when cutting, keep critical leading constraints rather than dropping\nwhole blocks. That is governance, not brute throttling. Throttling cuts blindly.\nGovernance decides what to cut and what to preserve.\nA stable lesson follows: context systems should prioritize preserving action\nsemantics, not preser"
+    },
+    {
+      "section_idx": 49,
+      "section_title": "Chapter 6 Errors and Recovery",
+      "start_page": 54,
+      "end_page": 54,
+      "summary": "Chapter 6 Errors and Recovery: An\nAgent System That Keeps Working\nAfter Failure\n6.1 The least trustworthy sentence in engineering is\n\u201cunder normal conditions\u201d\nMany design docs describe only the \u201cnormal path,\u201das if a pretty happy\u2010path\nflow could make errors secondary. Once agent systems enter real runtime, this\nbreaks fast: models get truncated, requests go too long, hooks create loops,\ntools get interrupted, fallback paths trigger, and recovery logic itself fails.\nMaturity cannot be judged by how human\u2010like the system sounds when smooth;\nit must be judged by whether failures look like system behavior. Claude Code\u2019\ns strength here is not pretending errors are rare. Source repeatedly reflects\na calm assumption: errors are part of the main path, and recovery must be\npredesigned runtime mechanism.\n6.2 prompt too long is seasonal, not exceptional\nFor long\u2010session agents, prompt too long is no"
+    },
+    {
+      "section_idx": 50,
+      "section_title": "6.1 The least trustworthy sentence in engineering is \u201cunder normal conditions\u201d",
+      "start_page": 54,
+      "end_page": 54,
+      "summary": "Chapter 6 Errors and Recovery: An\nAgent System That Keeps Working\nAfter Failure\n6.1 The least trustworthy sentence in engineering is\n\u201cunder normal conditions\u201d\nMany design docs describe only the \u201cnormal path,\u201das if a pretty happy\u2010path\nflow could make errors secondary. Once agent systems enter real runtime, this\nbreaks fast: models get truncated, requests go too long, hooks create loops,\ntools get interrupted, fallback paths trigger, and recovery logic itself fails.\nMaturity cannot be judged by how human\u2010like the system sounds when smooth;\nit must be judged by whether failures look like system behavior. Claude Code\u2019\ns strength here is not pretending errors are rare. Source repeatedly reflects\na calm assumption: errors are part of the main path, and recovery must be\npredesigned runtime mechanism.\n6.2 prompt too long is seasonal, not exceptional\nFor long\u2010session agents, prompt too long is no"
+    },
+    {
+      "section_idx": 51,
+      "section_title": "6.2 prompt too long is seasonal, not exceptional",
+      "start_page": 54,
+      "end_page": 55,
+      "summary": "Chapter 6 Errors and Recovery: An\nAgent System That Keeps Working\nAfter Failure\n6.1 The least trustworthy sentence in engineering is\n\u201cunder normal conditions\u201d\nMany design docs describe only the \u201cnormal path,\u201das if a pretty happy\u2010path\nflow could make errors secondary. Once agent systems enter real runtime, this\nbreaks fast: models get truncated, requests go too long, hooks create loops,\ntools get interrupted, fallback paths trigger, and recovery logic itself fails.\nMaturity cannot be judged by how human\u2010like the system sounds when smooth;\nit must be judged by whether failures look like system behavior. Claude Code\u2019\ns strength here is not pretending errors are rare. Source repeatedly reflects\na calm assumption: errors are part of the main path, and recovery must be\npredesigned runtime mechanism.\n6.2 prompt too long is seasonal, not exceptional\nFor long\u2010session agents, prompt too long is no"
+    },
+    {
+      "section_idx": 52,
+      "section_title": "6.3 Reactive compact: recovery must not become dead-loop machinery",
+      "start_page": 55,
+      "end_page": 56,
+      "summary": "CHAPTER 6 ERRORS AND RECOVERY\n48\n\u2027 prompt too long\n\u2027 media size error\n\u2027 max output tokens\nMeaning: some errors should be handed to recovery first, then surfaced only if\nrecovery fails. Users usually care less about raw error type than whether work\ncan continue.\nFor prompt\u2010too\u2010long specifically, Claude Code first tries cheaper, less destruc\u2010\ntive recovery. If context collapse is enabled, it first calls recoverFromOver-\nflow() to flush staged collapse; only if insufficient does it call reactiveCom-\npact.tryReactiveCompact(). Recovery is layered: clear known backlog first,\nthen do heavier full compaction.\nThis sequence is highly practical. Good recovery does not hit every error with\none giant hammer. It tries to preserve fine\u2010grained context first and escalates\nonly when required.\n6.3 Reactive compact: recovery must not become\ndead\u2010loop machinery\nA common mistake in recovery systems is both"
+    },
+    {
+      "section_idx": 53,
+      "section_title": "6.4 max_output_tokens: recovery should prioritize continuation",
+      "start_page": 56,
+      "end_page": 56,
+      "summary": "CHAPTER 6 ERRORS AND RECOVERY\n49\nSo when prompt\u2010too\u2010long cannot recover, Claude Code surfaces the error di\u2010\nrectly and skips stop hooks. Continuing formal process there only ritualizes\nfailure.\n6.4 max_output_tokens: recovery should prioritize\ncontinuation\nMany model products handle truncation with polite waste: \u201cSorry, I was cut\noff, let me summarize.\u201dIt sounds nice and helps little.\nClaude Code behavior after src/query.ts:1185 is far more engineering\u2010\naligned. It first tries lower\u2010cost recovery: if current cap is conservative, raise\nmaxOutputTokensOverride and rerun the same request. No meta message, no\ncourtesy preface, just one more chance to finish the task.\nIf higher cap still fails, it escalates to second layer: append a concise meta user\nmessage that says, in effect:\ncontinue directly; no apology; no recap; if cut mid\u2010sentence, continue from\nthat half sentence; split remaining wo"
+    },
+    {
+      "section_idx": 54,
+      "section_title": "6.5 Auto-compact circuit breaker: recovery systems need governance too",
+      "start_page": 56,
+      "end_page": 58,
+      "summary": "CHAPTER 6 ERRORS AND RECOVERY\n49\nSo when prompt\u2010too\u2010long cannot recover, Claude Code surfaces the error di\u2010\nrectly and skips stop hooks. Continuing formal process there only ritualizes\nfailure.\n6.4 max_output_tokens: recovery should prioritize\ncontinuation\nMany model products handle truncation with polite waste: \u201cSorry, I was cut\noff, let me summarize.\u201dIt sounds nice and helps little.\nClaude Code behavior after src/query.ts:1185 is far more engineering\u2010\naligned. It first tries lower\u2010cost recovery: if current cap is conservative, raise\nmaxOutputTokensOverride and rerun the same request. No meta message, no\ncourtesy preface, just one more chance to finish the task.\nIf higher cap still fails, it escalates to second layer: append a concise meta user\nmessage that says, in effect:\ncontinue directly; no apology; no recap; if cut mid\u2010sentence, continue from\nthat half sentence; split remaining wo"
+    },
+    {
+      "section_idx": 55,
+      "section_title": "6.6 Compact itself can fail, so recovery action needs its own recovery",
+      "start_page": 58,
+      "end_page": 61,
+      "summary": "CHAPTER 6 ERRORS AND RECOVERY\n51\nEvent order\nPre\u2010state\nTrigger\nNext\nThreshold\nMOT \u2192cap\u2191\ncap < MAX\nmax_output_tokens\nraise\nmaxOutput-\nTokensOver-\nride\ncap \u2208\n{conservative,\nmax}\nMOT \u2192\ncontinue\ncap = MAX\nmax_output_tokens\nappend meta\nuser msg,\ncontinue\nno recap, no\napology\nautocompact\nstreak\nconsecutiveFailures\n\u2265threshold\nnext trigger\nskip compact,\nsurface\nMAX_CONSECUTIVE_AUTOC\n= 3\nuser abort\nstreaming\nwith pending\ntool_use\nEsc\nconsume\nremaining +\nsynthetic\ntool_result\nledger must\nclose\n6.6 Compact itself can fail, so recovery action needs\nits own recovery\ncompactConversation() contains a very realistic moment: compact requests\nthemselves can hit prompt too long.\nThere is black humor here. System sends summary requests to reduce context,\nthen summary requests fail because context is too large. Many designs hide this\nscenario because it is embarrassing. Engineering systems prioritize surviva"
+    },
+    {
+      "section_idx": 56,
+      "section_title": "6.7 Abort semantics: interrupts are part of recovery",
+      "start_page": 61,
+      "end_page": 61,
+      "summary": "CHAPTER 6 ERRORS AND RECOVERY\n54\n6.7 Abort semantics: interrupts are part of recovery\nMany teams classify abort under UX only. Runtime\u2010wise, interrupts are failure\nstates requiring semantic closure.\nClaude Code handles this at two layers. In query.ts, streaming interrupt con\u2010\nsumes StreamingToolExecutor.getRemainingResults() and synthesizes tool\nresults for issued\u2010but\u2010unfinished calls, preventing dangling commitments. In\ncompact.ts, the compact abort controller is passed into the forked agent and\nAPIUserAbortError is handled explicitly, preventing \u201ccompact cancelled by\nuser Esc\u201dfrom being counted as a successful summary.\nInterruption is not merely\u201cuser stopped reading\u201d; it is a state transition requir\u2010\ning correct closure. Recovery that handles exceptions but ignores interruption\nleaves semantically half\u2010broken execution traces.\n6.8 Error handling protects narrative consistency of\nexecut"
+    },
+    {
+      "section_idx": 57,
+      "section_title": "6.8 Error handling protects narrative consistency of execution",
+      "start_page": 61,
+      "end_page": 62,
+      "summary": "CHAPTER 6 ERRORS AND RECOVERY\n54\n6.7 Abort semantics: interrupts are part of recovery\nMany teams classify abort under UX only. Runtime\u2010wise, interrupts are failure\nstates requiring semantic closure.\nClaude Code handles this at two layers. In query.ts, streaming interrupt con\u2010\nsumes StreamingToolExecutor.getRemainingResults() and synthesizes tool\nresults for issued\u2010but\u2010unfinished calls, preventing dangling commitments. In\ncompact.ts, the compact abort controller is passed into the forked agent and\nAPIUserAbortError is handled explicitly, preventing \u201ccompact cancelled by\nuser Esc\u201dfrom being counted as a successful summary.\nInterruption is not merely\u201cuser stopped reading\u201d; it is a state transition requir\u2010\ning correct closure. Recovery that handles exceptions but ignores interruption\nleaves semantically half\u2010broken execution traces.\n6.8 Error handling protects narrative consistency of\nexecut"
+    },
+    {
+      "section_idx": 58,
+      "section_title": "6.9 The sixth principle extractable from source",
+      "start_page": 62,
+      "end_page": 63,
+      "summary": "CHAPTER 6 ERRORS AND RECOVERY\n55\n6.9 The sixth principle extractable from source\nThis chapter can be compressed into one sentence:\nAn agent system shows its reliability by maintaining explainable,\nbounded, and resumable execution order after failure.\nClaude Code source supports this across key points:\n\u2027 query.ts withholds recoverable errors for branch\u2010level transformation\nbefore surfacing\n\u2027 Prompt\u2010too\u2010long recovery layers collapse drain before reactive compact,\nordered by cost and destructiveness\n\u2027 hasAttemptedReactiveCompact and stop\u2010hook guards prevent recovery\nself\u2010loops\n\u2027 max_output_tokens handling escalates cap first and prefers direct contin\u2010\nuation over polite recap\n\u2027 autoCompact.ts tracks consecutive failures and enforces circuit breaking\n\u2027 compact.ts includes fallback for compaction\u2019s own prompt\u2010too\u2010long fail\u2010\nure\nAs portable principles: layer recovery paths rather than using on"
+    },
+    {
+      "section_idx": 59,
+      "section_title": "Chapter 7 Multi-Agent Work and Verification",
+      "start_page": 63,
+      "end_page": 63,
+      "summary": "Chapter 7 Multi\u2010Agent Work and\nVerification: Managing Instability\nThrough Division of Labor\n7.1 Past a certain point, the question is not\u201ccan one\nagent do it\u201dbut \u201chow should work be split\u201d\nSingle\u2010agent friction can be hidden by patience, but once tasks grow, research,\nimplementation, and verification all crowd one context chain, competing for\nbudget, attention, and narrative center. Multi\u2010agent looks like an obvious an\u2010\nswer, but it is not cheap: unconstrained parallelism just copies single\u2010agent\ndisorder. The real difficulty is isolating per\u2010agent instability while recombin\u2010\ning outputs coherently.\nClaude Code source is clear\u2010eyed here: it does not treat subagents as \u201canother\nchat window.\u201dIt treats them as managed execution processes with explicit\ncache boundaries, state boundaries, verification duties, and cleanup respon\u2010\nsibilities.\n7.2 The first principle of forked agents is cache sa"
+    },
+    {
+      "section_idx": 60,
+      "section_title": "7.1 Past a certain point, the question is not \u201ccan one agent do it\u201d but \u201chow should work be split\u201d",
+      "start_page": 63,
+      "end_page": 63,
+      "summary": "Chapter 7 Multi\u2010Agent Work and\nVerification: Managing Instability\nThrough Division of Labor\n7.1 Past a certain point, the question is not\u201ccan one\nagent do it\u201dbut \u201chow should work be split\u201d\nSingle\u2010agent friction can be hidden by patience, but once tasks grow, research,\nimplementation, and verification all crowd one context chain, competing for\nbudget, attention, and narrative center. Multi\u2010agent looks like an obvious an\u2010\nswer, but it is not cheap: unconstrained parallelism just copies single\u2010agent\ndisorder. The real difficulty is isolating per\u2010agent instability while recombin\u2010\ning outputs coherently.\nClaude Code source is clear\u2010eyed here: it does not treat subagents as \u201canother\nchat window.\u201dIt treats them as managed execution processes with explicit\ncache boundaries, state boundaries, verification duties, and cleanup respon\u2010\nsibilities.\n7.2 The first principle of forked agents is cache sa"
+    },
+    {
+      "section_idx": 61,
+      "section_title": "7.2 The first principle of forked agents is cache safety",
+      "start_page": 63,
+      "end_page": 65,
+      "summary": "Chapter 7 Multi\u2010Agent Work and\nVerification: Managing Instability\nThrough Division of Labor\n7.1 Past a certain point, the question is not\u201ccan one\nagent do it\u201dbut \u201chow should work be split\u201d\nSingle\u2010agent friction can be hidden by patience, but once tasks grow, research,\nimplementation, and verification all crowd one context chain, competing for\nbudget, attention, and narrative center. Multi\u2010agent looks like an obvious an\u2010\nswer, but it is not cheap: unconstrained parallelism just copies single\u2010agent\ndisorder. The real difficulty is isolating per\u2010agent instability while recombin\u2010\ning outputs coherently.\nClaude Code source is clear\u2010eyed here: it does not treat subagents as \u201canother\nchat window.\u201dIt treats them as managed execution processes with explicit\ncache boundaries, state boundaries, verification duties, and cleanup respon\u2010\nsibilities.\n7.2 The first principle of forked agents is cache sa"
+    },
+    {
+      "section_idx": 62,
+      "section_title": "7.3 State isolation: reduce contamination before sharing anything",
+      "start_page": 65,
+      "end_page": 66,
+      "summary": "CHAPTER 7 MULTI\u2010AGENT WORK AND VERIFICATION\n58\nloadedNestedMemoryPaths\n:= new Set()\nif opt_in.shareAbortController:\nctx.abortController := parent.abortControlle\nif opt_in.shareSetAppState:\nctx.setAppState\n:= parent.setAppState\nhooks.fire(SubagentStart, { agent_id, agent_type })\ntrack_usage(parent, child)\ndefer hooks.fire(SubagentStop,\n{ agent_transcript_path })\n// lifecycle mus\nInvariants\nassert child.CacheSafeParams == parent.CacheSafeParams\n# fork does not br\nassert child.mutable_state isolated unless opt_in.share_*\n# sharing must b\nassert parent.abort \u21d2propagate(child.abort)\n# parent dies, chil\nassert SubagentStart fired \u21d2SubagentStop fired eventually\n# lifecycle clo\nassert verification_worker \u2260implementation_worker\n# verify and imple\n7.3 State isolation:\nreduce contamination before\nsharing anything\nThe second key is createSubagentContext(): by default, all mutable state is\nisolated t"
+    },
+    {
+      "section_idx": 63,
+      "section_title": "7.4 Coordinator mode: synthesis is the scarce capability",
+      "start_page": 66,
+      "end_page": 66,
+      "summary": "CHAPTER 7 MULTI\u2010AGENT WORK AND VERIFICATION\n59\n7.4 Coordinator mode: synthesis is the scarce capa\u2010\nbility\nIn src/coordinator/coordinatorMode.ts, coordinator expectations are disci\u2010\nplined:\n\u2027 help users reach goals\n\u2027 direct workers for research, implementation, and verification\n\u2027 synthesize findings and communicate with users\n\u2027 answer directly when delegation is unnecessary\nThe most important line in section 5 of the prompt is: Always synthesize.\nWhen workers return findings, coordinator must digest and convert them\ninto concrete prompts; it must not forward raw findings and outsource\nunderstanding again.\nThis is the throat of multi\u2010agent design. The scarce capability is not parallel\noutput; it is recompressing distributed local knowledge into actionable, verifi\u2010\nable next steps. Without this layer, multi\u2010agent degrades into polite task for\u2010\nwarding. Claude Code handles this at prompt lev"
+    },
+    {
+      "section_idx": 64,
+      "section_title": "7.5 Verification must be independent, or implementation completion will impersonate problem solved",
+      "start_page": 66,
+      "end_page": 67,
+      "summary": "CHAPTER 7 MULTI\u2010AGENT WORK AND VERIFICATION\n59\n7.4 Coordinator mode: synthesis is the scarce capa\u2010\nbility\nIn src/coordinator/coordinatorMode.ts, coordinator expectations are disci\u2010\nplined:\n\u2027 help users reach goals\n\u2027 direct workers for research, implementation, and verification\n\u2027 synthesize findings and communicate with users\n\u2027 answer directly when delegation is unnecessary\nThe most important line in section 5 of the prompt is: Always synthesize.\nWhen workers return findings, coordinator must digest and convert them\ninto concrete prompts; it must not forward raw findings and outsource\nunderstanding again.\nThis is the throat of multi\u2010agent design. The scarce capability is not parallel\noutput; it is recompressing distributed local knowledge into actionable, verifi\u2010\nable next steps. Without this layer, multi\u2010agent degrades into polite task for\u2010\nwarding. Claude Code handles this at prompt lev"
+    },
+    {
+      "section_idx": 65,
+      "section_title": "7.6 Hooks and task lifecycle: spawning a subagent is only the beginning",
+      "start_page": 67,
+      "end_page": 70,
+      "summary": "CHAPTER 7 MULTI\u2010AGENT WORK AND VERIFICATION\n60\n\u2027 run tests with the feature enabled\n\u2027 investigate errors instead of dismissing them as unrelated\n\u2027 stay skeptical\n\u2027 test independently, do not rubber\u2010stamp\nThis shows Claude Code treats verification as second\u2010layer quality gate, not a\nside effect of implementation: prompt explicitly stacks implementation self\u2010\ncheck plus independent verification worker.\nWhy it matters:\u201cI changed code\u201dand\u201cthe change is correct\u201dare separated by\na wide river, and models are good at building paper bridges over it \u2014changes,\nexplanations, plausible test\u2010like output, none of which guarantees real correct\u2010\nness. Independent verification prevents \u201ccan modify code\u201dfrom impersonat\u2010\ning\u201ccan deliver outcomes\u201d; in multi\u2010agent work this role separation is central.\n7.6 Hooks and task lifecycle: spawning a subagent is\nonly the beginning\nIn multi\u2010agent systems, a commonly ig"
+    },
+    {
+      "section_idx": 66,
+      "section_title": "7.7 Verification applies to memory and recommendations, not only code",
+      "start_page": 70,
+      "end_page": 70,
+      "summary": "CHAPTER 7 MULTI\u2010AGENT WORK AND VERIFICATION\n63\n7.7 Verification applies to memory and recommen\u2010\ndations, not only code\nMulti\u2010agent verification is not only a post\u2010code\u2010change activity. src/memdir/memoryTypes\nwarns explicitly: memory records can become stale; before giving recommen\u2010\ndations from memory, verify current state; when memory conflicts with\npresent reality, trust the current observed state and update or delete stale\nmemory.\nThe broader fact: verification is the system\u2019s baseline habit against temporal\nand context drift. If a system verifies newly written code but not old memory,\nassumptions, or indexes, history will still steer it wrong. Verification is both a\nskill and an institutional discipline: you can delegate work, persist information,\nand let other agents run ahead, but before users act on outputs, someone must\nreturn to current reality and revalidate.\n7.8 Multi\u2010agent re"
+    },
+    {
+      "section_idx": 67,
+      "section_title": "7.8 Multi-agent really solves uncertainty partitioning",
+      "start_page": 70,
+      "end_page": 70,
+      "summary": "CHAPTER 7 MULTI\u2010AGENT WORK AND VERIFICATION\n63\n7.7 Verification applies to memory and recommen\u2010\ndations, not only code\nMulti\u2010agent verification is not only a post\u2010code\u2010change activity. src/memdir/memoryTypes\nwarns explicitly: memory records can become stale; before giving recommen\u2010\ndations from memory, verify current state; when memory conflicts with\npresent reality, trust the current observed state and update or delete stale\nmemory.\nThe broader fact: verification is the system\u2019s baseline habit against temporal\nand context drift. If a system verifies newly written code but not old memory,\nassumptions, or indexes, history will still steer it wrong. Verification is both a\nskill and an institutional discipline: you can delegate work, persist information,\nand let other agents run ahead, but before users act on outputs, someone must\nreturn to current reality and revalidate.\n7.8 Multi\u2010agent re"
+    },
+    {
+      "section_idx": 68,
+      "section_title": "7.9 The seventh principle extractable from source",
+      "start_page": 70,
+      "end_page": 72,
+      "summary": "CHAPTER 7 MULTI\u2010AGENT WORK AND VERIFICATION\n63\n7.7 Verification applies to memory and recommen\u2010\ndations, not only code\nMulti\u2010agent verification is not only a post\u2010code\u2010change activity. src/memdir/memoryTypes\nwarns explicitly: memory records can become stale; before giving recommen\u2010\ndations from memory, verify current state; when memory conflicts with\npresent reality, trust the current observed state and update or delete stale\nmemory.\nThe broader fact: verification is the system\u2019s baseline habit against temporal\nand context drift. If a system verifies newly written code but not old memory,\nassumptions, or indexes, history will still steer it wrong. Verification is both a\nskill and an institutional discipline: you can delegate work, persist information,\nand let other agents run ahead, but before users act on outputs, someone must\nreturn to current reality and revalidate.\n7.8 Multi\u2010agent re"
+    },
+    {
+      "section_idx": 69,
+      "section_title": "Chapter 8 Team Adoption",
+      "start_page": 72,
+      "end_page": 72,
+      "summary": "Chapter 8 Team Adoption: Turning\na Smart Tool into a Sustainable\nWorkflow\n8.1 Expert success does not automatically turn into\nsafe team reuse\nMany AI coding tools look impressive in expert hands: skilled users know when\nto patch context, when to watch the model closely, and when a single \u201cdo not\ntouch this directory\u201dholds behavior in place. That easily creates an illusion \u2014\nif power users drive it smoothly, team rollout is just more best\u2010practice notes.\nThe problem is that personal technique works precisely because it depends\non continuous supervision, background knowledge, and situational judgment.\nOnce a team adopts the tool, assumptions change: you can no longer assume\neveryone knows which commands are dangerous, which memories are stale,\nwhich skills fork subagents, which steps may skip approval, and which must\nnot. The real team problem is turning order that lived in expert heads in"
+    },
+    {
+      "section_idx": 70,
+      "section_title": "8.1 Expert success does not automatically turn into safe team reuse",
+      "start_page": 72,
+      "end_page": 73,
+      "summary": "Chapter 8 Team Adoption: Turning\na Smart Tool into a Sustainable\nWorkflow\n8.1 Expert success does not automatically turn into\nsafe team reuse\nMany AI coding tools look impressive in expert hands: skilled users know when\nto patch context, when to watch the model closely, and when a single \u201cdo not\ntouch this directory\u201dholds behavior in place. That easily creates an illusion \u2014\nif power users drive it smoothly, team rollout is just more best\u2010practice notes.\nThe problem is that personal technique works precisely because it depends\non continuous supervision, background knowledge, and situational judgment.\nOnce a team adopts the tool, assumptions change: you can no longer assume\neveryone knows which commands are dangerous, which memories are stale,\nwhich skills fork subagents, which steps may skip approval, and which must\nnot. The real team problem is turning order that lived in expert heads in"
+    },
+    {
+      "section_idx": 71,
+      "section_title": "8.2 The first team step is to make minimum boundaries clear",
+      "start_page": 73,
+      "end_page": 74,
+      "summary": "CHAPTER 8 TEAM ADOPTION\n66\n8.2 The first team step is to make minimum bound\u2010\naries clear\nThis chapter is easiest to misread if team adoption is imagined as a large gov\u2010\nernance project from day one. In reality, most teams do not begin with hooks,\naudit chains, and elaborate skill catalogs. Their starting point is usually much\nsmaller:\n\u2027 which task classes may involve the agent at all\n\u2027 which changes still require human review\n\u2027 what minimum verification must happen before work is considered done\n\u2027 which resources are simply off limits\nThese sound basic, but they matter more than ambitious slogans. Early on,\nteams usually benefit most from having a clearly defined minimum control\nboundary.\nIf that boundary is wrong, every later automation layer becomes distorted:\n\u2027 if allowed usage is vague, people will use the agent in places that were\nnever meant to be automated\n\u2027 if review responsibili"
+    },
+    {
+      "section_idx": 72,
+      "section_title": "8.3 CLAUDE.md matters because it stays stable, layered, and low-dispute",
+      "start_page": 74,
+      "end_page": 75,
+      "summary": "CHAPTER 8 TEAM ADOPTION\n67\nStaged rollout checklist (builder checklist)\n- [ ] Week 1: layered CLAUDE.md live \u2014 team / personal / project all verifiable\n- [ ] Week 1: shared verification defined (lint / type / test commands in CLAUDE\n- [ ] Week 1: forbidden zones encoded as repo-level hard constraints (dirs, dang\n- [ ] Week 2: approvals tiered by consequence (allow / deny / ask), Bash has its\n- [ ] Week 2: first \u22643 skills shipped, each with precondition / postcondition /\n- [ ] Week 2: explicit policy for \"done with known issues\"\n- [ ] Week 3: stop / post-tool-use hooks landed, capturing transcript + task out\n- [ ] Week 3: monthly stale-memory maintenance in effect\n-\n[\n]\nWeek\n3:\nbaseline\nreplay\n(Git\ndiff\n/\nPR\n/\nCI)\ngap-\nfree before pursuing advanced audit\nGate: a newcomer can use it without an expert standing by \u2014 the workflow is matu\n8.3 CLAUDE.md matters because it stays stable, lay\u2010\nere"
+    },
+    {
+      "section_idx": 73,
+      "section_title": "8.4 Verification definition usually matters earlier than skill count",
+      "start_page": 75,
+      "end_page": 76,
+      "summary": "CHAPTER 8 TEAM ADOPTION\n68\nSo the ideal team CLAUDE.md is not simply \u201clarge.\u201dIt should be stable enough\nthat people rarely need to debate it. It functions like foundation, not bulletin\nboard.\n8.4 Verification definition usually matters earlier\nthan skill count\nOne of the most common failures in coding\u2010agent rollout is that the team has\nno shared definition of done.\nOne person thinks\u201cit runs\u201dis enough. Another accepts something half\u2010tested.\nAnother accepts a plausible\u2010looking explanation from the model. In that envi\u2010\nronment, even a smart system learns to satisfy the weakest bar available.\nClaude Code repeatedly pushes against that slide. Earlier we saw coordinator\nmode separate verification into its own stage; verification\u2010related instructions\nare not just about proving files exist, but about proving the change actually\nworks.\nThis matters especially for teams because skills can replicat"
+    },
+    {
+      "section_idx": 74,
+      "section_title": "8.5 Skills are better understood as workflow modules than as institutions themselves",
+      "start_page": 76,
+      "end_page": 76,
+      "summary": "CHAPTER 8 TEAM ADOPTION\n69\n8.5 Skills are better understood as workflow mod\u2010\nules than as institutions themselves\nWhen teams first design skills, they drift into two bad models: either a skill is\n\u201cjust a long prompt template,\u201dor it is over\u2010elevated into an institutional object.\nNeither fits.\nClaude Code clearly treats skills as more than prompt snippets:\nif intent\nmatches a skill, the Skill tool must be called; already\u2010loaded skills must not be\nreloaded; a skill can run in a forked subagent context with its own boundary\nand tool set.\nSo a skill is at least an executable workflow module.\nBut for\nteam practice, the safer interpretation stays narrower \u2014skills should first\nsolve \u201chow to reuse this recurring workflow reliably,\u201dnot encode the whole\norganization into agent form.\nThe questions worth answering during skill design: what task class does it\nserve, what tools may it use by default, s"
+    },
+    {
+      "section_idx": 75,
+      "section_title": "8.6 Approval works best when it is tiered by risk",
+      "start_page": 76,
+      "end_page": 77,
+      "summary": "CHAPTER 8 TEAM ADOPTION\n69\n8.5 Skills are better understood as workflow mod\u2010\nules than as institutions themselves\nWhen teams first design skills, they drift into two bad models: either a skill is\n\u201cjust a long prompt template,\u201dor it is over\u2010elevated into an institutional object.\nNeither fits.\nClaude Code clearly treats skills as more than prompt snippets:\nif intent\nmatches a skill, the Skill tool must be called; already\u2010loaded skills must not be\nreloaded; a skill can run in a forked subagent context with its own boundary\nand tool set.\nSo a skill is at least an executable workflow module.\nBut for\nteam practice, the safer interpretation stays narrower \u2014skills should first\nsolve \u201chow to reuse this recurring workflow reliably,\u201dnot encode the whole\norganization into agent form.\nThe questions worth answering during skill design: what task class does it\nserve, what tools may it use by default, s"
+    },
+    {
+      "section_idx": 76,
+      "section_title": "8.7 Hooks are powerful, but usually belong later in the rollout",
+      "start_page": 77,
+      "end_page": 78,
+      "summary": "CHAPTER 8 TEAM ADOPTION\n70\nApproval rule template\n//\ntemplate:\napproval\nrule\n(mirrors\nuseCanUseTool's\nthree-\nvalued decision)\nrule {\nname:\n<short>\nmatch:\n{ tool, args_pattern, cwd_scope }\nrisk_tier:\nread | write | irreversible\n// tier by consequence, not too\ndecision:\nallow | deny | ask\nask_to:\ncoordinator | reviewer | operator\nttl:\nsession | turn | persistent\naudit:\ntranscript + PR comment + CI log\n}\nassert every irreversible action \u21d2decision \u2208{deny, ask}\n# irreversible mus\nassert Bash compound commands > subcommand_cap \u21d2deny\n# bundled commands\nassert ask never auto-escalates to allow\n# three-\nvalued never collapses\n8.7 Hooks are powerful, but usually belong later in\nthe rollout\nhooksConfigManager.ts\nexposes\nmany\nlifecycle\nevents:\nSessionStart,\nSessionEnd,\nSubagentStart,\nSubagentStop,\nPreCompact,\nPostCompact,\nFileChanged, DirectoryChange, and others.\nRead together, they make the\nreal va"
+    },
+    {
+      "section_idx": 77,
+      "section_title": "8.8 Replayability matters, but teams should separate baseline traces from advanced audit trails",
+      "start_page": 78,
+      "end_page": 78,
+      "summary": "CHAPTER 8 TEAM ADOPTION\n71\nand a small set of recurring commands or skills. Hooks start to pay off when\nscale, risk, or compliance pressure rises further; before that, they often\nintroduce more moving parts than the team is ready to own \u2014unmaintained\nscripts, unclear trigger timing, and debugging costs that exceed the manual\nstep they replaced.\nSo the more mature conclusion is that hooks are an advanced automation in\u2010\nterface. They fit timing\u2010bound actions and usually belong after baseline gover\u2010\nnance is already stable.\n8.8 Replayability matters, but teams should separate\nbaseline traces from advanced audit trails\nObservability and auditability are the easiest things to overstate in this chapter.\nOf course teams want to know why something happened, where drift started,\nand who authorized the consequential step. Claude Code\u2019s logs, telemetry,\ntask outputs, transcript paths, hook events, "
+    },
+    {
+      "section_idx": 78,
+      "section_title": "8.9 The eighth principle we can extract from source",
+      "start_page": 78,
+      "end_page": 80,
+      "summary": "CHAPTER 8 TEAM ADOPTION\n71\nand a small set of recurring commands or skills. Hooks start to pay off when\nscale, risk, or compliance pressure rises further; before that, they often\nintroduce more moving parts than the team is ready to own \u2014unmaintained\nscripts, unclear trigger timing, and debugging costs that exceed the manual\nstep they replaced.\nSo the more mature conclusion is that hooks are an advanced automation in\u2010\nterface. They fit timing\u2010bound actions and usually belong after baseline gover\u2010\nnance is already stable.\n8.8 Replayability matters, but teams should separate\nbaseline traces from advanced audit trails\nObservability and auditability are the easiest things to overstate in this chapter.\nOf course teams want to know why something happened, where drift started,\nand who authorized the consequential step. Claude Code\u2019s logs, telemetry,\ntask outputs, transcript paths, hook events, "
+    },
+    {
+      "section_idx": 79,
+      "section_title": "Chapter 9 Ten Principles of Harness Engineering",
+      "start_page": 80,
+      "end_page": 80,
+      "summary": "Chapter 9 Ten Principles of Harness\nEngineering\nTechnical writing has a bad habit: after presenting enough detail, it avoids\nmaking judgments, as if showing complexity exempts conclusion responsibil\u2010\nity. It does not. Complexity remains complexity, but judgment is still required.\nTeams carry principles forward, not function names from one source version.\nAcross the previous eight chapters, we kept circling one fact: models are unre\u2010\nliable, but systems can still be reliable if reliability is built into harness rather\nthan delegated to models.\nThis chapter does not re\u2010argue details. It compresses the book into ten princi\u2010\nples. They are not slogans. They come from working judgments reflected in\nClaude Code source and engineering structure.\n9.1 Treat models as unstable components, not team\u2010\nmates\nTeammates can be trusted with stable responsibility. Models cannot. Models\nmay speak like team"
+    },
+    {
+      "section_idx": 80,
+      "section_title": "9.1 Treat models as unstable components, not teammates",
+      "start_page": 80,
+      "end_page": 81,
+      "summary": "Chapter 9 Ten Principles of Harness\nEngineering\nTechnical writing has a bad habit: after presenting enough detail, it avoids\nmaking judgments, as if showing complexity exempts conclusion responsibil\u2010\nity. It does not. Complexity remains complexity, but judgment is still required.\nTeams carry principles forward, not function names from one source version.\nAcross the previous eight chapters, we kept circling one fact: models are unre\u2010\nliable, but systems can still be reliable if reliability is built into harness rather\nthan delegated to models.\nThis chapter does not re\u2010argue details. It compresses the book into ten princi\u2010\nples. They are not slogans. They come from working judgments reflected in\nClaude Code source and engineering structure.\n9.1 Treat models as unstable components, not team\u2010\nmates\nTeammates can be trusted with stable responsibility. Models cannot. Models\nmay speak like team"
+    },
+    {
+      "section_idx": 81,
+      "section_title": "9.2 Prompt is part of the control plane",
+      "start_page": 81,
+      "end_page": 81,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n74\n9.2 Prompt is part of the control plane\nSystem prompts define behavioral protocol.\nTogether with runtime, tool\nschema, memory, and hooks, they form the control plane. If prompt is treated\nas persona decoration, you get systems that perform well rhetorically and\nbehave without discipline.\n9.3 Query loop is the heartbeat of agent systems\nReal agents depend on continuous execution loops. Input governance, stream\nconsumption, tool scheduling, recovery branches, and stop conditions all be\u2010\nlong to heartbeat. Without query loop, systems may demo well but are not\nruntimes.\n9.4 Tools are managed execution interfaces\nOnce models touch shell, filesystem, Git, and networks, the question shifts\nfrom \u201ccan it say it\u201dto \u201ccan it leave consequences.\u201dTherefore tools must be\nscheduled, authorized, interruptible, and ledger\u2010closed. The more dangerous\na tool"
+    },
+    {
+      "section_idx": 82,
+      "section_title": "9.3 Query loop is the heartbeat of agent systems",
+      "start_page": 81,
+      "end_page": 81,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n74\n9.2 Prompt is part of the control plane\nSystem prompts define behavioral protocol.\nTogether with runtime, tool\nschema, memory, and hooks, they form the control plane. If prompt is treated\nas persona decoration, you get systems that perform well rhetorically and\nbehave without discipline.\n9.3 Query loop is the heartbeat of agent systems\nReal agents depend on continuous execution loops. Input governance, stream\nconsumption, tool scheduling, recovery branches, and stop conditions all be\u2010\nlong to heartbeat. Without query loop, systems may demo well but are not\nruntimes.\n9.4 Tools are managed execution interfaces\nOnce models touch shell, filesystem, Git, and networks, the question shifts\nfrom \u201ccan it say it\u201dto \u201ccan it leave consequences.\u201dTherefore tools must be\nscheduled, authorized, interruptible, and ledger\u2010closed. The more dangerous\na tool"
+    },
+    {
+      "section_idx": 83,
+      "section_title": "9.4 Tools are managed execution interfaces",
+      "start_page": 81,
+      "end_page": 81,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n74\n9.2 Prompt is part of the control plane\nSystem prompts define behavioral protocol.\nTogether with runtime, tool\nschema, memory, and hooks, they form the control plane. If prompt is treated\nas persona decoration, you get systems that perform well rhetorically and\nbehave without discipline.\n9.3 Query loop is the heartbeat of agent systems\nReal agents depend on continuous execution loops. Input governance, stream\nconsumption, tool scheduling, recovery branches, and stop conditions all be\u2010\nlong to heartbeat. Without query loop, systems may demo well but are not\nruntimes.\n9.4 Tools are managed execution interfaces\nOnce models touch shell, filesystem, Git, and networks, the question shifts\nfrom \u201ccan it say it\u201dto \u201ccan it leave consequences.\u201dTherefore tools must be\nscheduled, authorized, interruptible, and ledger\u2010closed. The more dangerous\na tool"
+    },
+    {
+      "section_idx": 84,
+      "section_title": "9.5 Context is working memory",
+      "start_page": 81,
+      "end_page": 81,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n74\n9.2 Prompt is part of the control plane\nSystem prompts define behavioral protocol.\nTogether with runtime, tool\nschema, memory, and hooks, they form the control plane. If prompt is treated\nas persona decoration, you get systems that perform well rhetorically and\nbehave without discipline.\n9.3 Query loop is the heartbeat of agent systems\nReal agents depend on continuous execution loops. Input governance, stream\nconsumption, tool scheduling, recovery branches, and stop conditions all be\u2010\nlong to heartbeat. Without query loop, systems may demo well but are not\nruntimes.\n9.4 Tools are managed execution interfaces\nOnce models touch shell, filesystem, Git, and networks, the question shifts\nfrom \u201ccan it say it\u201dto \u201ccan it leave consequences.\u201dTherefore tools must be\nscheduled, authorized, interruptible, and ledger\u2010closed. The more dangerous\na tool"
+    },
+    {
+      "section_idx": 85,
+      "section_title": "9.6 Error paths are main paths",
+      "start_page": 81,
+      "end_page": 82,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n74\n9.2 Prompt is part of the control plane\nSystem prompts define behavioral protocol.\nTogether with runtime, tool\nschema, memory, and hooks, they form the control plane. If prompt is treated\nas persona decoration, you get systems that perform well rhetorically and\nbehave without discipline.\n9.3 Query loop is the heartbeat of agent systems\nReal agents depend on continuous execution loops. Input governance, stream\nconsumption, tool scheduling, recovery branches, and stop conditions all be\u2010\nlong to heartbeat. Without query loop, systems may demo well but are not\nruntimes.\n9.4 Tools are managed execution interfaces\nOnce models touch shell, filesystem, Git, and networks, the question shifts\nfrom \u201ccan it say it\u201dto \u201ccan it leave consequences.\u201dTherefore tools must be\nscheduled, authorized, interruptible, and ledger\u2010closed. The more dangerous\na tool"
+    },
+    {
+      "section_idx": 86,
+      "section_title": "9.7 Recovery should optimize for continuation",
+      "start_page": 82,
+      "end_page": 82,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n75\nretry limits, and anti\u2010loop guards must exist at design time, not post\u2010incident\npatch time.\n9.7 Recovery should optimize for continuation\nAfter truncation, continuation is usually better than recap. When compaction\nfails, first restore breathing. True engineering politeness is not trapping users\ninside failure states.\n9.8 Multi\u2010agent matters because it partitions uncer\u2010\ntainty\nMulti\u2010agent places research, implementation, verification, and synthesis into\ndifferent responsibility containers. State is isolated, roles are separated, and\ncoordinator reconverges understanding. The real value of parallelism is not\nspeed alone, but sharper responsibility boundaries.\n9.9 Verification must be independent\nImplementers naturally overtrust their own changes. Models do so even more.\nFor important work, verification should be a dedicated independent ph"
+    },
+    {
+      "section_idx": 87,
+      "section_title": "9.8 Multi-agent matters because it partitions uncertainty",
+      "start_page": 82,
+      "end_page": 82,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n75\nretry limits, and anti\u2010loop guards must exist at design time, not post\u2010incident\npatch time.\n9.7 Recovery should optimize for continuation\nAfter truncation, continuation is usually better than recap. When compaction\nfails, first restore breathing. True engineering politeness is not trapping users\ninside failure states.\n9.8 Multi\u2010agent matters because it partitions uncer\u2010\ntainty\nMulti\u2010agent places research, implementation, verification, and synthesis into\ndifferent responsibility containers. State is isolated, roles are separated, and\ncoordinator reconverges understanding. The real value of parallelism is not\nspeed alone, but sharper responsibility boundaries.\n9.9 Verification must be independent\nImplementers naturally overtrust their own changes. Models do so even more.\nFor important work, verification should be a dedicated independent ph"
+    },
+    {
+      "section_idx": 88,
+      "section_title": "9.9 Verification must be independent",
+      "start_page": 82,
+      "end_page": 82,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n75\nretry limits, and anti\u2010loop guards must exist at design time, not post\u2010incident\npatch time.\n9.7 Recovery should optimize for continuation\nAfter truncation, continuation is usually better than recap. When compaction\nfails, first restore breathing. True engineering politeness is not trapping users\ninside failure states.\n9.8 Multi\u2010agent matters because it partitions uncer\u2010\ntainty\nMulti\u2010agent places research, implementation, verification, and synthesis into\ndifferent responsibility containers. State is isolated, roles are separated, and\ncoordinator reconverges understanding. The real value of parallelism is not\nspeed alone, but sharper responsibility boundaries.\n9.9 Verification must be independent\nImplementers naturally overtrust their own changes. Models do so even more.\nFor important work, verification should be a dedicated independent ph"
+    },
+    {
+      "section_idx": 89,
+      "section_title": "9.10 Team institutions matter more than personal tricks",
+      "start_page": 82,
+      "end_page": 83,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n75\nretry limits, and anti\u2010loop guards must exist at design time, not post\u2010incident\npatch time.\n9.7 Recovery should optimize for continuation\nAfter truncation, continuation is usually better than recap. When compaction\nfails, first restore breathing. True engineering politeness is not trapping users\ninside failure states.\n9.8 Multi\u2010agent matters because it partitions uncer\u2010\ntainty\nMulti\u2010agent places research, implementation, verification, and synthesis into\ndifferent responsibility containers. State is isolated, roles are separated, and\ncoordinator reconverges understanding. The real value of parallelism is not\nspeed alone, but sharper responsibility boundaries.\n9.9 Verification must be independent\nImplementers naturally overtrust their own changes. Models do so even more.\nFor important work, verification should be a dedicated independent ph"
+    },
+    {
+      "section_idx": 90,
+      "section_title": "9.11 One final sentence",
+      "start_page": 83,
+      "end_page": 84,
+      "summary": "CHAPTER 9 TEN PRINCIPLES OF HARNESS ENGINEERING\n76\n\u2027 executable skills\n\u2027 lifecycle hooks\n\u2027 traceable transcripts\n\u2027 unified verification definitions\nOnly when personal technique is institutionalized can agent systems become\norganizational capability rather than personal craft.\n9.11 One final sentence\nIf the whole book must be compressed one more time:\nHarness Engineering asks how systems can still behave like engineer\u2010\ning systems when models themselves are not reliable.\nWhat Claude Code source really teaches is restraint: treat instability as known\ninput, then design prompt, loop, tools, memory, compact, recovery, verifica\u2010\ntion, and team workflow around that input. That is exactly why it is worth\nstudying as a design specimen.\nAt this point the conclusion is simpler than the path. The hard part is not saying\nprinciples, but accepting them: harness over excitement, institutions over clev"
+    },
+    {
+      "section_idx": 91,
+      "section_title": "Appendix A Checklists",
+      "start_page": 84,
+      "end_page": 84,
+      "summary": "Appendix A Checklists: Turning\nPrinciples into Executable\nConstraints\nPrevious chapters discussed principles. If principles cannot be turned into\nchecklists, they often decay into judgments that sound right but do not hold\nup in practice. This appendix turns easy\u2010to\u2010say, hard\u2010to\u2010sustain judgments into\ndirectly usable lists.\nThese checklists do not guarantee automatic improvement. They mainly pre\u2010\nvent common and repetitive mistakes from recurring. In engineering, many\nimprovements come from repeating fewer avoidable errors.\nA.1 Agent runtime design checklist\nIf an AI coding agent is going into real engineering workflow, it should answer\nat least:\n\u2027 Is there an explicit query loop instead of treating each turn as isolated\nQ&A?\n\u2027 Is there a cross\u2010turn state object recording recovery, budget, compaction,\nhooks, and turn counters?\n\u2027 Is model output handled as event stream instead of final pr"
+    },
+    {
+      "section_idx": 92,
+      "section_title": "A.1 Agent runtime design checklist",
+      "start_page": 84,
+      "end_page": 85,
+      "summary": "Appendix A Checklists: Turning\nPrinciples into Executable\nConstraints\nPrevious chapters discussed principles. If principles cannot be turned into\nchecklists, they often decay into judgments that sound right but do not hold\nup in practice. This appendix turns easy\u2010to\u2010say, hard\u2010to\u2010sustain judgments into\ndirectly usable lists.\nThese checklists do not guarantee automatic improvement. They mainly pre\u2010\nvent common and repetitive mistakes from recurring. In engineering, many\nimprovements come from repeating fewer avoidable errors.\nA.1 Agent runtime design checklist\nIf an AI coding agent is going into real engineering workflow, it should answer\nat least:\n\u2027 Is there an explicit query loop instead of treating each turn as isolated\nQ&A?\n\u2027 Is there a cross\u2010turn state object recording recovery, budget, compaction,\nhooks, and turn counters?\n\u2027 Is model output handled as event stream instead of final pr"
+    },
+    {
+      "section_idx": 93,
+      "section_title": "A.2 Prompt design checklist",
+      "start_page": 85,
+      "end_page": 85,
+      "summary": "APPENDIX A CHECKLISTS\n78\n\u2027 Is there context budgeting for long sessions, rather than ad hoc emergency\nhandling only after overflow?\nIf two or three of these cannot be answered clearly, the system is likely still in\n\u201cdemo\u2010capable\u201dstage rather than \u201cworkflow\u2010capable\u201dstage.\nA.2 Prompt design checklist\nSystem prompt should not be merely long. It should be layered with explicit\nduties.\nAt minimum, check:\n\u2027 Are identity, behavior rules, tool constraints, and output discipline orga\u2010\nnized separately?\n\u2027 Is prompt source precedence explicit (default, project, custom, append,\nagent\u2010specific)?\n\u2027 Are dangerous operations, unauthorized behavior, and verification disci\u2010\npline written as explicit rules rather than vague hints?\n\u2027 Is prompt prevented from carrying duties that belong to runtime enforce\u2010\nment?\n\u2027 Can team maintain it stably, rather than appending emergency text after\nevery bug?\nA practical "
+    },
+    {
+      "section_idx": 94,
+      "section_title": "A.3 Tool and permission design checklist",
+      "start_page": 85,
+      "end_page": 86,
+      "summary": "APPENDIX A CHECKLISTS\n78\n\u2027 Is there context budgeting for long sessions, rather than ad hoc emergency\nhandling only after overflow?\nIf two or three of these cannot be answered clearly, the system is likely still in\n\u201cdemo\u2010capable\u201dstage rather than \u201cworkflow\u2010capable\u201dstage.\nA.2 Prompt design checklist\nSystem prompt should not be merely long. It should be layered with explicit\nduties.\nAt minimum, check:\n\u2027 Are identity, behavior rules, tool constraints, and output discipline orga\u2010\nnized separately?\n\u2027 Is prompt source precedence explicit (default, project, custom, append,\nagent\u2010specific)?\n\u2027 Are dangerous operations, unauthorized behavior, and verification disci\u2010\npline written as explicit rules rather than vague hints?\n\u2027 Is prompt prevented from carrying duties that belong to runtime enforce\u2010\nment?\n\u2027 Can team maintain it stably, rather than appending emergency text after\nevery bug?\nA practical "
+    },
+    {
+      "section_idx": 95,
+      "section_title": "A.4 Context governance checklist",
+      "start_page": 86,
+      "end_page": 86,
+      "summary": "APPENDIX A CHECKLISTS\n79\n\u2027 Is there semantic branching like allow / deny / ask?\n\u2027 Are high\u2010risk tools treated as special cases rather than identical to ordi\u2010\nnary tools?\n\u2027 Can interrupts, fallbacks, and sibling failures produce explicit closure se\u2010\nmantics?\n\u2027 Can execution preserve causal chain and avoid dangling tool_use blocks?\nIf Bash and ReadTool are governed almost identically, risk understanding is\nusually insufficient.\nA.4 Context governance checklist\nAny long\u2010session agent will eventually be disciplined by context limits. Early\ngovernance is cheaper.\nAt minimum, check:\n\u2027 Are long\u2010lived rules, persistent memory, session continuity, and tempo\u2010\nrary dialogue layered?\n\u2027 Is there explicit separation between entrypoint files and body files to pre\u2010\nvent index bloat?\n\u2027 Are there token budgets for memory, session memory, and skill attach\u2010\nments?\n\u2027 Is compact output space pre\u2010reserved inst"
+    },
+    {
+      "section_idx": 96,
+      "section_title": "A.5 Error recovery checklist",
+      "start_page": 86,
+      "end_page": 87,
+      "summary": "APPENDIX A CHECKLISTS\n79\n\u2027 Is there semantic branching like allow / deny / ask?\n\u2027 Are high\u2010risk tools treated as special cases rather than identical to ordi\u2010\nnary tools?\n\u2027 Can interrupts, fallbacks, and sibling failures produce explicit closure se\u2010\nmantics?\n\u2027 Can execution preserve causal chain and avoid dangling tool_use blocks?\nIf Bash and ReadTool are governed almost identically, risk understanding is\nusually insufficient.\nA.4 Context governance checklist\nAny long\u2010session agent will eventually be disciplined by context limits. Early\ngovernance is cheaper.\nAt minimum, check:\n\u2027 Are long\u2010lived rules, persistent memory, session continuity, and tempo\u2010\nrary dialogue layered?\n\u2027 Is there explicit separation between entrypoint files and body files to pre\u2010\nvent index bloat?\n\u2027 Are there token budgets for memory, session memory, and skill attach\u2010\nments?\n\u2027 Is compact output space pre\u2010reserved inst"
+    },
+    {
+      "section_idx": 97,
+      "section_title": "A.6 Multi-agent checklist",
+      "start_page": 87,
+      "end_page": 87,
+      "summary": "APPENDIX A CHECKLISTS\n80\n\u2027 Are recoverable errors routed to recovery branches before being surfaced\nimmediately?\n\u2027 Are recovery paths layered from low\u2010destructiveness to high\u2010destructiveness?\n\u2027 Are there guards preventing reactive\u2010compact, stop\u2010hook, and retry loops\nfrom biting each other?\n\u2027 After max_output_tokens, is continuation prioritized over recap?\n\u2027 Do automated recoveries include counters, retry caps, and circuit break\u2010\ners?\n\u2027 Are interrupts treated as failure states requiring semantic closure?\nA recovery system that never stops can be as dangerous as a recovery system\nthat never starts.\nA.6 Multi\u2010agent checklist\nMulti\u2010agent design should organize uncertainty, not multiply confusion.\nCheck:\n\u2027 Does fork design preserve prompt\u2010cache consistency through cache\u2010safe\nparams?\n\u2027 Is mutable state isolated by default for child agents?\n\u2027 Are research, implementation, verification, and synt"
+    },
+    {
+      "section_idx": 98,
+      "section_title": "A.7 Team adoption checklist",
+      "start_page": 87,
+      "end_page": 88,
+      "summary": "APPENDIX A CHECKLISTS\n80\n\u2027 Are recoverable errors routed to recovery branches before being surfaced\nimmediately?\n\u2027 Are recovery paths layered from low\u2010destructiveness to high\u2010destructiveness?\n\u2027 Are there guards preventing reactive\u2010compact, stop\u2010hook, and retry loops\nfrom biting each other?\n\u2027 After max_output_tokens, is continuation prioritized over recap?\n\u2027 Do automated recoveries include counters, retry caps, and circuit break\u2010\ners?\n\u2027 Are interrupts treated as failure states requiring semantic closure?\nA recovery system that never stops can be as dangerous as a recovery system\nthat never starts.\nA.6 Multi\u2010agent checklist\nMulti\u2010agent design should organize uncertainty, not multiply confusion.\nCheck:\n\u2027 Does fork design preserve prompt\u2010cache consistency through cache\u2010safe\nparams?\n\u2027 Is mutable state isolated by default for child agents?\n\u2027 Are research, implementation, verification, and synt"
+    },
+    {
+      "section_idx": 99,
+      "section_title": "A.8 Review question set",
+      "start_page": 88,
+      "end_page": 89,
+      "summary": "APPENDIX A CHECKLISTS\n81\nBefore rollout, verify:\n\u2027 Is layered CLAUDE.md in place, with clear guidance on what belongs and\nwhat does not?\n\u2027 Is verification definition standardized before scaling skill volume?\n\u2027 Are approval boundaries tiered by consequence and environment sensi\u2010\ntivity?\n\u2027 Are key institutions attached to appropriate hook timing instead of stuffed\ninto static docs?\n\u2027 Are transcript, task output, and hook events retained as replay evidence?\n\u2027 Is there maintenance policy for stale memory, obsolete rules, and invalid\nskills?\nTeams that can sustainably use agents are usually teams where ordinary mem\u2010\nbers can operate correctly within institutions, not teams that depend on a few\nexperts.\nA.8 Review question set\nTo review an AI coding\u2010agent proposal, ask directly:\n\u2027 Which behaviors are constrained by prompt and which are enforced by\nruntime?\n\u2027 Who blocks tool misuse, and at what"
+    },
+    {
+      "section_idx": 100,
+      "section_title": "A.9 Final short checklist",
+      "start_page": 89,
+      "end_page": 89,
+      "summary": "APPENDIX A CHECKLISTS\n82\nA.9 Final short checklist\nIf everything above feels too long, keep these six: design permission before ca\u2010\npability; rollback before autonomy; verification before delivery; context bud\u2010\ngets before long dialogue; lifecycle before multi\u2010agent; institutions before ex\u2010\npecting team proficiency. Meeting them does not guarantee excellence; miss\u2010\ning them usually means the system has just not failed yet.\nA.10 Implementation seeds (pseudocode stubs)\nThe skeletons from earlier chapters collapsed into reusable starting points. Full\nforms live in their chapters; this keeps only the minimal spine.\nA.10.1 queryLoop (skeleton, from Chapter 3)\nstate = { messages, toolUseContext, autoCompactTracking, turnCount, transition\nwhile not done(state):\ngovern_input(state)\n// memory / snip / collapse / autocompact\nevents = stream_model(state)\nfor e in events:\nif e.is(tool_use): schedule"
+    },
+    {
+      "section_idx": 101,
+      "section_title": "A.10 Implementation seeds (pseudocode stubs)",
+      "start_page": 89,
+      "end_page": 91,
+      "summary": "APPENDIX A CHECKLISTS\n82\nA.9 Final short checklist\nIf everything above feels too long, keep these six: design permission before ca\u2010\npability; rollback before autonomy; verification before delivery; context bud\u2010\ngets before long dialogue; lifecycle before multi\u2010agent; institutions before ex\u2010\npecting team proficiency. Meeting them does not guarantee excellence; miss\u2010\ning them usually means the system has just not failed yet.\nA.10 Implementation seeds (pseudocode stubs)\nThe skeletons from earlier chapters collapsed into reusable starting points. Full\nforms live in their chapters; this keeps only the minimal spine.\nA.10.1 queryLoop (skeleton, from Chapter 3)\nstate = { messages, toolUseContext, autoCompactTracking, turnCount, transition\nwhile not done(state):\ngovern_input(state)\n// memory / snip / collapse / autocompact\nevents = stream_model(state)\nfor e in events:\nif e.is(tool_use): schedule"
+    },
+    {
+      "section_idx": 102,
+      "section_title": "Appendix B Diagrams",
+      "start_page": 91,
+      "end_page": 91,
+      "summary": "Appendix B Diagrams: Drawing the\nRuntime Skeleton\nPrevious chapters explained runtime structure in text. Text is necessary, but\nsome structures become clearer as diagrams: Claude Code is an explicit state\u2010\nmachine system, not \u201ca pile of prompts plus a few tools.\u201d\nB.1 Diagram 1: Claude Code global control plane\nThis should not be drawn as a children\u2010book flowchart like \u201cuser \u2010> model \u2010>\ntool \u2010> output,\u201dbecause that hides the actual organs. A more accurate view is\nfive layers:\n1. user interaction layer\n2. control plane layer\n3. execution loop layer\n4. external capability layer\n5. persistence and observability layer\nThe point is not listing every module. The point is:\n\u2027 model is neither topmost nor bottommost\n\u2027 model is one phase inside query loop\n\u2027 control and recovery planes are what hold the system together\n84"
+    },
+    {
+      "section_idx": 103,
+      "section_title": "B.1 Diagram 1: Claude Code global control plane",
+      "start_page": 91,
+      "end_page": 95,
+      "summary": "Appendix B Diagrams: Drawing the\nRuntime Skeleton\nPrevious chapters explained runtime structure in text. Text is necessary, but\nsome structures become clearer as diagrams: Claude Code is an explicit state\u2010\nmachine system, not \u201ca pile of prompts plus a few tools.\u201d\nB.1 Diagram 1: Claude Code global control plane\nThis should not be drawn as a children\u2010book flowchart like \u201cuser \u2010> model \u2010>\ntool \u2010> output,\u201dbecause that hides the actual organs. A more accurate view is\nfive layers:\n1. user interaction layer\n2. control plane layer\n3. execution loop layer\n4. external capability layer\n5. persistence and observability layer\nThe point is not listing every module. The point is:\n\u2027 model is neither topmost nor bottommost\n\u2027 model is one phase inside query loop\n\u2027 control and recovery planes are what hold the system together\n84 APPENDIX B DIAGRAMS\n85\nFigure 9: Claude Code global control plane APPENDIX B D"
+    },
+    {
+      "section_idx": 104,
+      "section_title": "B.2 Diagram 2: Query loop main cycle and recovery branches",
+      "start_page": 95,
+      "end_page": 95,
+      "summary": "APPENDIX B DIAGRAMS\n88\nB.2 Diagram 2: Query loop main cycle and recovery\nbranches\nB.3 Diagram 3: Tool batch ordering and Streaming\u2010\nToolExecutor\nFigure 12: Tool batch ordering"
+    },
+    {
+      "section_idx": 105,
+      "section_title": "B.3 Diagram 3: Tool batch ordering and StreamingToolExecutor",
+      "start_page": 95,
+      "end_page": 99,
+      "summary": "APPENDIX B DIAGRAMS\n88\nB.2 Diagram 2: Query loop main cycle and recovery\nbranches\nB.3 Diagram 3: Tool batch ordering and Streaming\u2010\nToolExecutor\nFigure 12: Tool batch ordering APPENDIX B DIAGRAMS\n89\nFigure 13: StreamingToolExecutor lifecycle APPENDIX B DIAGRAMS\n90\nFigure 14: Context sources and budget APPENDIX B DIAGRAMS\n91\nFigure 15: Compact rebuild pipeline APPENDIX B DIAGRAMS\n92\nB.4 Diagram 4: Context sources and compact rebuild\nB.5 Diagram 5: Coordinator\u2010worker flow and verifi\u2010\ncation separation\nB.6 Diagram 6: Team governance map"
+    },
+    {
+      "section_idx": 106,
+      "section_title": "B.4 Diagram 4: Context sources and compact rebuild",
+      "start_page": 99,
+      "end_page": 99,
+      "summary": "APPENDIX B DIAGRAMS\n92\nB.4 Diagram 4: Context sources and compact rebuild\nB.5 Diagram 5: Coordinator\u2010worker flow and verifi\u2010\ncation separation\nB.6 Diagram 6: Team governance map"
+    },
+    {
+      "section_idx": 107,
+      "section_title": "B.5 Diagram 5: Coordinator-worker flow and verification separation",
+      "start_page": 99,
+      "end_page": 99,
+      "summary": "APPENDIX B DIAGRAMS\n92\nB.4 Diagram 4: Context sources and compact rebuild\nB.5 Diagram 5: Coordinator\u2010worker flow and verifi\u2010\ncation separation\nB.6 Diagram 6: Team governance map"
+    },
+    {
+      "section_idx": 108,
+      "section_title": "B.6 Diagram 6: Team governance map",
+      "start_page": 99,
+      "end_page": 103,
+      "summary": "APPENDIX B DIAGRAMS\n92\nB.4 Diagram 4: Context sources and compact rebuild\nB.5 Diagram 5: Coordinator\u2010worker flow and verifi\u2010\ncation separation\nB.6 Diagram 6: Team governance map APPENDIX B DIAGRAMS\n93\nFigure 16: Coordinator and worker flow APPENDIX B DIAGRAMS\n94\nFigure 17: Verification separation APPENDIX B DIAGRAMS\n95\nFigure 18: Team governance map Appendix C Source Map: Which\nFiles Ground Each Chapter\nThis book is not a full source walkthrough, but it is source\u2010grounded. This ap\u2010\npendix maps each chapter to its primary supporting files.\nThis is not a complete index. It lists only files directly relevant to the book\u2019s\narguments.\nOne copyright boundary note: this map is for citing analytical basis, not for\npromising source\u2010text reproduction. It preserves necessary engineering refer\u2010\nences, module positioning, and structural analysis, without shipping source\ncopies or long implementation "
+    },
+    {
+      "section_idx": 109,
+      "section_title": "Appendix C Source Map",
+      "start_page": 103,
+      "end_page": 103,
+      "summary": "Appendix C Source Map: Which\nFiles Ground Each Chapter\nThis book is not a full source walkthrough, but it is source\u2010grounded. This ap\u2010\npendix maps each chapter to its primary supporting files.\nThis is not a complete index. It lists only files directly relevant to the book\u2019s\narguments.\nOne copyright boundary note: this map is for citing analytical basis, not for\npromising source\u2010text reproduction. It preserves necessary engineering refer\u2010\nences, module positioning, and structural analysis, without shipping source\ncopies or long implementation excerpts.\nC.1 Chapter 1 Why Harness Engineering Matters\nCore files:\n\u2027 src/constants/prompts.ts\n\u2027 src/utils/systemPrompt.ts\n\u2027 src/query.ts\n\u2027 src/services/tools/toolOrchestration.ts\n\u2027 src/tools/BashTool/prompt.ts\nPrimary argument basis:\n\u2027 prompt as control\u2010plane component rather than personality packaging\n\u2027 query loop as agent\u2010system skeleton\n\u2027 tool an"
+    },
+    {
+      "section_idx": 110,
+      "section_title": "C.1 Chapter 1 Why Harness Engineering Matters",
+      "start_page": 103,
+      "end_page": 104,
+      "summary": "Appendix C Source Map: Which\nFiles Ground Each Chapter\nThis book is not a full source walkthrough, but it is source\u2010grounded. This ap\u2010\npendix maps each chapter to its primary supporting files.\nThis is not a complete index. It lists only files directly relevant to the book\u2019s\narguments.\nOne copyright boundary note: this map is for citing analytical basis, not for\npromising source\u2010text reproduction. It preserves necessary engineering refer\u2010\nences, module positioning, and structural analysis, without shipping source\ncopies or long implementation excerpts.\nC.1 Chapter 1 Why Harness Engineering Matters\nCore files:\n\u2027 src/constants/prompts.ts\n\u2027 src/utils/systemPrompt.ts\n\u2027 src/query.ts\n\u2027 src/services/tools/toolOrchestration.ts\n\u2027 src/tools/BashTool/prompt.ts\nPrimary argument basis:\n\u2027 prompt as control\u2010plane component rather than personality packaging\n\u2027 query loop as agent\u2010system skeleton\n\u2027 tool an"
+    },
+    {
+      "section_idx": 111,
+      "section_title": "C.2 Chapter 2 Prompt Is the Control Plane, Not Persona Decoration",
+      "start_page": 104,
+      "end_page": 104,
+      "summary": "APPENDIX C SOURCE MAP\n97\nC.2 Chapter 2 Prompt Is the Control Plane, Not Per\u2010\nsona Decoration\nCore files:\n\u2027 src/constants/prompts.ts\n\u2027 src/utils/systemPrompt.ts\n\u2027 src/utils/claudemd.ts\n\u2027 src/memdir/memdir.ts\n\u2027 src/constants/systemPromptSections.ts\n\u2027 src/main.tsx\nPrimary argument basis:\n\u2027 layered system\u2010prompt assembly\n\u2027 CLAUDE.md and memory as control\u2010plane inputs\n\u2027 dynamic reminders and context injection\nC.3 Chapter 3 Query Loop: The Heartbeat of an Agent\nSystem\nCore files:\n\u2027 src/query.ts\n\u2027 src/QueryEngine.ts\nPrimary argument basis:\n\u2027 state\u2010machine properties of query loop\n\u2027 input governance before model invocation\n\u2027 streaming event consumption and recovery branches\n\u2027 QueryEngine ownership of conversation lifecycle"
+    },
+    {
+      "section_idx": 112,
+      "section_title": "C.3 Chapter 3 Query Loop: The Heartbeat of an Agent System",
+      "start_page": 104,
+      "end_page": 105,
+      "summary": "APPENDIX C SOURCE MAP\n97\nC.2 Chapter 2 Prompt Is the Control Plane, Not Per\u2010\nsona Decoration\nCore files:\n\u2027 src/constants/prompts.ts\n\u2027 src/utils/systemPrompt.ts\n\u2027 src/utils/claudemd.ts\n\u2027 src/memdir/memdir.ts\n\u2027 src/constants/systemPromptSections.ts\n\u2027 src/main.tsx\nPrimary argument basis:\n\u2027 layered system\u2010prompt assembly\n\u2027 CLAUDE.md and memory as control\u2010plane inputs\n\u2027 dynamic reminders and context injection\nC.3 Chapter 3 Query Loop: The Heartbeat of an Agent\nSystem\nCore files:\n\u2027 src/query.ts\n\u2027 src/QueryEngine.ts\nPrimary argument basis:\n\u2027 state\u2010machine properties of query loop\n\u2027 input governance before model invocation\n\u2027 streaming event consumption and recovery branches\n\u2027 QueryEngine ownership of conversation lifecycle APPENDIX C SOURCE MAP\n98\nC.4 Chapter 4 Tools, Permissions, and Interrupts\nCore files:\n\u2027 src/services/tools/toolOrchestration.ts\n\u2027 src/services/tools/toolExecution.ts\n\u2027 src/ser"
+    },
+    {
+      "section_idx": 113,
+      "section_title": "C.4 Chapter 4 Tools, Permissions, and Interrupts",
+      "start_page": 105,
+      "end_page": 105,
+      "summary": "APPENDIX C SOURCE MAP\n98\nC.4 Chapter 4 Tools, Permissions, and Interrupts\nCore files:\n\u2027 src/services/tools/toolOrchestration.ts\n\u2027 src/services/tools/toolExecution.ts\n\u2027 src/services/tools/StreamingToolExecutor.ts\n\u2027 src/hooks/useCanUseTool.tsx\n\u2027 src/utils/permissions/PermissionResult.ts\n\u2027 src/tools/BashTool/prompt.ts\n\u2027 src/tools/BashTool/bashPermissions.ts\nPrimary argument basis:\n\u2027 concurrency safety and ordered context replay\n\u2027 wrapped tool execution stack\n\u2027 allow / deny / ask authorization semantics\n\u2027 streaming\u2010tool interruption and synthetic closure\n\u2027 special high\u2010pressure governance for Bash\nC.5 Chapter 5 Context Governance: Memory, CLAUDE.md,\nand Compact\nCore files:\n\u2027 src/utils/claudemd.ts\n\u2027 src/memdir/memdir.ts\n\u2027 src/services/SessionMemory/prompts.ts\n\u2027 src/services/compact/autoCompact.ts\n\u2027 src/services/compact/compact.ts\n\u2027 src/query.ts\nPrimary argument basis:\n\u2027 layered discovery and "
+    },
+    {
+      "section_idx": 114,
+      "section_title": "C.5 Chapter 5 Context Governance: Memory, CLAUDE.md, and Compact",
+      "start_page": 105,
+      "end_page": 106,
+      "summary": "APPENDIX C SOURCE MAP\n98\nC.4 Chapter 4 Tools, Permissions, and Interrupts\nCore files:\n\u2027 src/services/tools/toolOrchestration.ts\n\u2027 src/services/tools/toolExecution.ts\n\u2027 src/services/tools/StreamingToolExecutor.ts\n\u2027 src/hooks/useCanUseTool.tsx\n\u2027 src/utils/permissions/PermissionResult.ts\n\u2027 src/tools/BashTool/prompt.ts\n\u2027 src/tools/BashTool/bashPermissions.ts\nPrimary argument basis:\n\u2027 concurrency safety and ordered context replay\n\u2027 wrapped tool execution stack\n\u2027 allow / deny / ask authorization semantics\n\u2027 streaming\u2010tool interruption and synthetic closure\n\u2027 special high\u2010pressure governance for Bash\nC.5 Chapter 5 Context Governance: Memory, CLAUDE.md,\nand Compact\nCore files:\n\u2027 src/utils/claudemd.ts\n\u2027 src/memdir/memdir.ts\n\u2027 src/services/SessionMemory/prompts.ts\n\u2027 src/services/compact/autoCompact.ts\n\u2027 src/services/compact/compact.ts\n\u2027 src/query.ts\nPrimary argument basis:\n\u2027 layered discovery and "
+    },
+    {
+      "section_idx": 115,
+      "section_title": "C.6 Chapter 6 Errors and Recovery",
+      "start_page": 106,
+      "end_page": 106,
+      "summary": "APPENDIX C SOURCE MAP\n99\n\u2027 MEMORY.md as entry index, not content warehouse\n\u2027 structured continuity in session memory\n\u2027 autocompact thresholds, buffers, and circuit breaker\n\u2027 post\u2010compact reconstruction of working semantics\nC.6 Chapter 6 Errors and Recovery\nCore files:\n\u2027 src/query.ts\n\u2027 src/services/compact/autoCompact.ts\n\u2027 src/services/compact/compact.ts\n\u2027 src/services/api/withRetry.ts\nPrimary argument basis:\n\u2027 withheld recoverable errors\n\u2027 prompt\u2010too\u2010long handling via collapse drain and reactive compact\n\u2027 max_output_tokens escalation and continuation strategy\n\u2027 autocompact failure circuit breaking\n\u2027 compaction self\u2010recovery under PTL\nC.7 Chapter 7 Multi\u2010Agent and Verification\nCore files:\n\u2027 src/utils/forkedAgent.ts\n\u2027 src/coordinator/coordinatorMode.ts\n\u2027 src/tasks/LocalAgentTask/LocalAgentTask.tsx\n\u2027 src/utils/hooks/hooksConfigManager.ts\n\u2027 src/skills/bundled/verify.ts\n\u2027 src/memdir/memoryTyp"
+    },
+    {
+      "section_idx": 116,
+      "section_title": "C.7 Chapter 7 Multi-Agent and Verification",
+      "start_page": 106,
+      "end_page": 107,
+      "summary": "APPENDIX C SOURCE MAP\n99\n\u2027 MEMORY.md as entry index, not content warehouse\n\u2027 structured continuity in session memory\n\u2027 autocompact thresholds, buffers, and circuit breaker\n\u2027 post\u2010compact reconstruction of working semantics\nC.6 Chapter 6 Errors and Recovery\nCore files:\n\u2027 src/query.ts\n\u2027 src/services/compact/autoCompact.ts\n\u2027 src/services/compact/compact.ts\n\u2027 src/services/api/withRetry.ts\nPrimary argument basis:\n\u2027 withheld recoverable errors\n\u2027 prompt\u2010too\u2010long handling via collapse drain and reactive compact\n\u2027 max_output_tokens escalation and continuation strategy\n\u2027 autocompact failure circuit breaking\n\u2027 compaction self\u2010recovery under PTL\nC.7 Chapter 7 Multi\u2010Agent and Verification\nCore files:\n\u2027 src/utils/forkedAgent.ts\n\u2027 src/coordinator/coordinatorMode.ts\n\u2027 src/tasks/LocalAgentTask/LocalAgentTask.tsx\n\u2027 src/utils/hooks/hooksConfigManager.ts\n\u2027 src/skills/bundled/verify.ts\n\u2027 src/memdir/memoryTyp"
+    },
+    {
+      "section_idx": 117,
+      "section_title": "C.8 Chapter 8 Team Adoption",
+      "start_page": 107,
+      "end_page": 107,
+      "summary": "APPENDIX C SOURCE MAP\n100\n\u2027 coordinator synthesis responsibility\n\u2027 independent verification stage\n\u2027 subagent lifecycle hooks\n\u2027 task cleanup and parent\u2010child abort propagation\n\u2027 stale\u2010memory verification discipline\nC.8 Chapter 8 Team Adoption\nCore files:\n\u2027 src/utils/claudemd.ts\n\u2027 src/tools/SkillTool/prompt.ts\n\u2027 src/tools/SkillTool/SkillTool.ts\n\u2027 src/utils/forkedAgent.ts\n\u2027 src/utils/hooks/hooksConfigManager.ts\n\u2027 src/main.tsx\nPrimary argument basis:\n\u2027 layered stability in team CLAUDE.md\n\u2027 skills as institutional slices rather than prompt collections\n\u2027 approval boundaries and allow\u2010rule scoping\n\u2027 lifecycle governance through hooks\n\u2027 session startup behavior around instructions and skill loading\nC.9 Chapter 9 Ten Principles\nChapter 9 is not derived from one single file. It compresses cross\u2010chapter struc\u2010\ntures jointly reflected in:\n\u2027 prompt assembly\n\u2027 query loop\n\u2027 tool orchestration\n\u2027 permiss"
+    },
+    {
+      "section_idx": 118,
+      "section_title": "C.9 Chapter 9 Ten Principles",
+      "start_page": 107,
+      "end_page": 108,
+      "summary": "APPENDIX C SOURCE MAP\n100\n\u2027 coordinator synthesis responsibility\n\u2027 independent verification stage\n\u2027 subagent lifecycle hooks\n\u2027 task cleanup and parent\u2010child abort propagation\n\u2027 stale\u2010memory verification discipline\nC.8 Chapter 8 Team Adoption\nCore files:\n\u2027 src/utils/claudemd.ts\n\u2027 src/tools/SkillTool/prompt.ts\n\u2027 src/tools/SkillTool/SkillTool.ts\n\u2027 src/utils/forkedAgent.ts\n\u2027 src/utils/hooks/hooksConfigManager.ts\n\u2027 src/main.tsx\nPrimary argument basis:\n\u2027 layered stability in team CLAUDE.md\n\u2027 skills as institutional slices rather than prompt collections\n\u2027 approval boundaries and allow\u2010rule scoping\n\u2027 lifecycle governance through hooks\n\u2027 session startup behavior around instructions and skill loading\nC.9 Chapter 9 Ten Principles\nChapter 9 is not derived from one single file. It compresses cross\u2010chapter struc\u2010\ntures jointly reflected in:\n\u2027 prompt assembly\n\u2027 query loop\n\u2027 tool orchestration\n\u2027 permiss"
+    }
+  ],
+  "chunk_count": 428
+}

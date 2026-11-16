@@ -1,0 +1,736 @@
+{
+  "doc_id": "ai-20engineering-20guidebook-1273e50aceb0",
+  "doc_name": "AI%20Engineering%20Guidebook.pdf",
+  "page_count": 384,
+  "sections": [
+    {
+      "section_idx": 1,
+      "section_title": "How to make the most out of this book and your time?",
+      "start_page": 2,
+      "end_page": 3,
+      "summary": "DailyDoseofDS.com \nHow to make the most out of \nthis book and your time? \nThe reading time of this book is about 20 hours. But not all chapters will be of \nrelevance to you. This 2-minute assessment will test your current expertise and \nrecommend chapters that will be most useful to you. \n \nScan the QR code below or open this link to start the assessment. It will only take \n2 minutes to complete. \n \n \nhttps://bit.ly/ai-engg-assessment \n1 DailyDoseofDS.com \n \n \n \nAI Engineering \n \n \n \n \n \n \n2"
+    },
+    {
+      "section_idx": 2,
+      "section_title": "AI Engineering",
+      "start_page": 3,
+      "end_page": 4,
+      "summary": "DailyDoseofDS.com \n \n \n \nAI Engineering \n \n \n \n \n \n \n2 DailyDoseofDS.com \n \n \nTable of contents \nLLMs....................................................................................................................................... 6 \nWhat is an LLM?..........................................................................................................................................7 \nNeed for LLMs............................................................................................................................................10 \nWhat makes an LLM \u2018large\u2019 ?...............................................................................................................12 \nHow are LLMs built?................................................................................................................................ 14 \nHow to train LLM from scratch?......................."
+    },
+    {
+      "section_idx": 3,
+      "section_title": "Table of contents",
+      "start_page": 4,
+      "end_page": 7,
+      "summary": "DailyDoseofDS.com \n \n \nTable of contents \nLLMs....................................................................................................................................... 6 \nWhat is an LLM?..........................................................................................................................................7 \nNeed for LLMs............................................................................................................................................10 \nWhat makes an LLM \u2018large\u2019 ?...............................................................................................................12 \nHow are LLMs built?................................................................................................................................ 14 \nHow to train LLM from scratch?.............................................................................."
+    },
+    {
+      "section_idx": 4,
+      "section_title": "\u200b",
+      "start_page": 7,
+      "end_page": 7,
+      "summary": "DailyDoseofDS.com \n \n \n \nLLMs \n \n \n \n \n \n \n \n \n \n \n \n6"
+    },
+    {
+      "section_idx": 5,
+      "section_title": "LLMs",
+      "start_page": 7,
+      "end_page": 8,
+      "summary": "DailyDoseofDS.com \n \n \n \nLLMs \n \n \n \n \n \n \n \n \n \n \n \n6 DailyDoseofDS.com \nWhat is an LLM? \nImagine someone begins a sentence: \n \n\u201cOnce upon a...\u201d \nYou naturally think \u201ctime.\u201d \nOr they say: \n\u201cThe capital of France is...\u201d \nYou immediately think \u201cParis.\u201d \n \nThis simple act of predicting what comes next is the foundation of how large \nlanguage models(LLMs) operate. \nThey learn to make these predictions by reading enormous amounts of text: \nbooks, articles, scientific papers, code, conversations, and instructions.  \n7"
+    },
+    {
+      "section_idx": 6,
+      "section_title": "What is an LLM?",
+      "start_page": 8,
+      "end_page": 11,
+      "summary": "DailyDoseofDS.com \nWhat is an LLM? \nImagine someone begins a sentence: \n \n\u201cOnce upon a...\u201d \nYou naturally think \u201ctime.\u201d \nOr they say: \n\u201cThe capital of France is...\u201d \nYou immediately think \u201cParis.\u201d \n \nThis simple act of predicting what comes next is the foundation of how large \nlanguage models(LLMs) operate. \nThey learn to make these predictions by reading enormous amounts of text: \nbooks, articles, scientific papers, code, conversations, and instructions.  \n7 DailyDoseofDS.com \n \nWith enough exposure, the model becomes remarkably good at continuing any \npiece of text in a coherent, meaningful way. \nAt the technical level, an LLM processes text in small units called tokens. A \ntoken may be a word, part of a word or even punctuation. \n \nThe model looks at the tokens so far and predicts the next one. Repeating this \nprocess generates full answers, explanations, or code. \nEverything an LLM d"
+    },
+    {
+      "section_idx": 7,
+      "section_title": "Need for LLMs",
+      "start_page": 11,
+      "end_page": 13,
+      "summary": "DailyDoseofDS.com \nNeed for LLMs \nBefore LLMs, AI systems were built for specific tasks. \n \n\u25cf A translation system handled only translation. \n\u25cf A summarizer knew only summarization. \n\u25cf A sentiment classifier recognized only sentiment. \nEach new problem required a new model and a new pipeline. This created a \nfragmented landscape that didn\u2019t scale. \nLLMs changed this. \nBy learning the general structure of language across millions of domains, one \nmodel could suddenly perform many tasks without being explicitly programmed \nfor each one. \n10 DailyDoseofDS.com \n \nLanguage naturally encodes reasoning steps, factual knowledge, explanations and \ncommunication patterns. Training a model on large enough text collections \nallowed it to internalize these patterns and apply them across tasks. \nAs a result, a single system could now answer questions, write code, analyze text \nand more simply by predi"
+    },
+    {
+      "section_idx": 8,
+      "section_title": "What makes an LLM \u2018large\u2019 ?",
+      "start_page": 13,
+      "end_page": 15,
+      "summary": "DailyDoseofDS.com \nWhat makes an LLM \u2018large\u2019 ? \nWhen we call a language model \u201clarge,\u201d we are referring to its scale:  \n \n\u25cf Number of parameters it contains \n\u25cf Amount of data it has been trained on  \n\u25cf Compute used to train it \nParameters are the internal values that the model adjusts during training. Each \nparameter represents a small piece of the patterns the model has learned. \nEarlier language models were much smaller and could only capture surface-level \ntext patterns. \n \n \nThey could mimic style but struggled with tasks that required reasoning, \nabstraction or generalization.  \n12 DailyDoseofDS.com \nAs researchers increased model size, dataset diversity and training compute, a \nclear shift appeared. \n \nLarger models began to follow detailed instructions, perform multi-step \nreasoning and solve problems they had never encountered directly in training.  \nThis wasn\u2019t the result of add"
+    },
+    {
+      "section_idx": 9,
+      "section_title": "How are LLMs built?",
+      "start_page": 15,
+      "end_page": 19,
+      "summary": "DailyDoseofDS.com \nHow are LLMs built? \nBefore an LLM can be trained, it needs an architecture that can process text, \nlearn patterns and scale across large datasets. \nThis architecture is built from several core components that work together to \nturn raw text into structured representations the model can learn from. \n \nTransformer \nAt the center of modern LLMs is the Transformer. \nA Transformer is designed to look at all tokens in the input at once and identify \nwhich parts of the text are most relevant to each other. \nThis lets the model follow long sentences, track references, and understand \nrelationships that appear far apart in the sequence. \nTokenization \n14 DailyDoseofDS.com \nText is first broken into tokens. A token may be a word or part of a word, \ndepending on how common it is. \n \nThis approach keeps the vocabulary manageable and allows the model to handle \nany language input."
+    },
+    {
+      "section_idx": 10,
+      "section_title": "How to train LLM from scratch?",
+      "start_page": 19,
+      "end_page": 24,
+      "summary": "DailyDoseofDS.com \nHow to train LLM from scratch? \nAfter the model is built, the next step is to train it so it can understand language \nand handle tasks that appear in real-world use cases. \nWe\u2019ll cover: \n\u25cf Pre-training \n\u25cf Instruction fine-tuning \n\u25cf Preference fine-tuning \n\u25cf Reasoning fine-tuning \nThe visual provides a clear summary of how these stages fit together. \n \n \n18 DailyDoseofDS.com \n0) Randomly initialized LLM \nAt this point, the model knows nothing. \nYou ask, \u201cWhat is an LLM?\u201d and get gibberish like \u201ctry peter hand and hello \n448Sn\u201d. \nIt hasn\u2019t seen any data yet and possesses just random weights. \n \n \n1) Pre-training \nThis stage teaches the LLM the basics of language by training it on massive \ncorpora to predict the next token. This way, it absorbs grammar, world facts, etc. \nBut it\u2019s not good at conversation because when prompted, it just continues the \ntext. \n \n \n2) Instruc"
+    },
+    {
+      "section_idx": 11,
+      "section_title": "How do LLMs work?",
+      "start_page": 24,
+      "end_page": 30,
+      "summary": "DailyDoseofDS.com \nHow do LLMs work? \nLet\u2019s understand how exactly LLMs work and generate text. \nBefore diving into LLMs, we must understand conditional probability. \nLet's consider a population of 14 individuals: \n \n\u25cf Some of them like Tennis \n\u25cf Some like Football \n\u25cf A few like both  \n\u25cf And few like none \nConditional probability is a measure of the probability of an event given that \nanother event has occurred. \n23 DailyDoseofDS.com \n \nIf the events are A and B, we denote this as P(A|B). \nThis reads as \"probability of A given B\" \nFor instance, if we're predicting whether it will rain today (event A), knowing that \nit's cloudy (event B) might impact our prediction. \nAs it's more likely to rain when it's cloudy, we'd say the conditional probability \nP(A|B) is high. \nThat's conditional probability! \nNow, how does this apply to LLMs like GPT-4? \nThese models are tasked with predicting/guess"
+    },
+    {
+      "section_idx": 12,
+      "section_title": "7 LLM Generation Parameters",
+      "start_page": 30,
+      "end_page": 34,
+      "summary": "DailyDoseofDS.com \nAnd that is how LLMs work and generate text. \n7 LLM Generation Parameters \nEvery generation from an LLM is shaped by parameters under the hood. \nKnowing how to tune is important so that you can produce sharp and more \ncontrolled outputs. \nHere are the 7 levers that matter most: \n \n1) Max tokens \n29 DailyDoseofDS.com \n \nThis is a hard cap on how many tokens the model can generate in one response. \nToo low \u2192 truncated outputs; too high \u2192 could lead to wasted compute. \n2) Temperature \n \nGoverns randomness. Low temperature (~0) makes the model deterministic. \nHigher temperature (0.7\u20131.0) boosts creativity, diversity, but also noise. \nUse case: lower for QA/chatbots, higher for brainstorming/creative tasks. \n3) Top-k \n \nThe default way to generate the next token is to sample from all tokens, \nproportional to their probability. \nThis parameter restricts sampling to the top k"
+    },
+    {
+      "section_idx": 13,
+      "section_title": "4 LLM Text Generation Strategies",
+      "start_page": 34,
+      "end_page": 38,
+      "summary": "DailyDoseofDS.com \n4 LLM Text Generation \nStrategies \nEvery time you prompt an LLM, it doesn\u2019t \u201cknow\u201d the whole sentence in advance. \nInstead, it predicts the next token step by step. \nBut here\u2019s the catch: predicting probabilities is not enough. We still need a \nstrategy to pick which token to use at each step. \nAnd different strategies lead to very different styles of output. \nHere are the 4 most common strategies for text generation: \n \nApproach 1: Greedy strategy \n33 DailyDoseofDS.com \nThe naive approach greedily chooses the word with the highest probability from \nthe probability vector, and autoregresses. This is often not ideal since it leads to \nrepetitive sentences. \nApproach 2: Multinomial sampling strategy \nInstead of always picking the top token, we can sample from the probability \ndistribution available in the probability vector. \n \nThe temperature parameter controls the rand"
+    },
+    {
+      "section_idx": 14,
+      "section_title": "3 Techniques to Train An LLM Using Another LLM",
+      "start_page": 38,
+      "end_page": 41,
+      "summary": "DailyDoseofDS.com \nThis requires no retraining, extra data or additional compute. By leveraging the \nmodel\u2019s full internal knowledge rather than only its last step, SLED produces \nmore grounded and factual generations with the same architecture. \n3 Techniques to Train An LLM \nUsing Another LLM \nLLMs don't just learn from raw text; they also learn from each other: \n\u25cf Llama 4 Scout and Maverick were trained using Llama 4 Behemoth. \n\u25cf Gemma 2 and 3 were trained using Google's proprietary Gemini. \nDistillation helps us do so, and the visual below depicts three popular techniques. \n \n37 DailyDoseofDS.com \nThe idea is to transfer \"knowledge\" from one LLM to another, which has been \nquite common in traditional deep learning \nDistillation in LLMs can happen at two stages: \n\u25cf Pre-training \n\u25cb Train the bigger Teacher LLM and the smaller student LLM \ntogether. \n\u25cb Llama 4 did this. \n\u25cf Post-training:"
+    },
+    {
+      "section_idx": 15,
+      "section_title": "4 Ways to Run LLMs Locally",
+      "start_page": 41,
+      "end_page": 45,
+      "summary": "DailyDoseofDS.com \n \n\u25cf Start with an untrained Teacher LLM and an untrained Student LLM. \n\u25cf Generate softmax probabilities over the current batch from both models. \n\u25cf Train the Teacher LLM as usual on the hard labels. \n\u25cf Train the Student LLM to match its softmax probabilities to those of the \nTeacher. \nLlama 4 did this to train Llama 4 Scout and Maverick from Llama 4 Behemoth. \nOf course, during the initial stages, soft labels of the Teacher LLM won't be \naccurate. \nThat is why Student LLM is trained using both soft labels + ground-truth hard \nlabels. \n4 Ways to Run LLMs Locally \nBeing able to run LLMs locally  has many upsides: \n\u25cf Privacy since your data never leaves your machine. \n\u25cf Testing things locally before moving to the cloud and more. \nLet\u2019s discuss the four ways to run LLMs locally. \n1) Ollama \nRunning a model through Ollama is as simple as executing this command: \n40 DailyDos"
+    },
+    {
+      "section_idx": 16,
+      "section_title": "Transformer vs. Mixture of Experts in LLMs",
+      "start_page": 45,
+      "end_page": 50,
+      "summary": "DailyDoseofDS.com \nTransformer vs. Mixture of \nExperts in LLMs \nUp to this point, we\u2019ve explored how LLMs are built, trained and how they \ngenerate text. \nAll modern LLMs rely on the Transformer architecture, but there is another \nimportant question: \nHow do we scale models further without making them impossibly large and \nexpensive to run? \nThis is where Mixture of Experts (MoE) architectures come in. \nMoE keeps the overall parameter count large but activates only a small subset of \n\u201cexperts\u201d for each token. \nThis allows models to grow in capacity without proportional increases in \ncompute. \nWith that context, let\u2019s compare the traditional Transformer block with the MoE \nalternative. \nMixture of Experts (MoE) is a popular architecture that uses different \"experts\" \nto improve Transformer models. \nThe visual below explains how they differ from Transformers. \n44 DailyDoseofDS.com \n \nLet's"
+    },
+    {
+      "section_idx": 17,
+      "section_title": "Prompt Engineering",
+      "start_page": 50,
+      "end_page": 51,
+      "summary": "DailyDoseofDS.com \n \n \n \n \n \nPrompt \nEngineering \n \n \n \n \n \n \n49 DailyDoseofDS.com \nWhat is Prompt Engineering? \nLLMs are powerful, but they don\u2019t automatically know what you want. Prompt \nengineering is the simplest way to control them. \n \nThink of it as the steering wheel for the LLM.   \nSmall adjustments completely shift the direction of the output. \nYou\u2019re not changing weights (the learned parameters inside the model). You\u2019re \nchanging instructions and that changes everything. \nA good prompt helps the model: \n\u25cf Think step-by-step   \n\u25cf Follow constraints   \n\u25cf Stay focused   \n\u25cf Avoid shallow answers   \nIt\u2019s the fastest, lowest-effort way to get better results from any model. \nLet\u2019s explore three prompting techniques that significantly improve an LLM\u2019s \nreasoning ability. \n50"
+    },
+    {
+      "section_idx": 18,
+      "section_title": "What is Prompt Engineering?",
+      "start_page": 51,
+      "end_page": 52,
+      "summary": "DailyDoseofDS.com \nWhat is Prompt Engineering? \nLLMs are powerful, but they don\u2019t automatically know what you want. Prompt \nengineering is the simplest way to control them. \n \nThink of it as the steering wheel for the LLM.   \nSmall adjustments completely shift the direction of the output. \nYou\u2019re not changing weights (the learned parameters inside the model). You\u2019re \nchanging instructions and that changes everything. \nA good prompt helps the model: \n\u25cf Think step-by-step   \n\u25cf Follow constraints   \n\u25cf Stay focused   \n\u25cf Avoid shallow answers   \nIt\u2019s the fastest, lowest-effort way to get better results from any model. \nLet\u2019s explore three prompting techniques that significantly improve an LLM\u2019s \nreasoning ability. \n50 DailyDoseofDS.com \n3 prompting techniques for \nreasoning in LLMs \nA large part of what makes such tools so powerful isn't just their ability to write \ncode, but their ability to"
+    },
+    {
+      "section_idx": 19,
+      "section_title": "3 prompting techniques for reasoning in LLMs",
+      "start_page": 52,
+      "end_page": 59,
+      "summary": "DailyDoseofDS.com \n3 prompting techniques for \nreasoning in LLMs \nA large part of what makes such tools so powerful isn't just their ability to write \ncode, but their ability to reason through it. \nAnd that's not unique to code. It\u2019s the same when we prompt LLMs to solve \ncomplex reasoning tasks like math, logic, or multi-step problems. \nLet\u2019s look at three popular prompting techniques that help LLMs think more \nclearly before they answer. \nThese are depicted below: \n \n51 DailyDoseofDS.com \n1) Chain of Thought (CoT) \nThe simplest and most widely used technique. \nInstead of asking the LLM to jump straight to the answer, we nudge it to reason \nstep by step. \n \nThis often improves accuracy because the model can walk through its logic \nbefore committing to a final output. \nFor instance: \n \nIt\u2019s a simple example but this tiny nudge can unlock reasoning capabilities that \nstandard zero-shot pr"
+    },
+    {
+      "section_idx": 20,
+      "section_title": "Verbalized Sampling",
+      "start_page": 59,
+      "end_page": 62,
+      "summary": "DailyDoseofDS.com \nVerbalized Sampling \nPost-training alignment methods, such as RLHF, are designed to make LLMs \nhelpful and safe. \n \nHowever, these methods unintentionally cause a significant drop in output \ndiversity (called mode collapse). \nWhen an LLM collapses to a mode, it starts favoring a narrow set of predictable \nor stereotypical responses over other outputs. \nAccording to a paper, mode collapse happens because the human preference data \nused to train the LLM has a hidden flaw called typicality bias. \n \nHere\u2019s how this happens: \nAnnotators are asked to rate different responses from an LLM, and later, the \nLLM is trained using a reward model that learns to mimic these human \npreferences. \n58 DailyDoseofDS.com \nHowever, it is observed that annotators naturally tend to favor answers that are \nmore familiar, easy to read, and predictable. This is the typicality bias. So even if \na"
+    },
+    {
+      "section_idx": 21,
+      "section_title": "JSON prompting for LLMs",
+      "start_page": 62,
+      "end_page": 67,
+      "summary": "DailyDoseofDS.com \nsampling-based CoT (Chain-of-Thought) and verbalized sampling-based Multi \nimprove generation diversity even further. \nLarger, more capable models like GPT-4.1 and Gemini-2.5-Pro benefit more from \nverbalized sampling, showing diversity gains up to 2 times greater than smaller \nmodels. \nVerbalized sampling better retains diversity across post-training stages (SFT, \nDPO, RLVR), recovering about 66.8% of the base model\u2019s original diversity, \ncompared to a much lower retention rate for direct prompting. \nVerbalized sampling\u2019s gains are independent of other methods, meaning it can be \ncombined with techniques like temperature scaling, top-p sampling to achieve \nfurther improvements in the diversity-quality trade-off. \nJSON prompting for LLMs \nWhen you give an LLM an open-ended instruction, it has to guess what \u201cgood \noutput\u201d looks like. \nSometimes it adds extra commentary,"
+    },
+    {
+      "section_idx": 22,
+      "section_title": "Fine-tuning",
+      "start_page": 67,
+      "end_page": 68,
+      "summary": "DailyDoseofDS.com \n \n \n \n \n \n \n \n \n \n \nFine-tuning \n \n \n \n \n \n \n \n \n \n \n \n66 DailyDoseofDS.com \nWhat is Fine-tuning? \nIn the pre-LLM era, whenever someone open-sourced any high-utility model for \npublic use, in most cases, practitioners would fine-tune that model to their \nspecific task. \nFine-tuning means adjusting the weights of a pre-trained model on a new dataset \nfor better performance. This is neatly depicted in the diagram below: \n \nWhen the model was developed, it was trained on a specific dataset that might \nnot perfectly match the characteristics of the data a practitioner wants to use it \non. \nThe original dataset might have had slightly different distributions, patterns, or \nlevels of noise compared to the new dataset. \nFine-tuning allows the model to adapt to these differences, learning from the \nnew data and adjusting its parameters to improve its performance on the specifi"
+    },
+    {
+      "section_idx": 23,
+      "section_title": "What is Fine-tuning?",
+      "start_page": 68,
+      "end_page": 69,
+      "summary": "DailyDoseofDS.com \nWhat is Fine-tuning? \nIn the pre-LLM era, whenever someone open-sourced any high-utility model for \npublic use, in most cases, practitioners would fine-tune that model to their \nspecific task. \nFine-tuning means adjusting the weights of a pre-trained model on a new dataset \nfor better performance. This is neatly depicted in the diagram below: \n \nWhen the model was developed, it was trained on a specific dataset that might \nnot perfectly match the characteristics of the data a practitioner wants to use it \non. \nThe original dataset might have had slightly different distributions, patterns, or \nlevels of noise compared to the new dataset. \nFine-tuning allows the model to adapt to these differences, learning from the \nnew data and adjusting its parameters to improve its performance on the specific \ntask at hand. \nFor instance, consider BERT. It\u2019s a Transformer-based langu"
+    },
+    {
+      "section_idx": 24,
+      "section_title": "Issues with traditional fine-tuning",
+      "start_page": 69,
+      "end_page": 71,
+      "summary": "DailyDoseofDS.com \nThus, when using it on any downstream task, we can adjust the weights of the \nBERT model along with the augmented layers, so that it better aligns with the \nnuances and specificities of the new dataset. \nIssues with traditional \nfine-tuning \nHowever, a problem arises when we use the same traditional fine-tuning \ntechnique on much larger models - LLMs, for instance. \nThis is because, as you may already know, these models are huge - billions or \neven trillions of parameters. \nConsider the size difference between BERT-large and GPT-3: \n \nFine-tuning BERT-large on a single GPU is easy with traditional fine-tuning. \nBut it's impossible with GPT-3, which has 175B parameters. \nThat's 350GB of memory just to store model weights (float16 precision). \nImagine OpenAI used traditional fine-tuning within its fine-tuning API: \n68 DailyDoseofDS.com \n \n\u25cf If 10 users fine-tuned GPT-3 \u2192"
+    },
+    {
+      "section_idx": 25,
+      "section_title": "5 LLM Fine-tuning Techniques",
+      "start_page": 71,
+      "end_page": 79,
+      "summary": "DailyDoseofDS.com \n \nAdditionally, maintaining the infrastructure to support fine-tuning requests from \npotentially thousands of customers simultaneously would be a huge task for \nthem. \n5 LLM Fine-tuning Techniques \nTraditional fine-tuning (depicted below) is infeasible with LLMs because these \nmodels have billions of parameters and are hundreds of GBs in size, and not \neveryone has access to such computing infrastructure. \n \nThankfully, today, we have many optimal ways to fine-tune LLMs, and five such \npopular techniques are depicted below: \n70 DailyDoseofDS.com \n \nLet\u2019s understand these: \n1) LoRA \nAdd two low-rank matrices A and B alongside weight matrices, which contain \nthe trainable parameters. Instead of fine-tuning W, adjust the updates in these \nlow-rank matrices. \n71 DailyDoseofDS.com \n \n2) LoRA-FA \nWhile LoRA considerably decreases the total trainable parameters, it still \nreq"
+    },
+    {
+      "section_idx": 26,
+      "section_title": "Implementing LoRA From Scratch",
+      "start_page": 79,
+      "end_page": 81,
+      "summary": "DailyDoseofDS.com \nThis separation allows the fine-tuning process to target these components \nindependently, improving parameter efficiency and performance. \nImplementing LoRA From \nScratch \nLet us understand LoRA in more detail. \nConsider the current weights of some random layer in the pre-trained model are \nW of dimensions d \u2217 k, and we wish to fine-tune it on some other dataset. \n \nDuring fine-tuning, the gradient update rule suggests that we must add \u0394W to \nget the updated parameters: \n \nFor simplicity, you can think about \u0394W as the update obtained after running \ngradient descent on the new dataset: \n78 DailyDoseofDS.com \n \nAlso, instead of updating the original weights W, it is perfectly legal to maintain \nboth matrics, Wand \u0394W. \nDuring inference, we can compute the prediction on an input sample x as follows: \n \nIn fact, in all the model fine-tuning iterations, W can be kept static,"
+    },
+    {
+      "section_idx": 27,
+      "section_title": "How does LoRA work?",
+      "start_page": 81,
+      "end_page": 83,
+      "summary": "DailyDoseofDS.com \nHow does LoRA work? \nNow, you might be thinking... \nBut how can we even add two matrics if both have different dimensions? \nIt\u2019s true, we can\u2019t do that. \nMore specifically, during fine-tuning, the weight matrix W is frozen, so it does \nnot receive any gradient updates. Thus, all gradient updates are redirected to the \n\u0394W matrix. But to ensure that \u0394W and W remain additive to generate a final \nrepresentation for the fine-tuned model, the \u0394W matrix is split into a product of \ntwo low-rank matrices A and B, which contain the trainable parameters. \n \nAs discussed earlier, the dimensions of W are d \u2217 k: \n \nThus, the dimensions of \u0394W must also be d \u2217 k. But this does not mean that the \ntotal trainable parameters in A and B matrix must also align with the dimensions \nof \u0394W. \n80 DailyDoseofDS.com \nInstead, A and B can be extremely small matrices, and the only thing we must \nen"
+    },
+    {
+      "section_idx": 28,
+      "section_title": "Implementation",
+      "start_page": 83,
+      "end_page": 87,
+      "summary": "DailyDoseofDS.com \nExperimentally, it is observed that an ideal configuration is located in the bottom \nleft corner of the above grid, which means that we do not need to train all the \nmodel parameters.Now that we understand how LoRA works, let\u2019s proceed with \nimplementing LoRA. \nImplementation \nWhile a few open-source implementations are already available for LoRA, yet, we \nshall implement it from scratch using PyTorch so that we get a better idea of the \npractical details. \nAs discussed above, a typical LoRA layer comprises two matrices, A and B. These \nhave been implemented in the LoRAWeights class below along with the forward \npass: \n \nAs demonstrated above, the LoRAWeights class aims to decompose a matrix of \ndimensionality d \u2217 k into two matrices A and B. Thus, it accepts four parameters: \n \n\u25cf d: The number of rows in matrix W. \n\u25cf k: The number of columns in matrix W. \n\u25cf r: The ran"
+    },
+    {
+      "section_idx": 29,
+      "section_title": "Generate Your Own LLM Fine-tuning Dataset(IFT)",
+      "start_page": 87,
+      "end_page": 93,
+      "summary": "DailyDoseofDS.com \nand third fully connected layers (fc2, fc3) and lastly, return the final output \nof the last fully connected layer of the pre-trained model (fc4). \nDone! \nNow this MyNeuralNetworkwithLoRA model can be trained like any other neural \nnetwork. \nWe have ensured that the pre-trained model (model) does not update during \nfine-tuning and only weights in LoRAWeights class is learned. \nSo far, we explored how to update model weights efficiently (LoRA and its \nvariants). \nBut fine-tuning also depends on what data you use to update the model. \nThis brings us to instruction fine-tuning (IFT) - the process of teaching an LLM \nhow to follow human instructions by training it on curated instruction\u2013response \npairs. \nIFT is the foundation of supervised fine-tuning (SFT), and most modern LLMs \nrely on some form of IFT during alignment.That was pretty simple, wasn't it? \nGenerate Your Ow"
+    },
+    {
+      "section_idx": 30,
+      "section_title": "SFT vs RFT",
+      "start_page": 93,
+      "end_page": 95,
+      "summary": "DailyDoseofDS.com \nSFT vs RFT \nBefore diving deeper, it's crucial to understand how we usually fine-tune LLMs \nusing SFT, or supervised fine-tuning. \nSFT process: \n \n\u25cf It starts with a static labeled dataset of prompt\u2013completion pairs. \n\u25cf Adjust the model weights to match these completions. \n\u25cf The best model (LoRA checkpoint) is then deployed for inference. \nRFT process: \n \n92 DailyDoseofDS.com \n\u25cf RFT uses an online \u201creward\u201d approach - no static labels required. \n\u25cf The model explores different outputs, and a Reward Function scores their \ncorrectness. \n\u25cf Over time, the model learns to generate higher-reward answers using \nGRPO. \nSFT uses static data and often memorizes answers. RFT, being online, learns \nfrom rewards and explores new strategies. \n \nThis flowchart gives a quick guide on which fine-tuning method to use based on \nyour data and the nature of the task. \n\u25cf Start by checking whe"
+    },
+    {
+      "section_idx": 31,
+      "section_title": "Build a Reasoning LLM using GRPO [Hands On]",
+      "start_page": 95,
+      "end_page": 102,
+      "summary": "DailyDoseofDS.com \n\u25cb Large datasets \u2192 use SFT. \n\u25cb Tiny datasets \u2192 ask if reasoning (like CoT) helps. \n\u25a0 If yes \u2192 RFT \n\u25a0 If no \u2192 SFT \nOverall, this decision tree helps you quickly identify the most efficient and \nreliable fine-tuning strategy for your use case. \nNow that we understand when to use SFT or RFT, let's apply RFT in practice. \nFor reasoning-heavy tasks like math or logic, GRPO (Group Relative Policy \nOptimization) is one of the most effective RFT methods available. \nLet\u2019s walk through how to fine-tune a model using GRPO with Unsloth. \nBuild a Reasoning LLM using \nGRPO [Hands On] \nGroup Relative Policy Optimization is a reinforcement learning method that \nfine-tunes LLMs for math and reasoning tasks using deterministic reward \nfunctions, eliminating the need for labeled data. \nHere's a brief overview of GRPO: \n94 DailyDoseofDS.com \n \n\u25cf Start with a dataset and add a reasoning-fo"
+    },
+    {
+      "section_idx": 32,
+      "section_title": "Bottleneck in Reinforcement Learning",
+      "start_page": 102,
+      "end_page": 102,
+      "summary": "DailyDoseofDS.com \nBottleneck in Reinforcement \nLearning \nA central difficulty in reinforcement learning lies not in training the agent but in \nmanaging the environment in which the agent operates. \nThe environment defines the task, the rules, the available actions and the reward \nstructure. Because there is no standard way to construct these environments, \neach project tends to develop its own APIs and interaction patterns.  \nThis fragmentation makes environments difficult to reuse and agents difficult to \ntransfer across tasks. The result is substantial engineering overhead: researchers \noften spend more time maintaining or re-implementing environments than \nfocusing on learning algorithms or agent behavior. \nThe Solution: The OpenEnv \nFramework \nPyTorch OpenEnv is designed to address this lack of standardization. The \nframework provides a common interface for reinforcement learning \ne"
+    },
+    {
+      "section_idx": 33,
+      "section_title": "The Solution: The OpenEnv Framework",
+      "start_page": 102,
+      "end_page": 104,
+      "summary": "DailyDoseofDS.com \nBottleneck in Reinforcement \nLearning \nA central difficulty in reinforcement learning lies not in training the agent but in \nmanaging the environment in which the agent operates. \nThe environment defines the task, the rules, the available actions and the reward \nstructure. Because there is no standard way to construct these environments, \neach project tends to develop its own APIs and interaction patterns.  \nThis fragmentation makes environments difficult to reuse and agents difficult to \ntransfer across tasks. The result is substantial engineering overhead: researchers \noften spend more time maintaining or re-implementing environments than \nfocusing on learning algorithms or agent behavior. \nThe Solution: The OpenEnv \nFramework \nPyTorch OpenEnv is designed to address this lack of standardization. The \nframework provides a common interface for reinforcement learning \ne"
+    },
+    {
+      "section_idx": 34,
+      "section_title": "Agent Reinforcement Trainer(ART)",
+      "start_page": 104,
+      "end_page": 106,
+      "summary": "DailyDoseofDS.com \nAgent Reinforcement \nTrainer(ART) \nReinforcement learning becomes more complex when the \u201cagent\u201d is an LLM. \nInstead of choosing a simple action like moving left or right - an LLM agent \nproduces multi-step reasoning traces, tool calls, conversations and plans. \nTraining such agents requires a system that can collect these trajectories, assign \nrewards and update the model reliably. \nART (Agent Reinforcement Trainer), built by OpenPipe, provides that system. \n \nIt is an open-source framework designed specifically for training agentic LLMs \nfrom experience. ART handles the pieces that are difficult to engineer manually: \n\u25cf running the agent to generate full trajectories \n\u25cf capturing decisions, tool use and reasoning steps \n\u25cf scoring each trajectory with a custom reward function \n\u25cf updating the model using reinforcement learning \n103 DailyDoseofDS.com \nART uses a lightwei"
+    },
+    {
+      "section_idx": 35,
+      "section_title": "RAG",
+      "start_page": 106,
+      "end_page": 107,
+      "summary": "DailyDoseofDS.com \n \n \n \n \n \n \n \n \n \n \n \nRAG \n \n \n \n \n \n \n \n \n \n \n \n \n \n105 DailyDoseofDS.com \nWhat is RAG? \nUp to this point, we have seen two ways to adapt an LLM to a task: \n\u25cf Prompt Engineering - which steers the model at inference time \n\u25cf Fine-tuning - which adjusts its internal parameters. \nBoth approaches are powerful, but they share one fundamental limitation: the \nmodel can only use the knowledge it already contains. \nLLMs do not automatically know new information, private data, company \ndocuments, or anything that appeared after their training cutoff. \nRetraining them repeatedly to stay updated is impractical and expensive. \nThis is where Retrieval-Augmented Generation (RAG) comes in. Let\u2019s break it \ndown: \n \n\u25cf Retrieval: Accessing and retrieving information from a knowledge source, \nsuch as a database or memory. \n\u25cf Augmented: Enhancing or enriching something, in this case, the"
+    },
+    {
+      "section_idx": 36,
+      "section_title": "What is RAG?",
+      "start_page": 107,
+      "end_page": 108,
+      "summary": "DailyDoseofDS.com \nWhat is RAG? \nUp to this point, we have seen two ways to adapt an LLM to a task: \n\u25cf Prompt Engineering - which steers the model at inference time \n\u25cf Fine-tuning - which adjusts its internal parameters. \nBoth approaches are powerful, but they share one fundamental limitation: the \nmodel can only use the knowledge it already contains. \nLLMs do not automatically know new information, private data, company \ndocuments, or anything that appeared after their training cutoff. \nRetraining them repeatedly to stay updated is impractical and expensive. \nThis is where Retrieval-Augmented Generation (RAG) comes in. Let\u2019s break it \ndown: \n \n\u25cf Retrieval: Accessing and retrieving information from a knowledge source, \nsuch as a database or memory. \n\u25cf Augmented: Enhancing or enriching something, in this case, the text \ngeneration process, with additional information or context. \n\u25cf Genera"
+    },
+    {
+      "section_idx": 37,
+      "section_title": "What are vector databases?",
+      "start_page": 108,
+      "end_page": 110,
+      "summary": "DailyDoseofDS.com \nWith RAG, the language model can use the retrieved information (which is \nexpected to be reliable) from the vector database to ensure that its responses are \ngrounded in real-world knowledge and context, reducing the likelihood of \nhallucinations. \nThis makes the model's responses more accurate, reliable, and contextually \nrelevant, while also ensuring that we don't have to train the LLM repeatedly on \nnew data. This makes the model more \"real-time\" in its responses. \nTo understand how RAG actually works in practice, we first need to understand \nvector databases - the storage layer that powers retrieval. \nWhat are vector databases? \nSimply put, a vector database stores unstructured data (text, images, audio, video, \netc.) in the form of vector embeddings. \n \nEach data point, whether a word, a document, an image, or any other entity, is \ntransformed into a numerical vec"
+    },
+    {
+      "section_idx": 38,
+      "section_title": "The purpose of vector databases in RAG",
+      "start_page": 110,
+      "end_page": 114,
+      "summary": "DailyDoseofDS.com \nThe purpose of vector databases \nin RAG \nAt this point, one interesting thing to learn is how exactly LLMs take advantage \nof vector databases. \nThe biggest confusion that people typically face is: \nOnce we have trained our LLM, it will have some model weights for text generation. \nWhere do vector databases fit in here? \nLet's understand this. \nTo begin, we must understand that an LLM is deployed after learning from a \nstatic version of the corpus it was fed during training. \n \nFor instance, if the model was deployed after considering the data until 31st Jan \n2024, and we use it, say, a week after training, it will have no clue about what \nhappened in those days. \n \nRepeatedly training a new model (or adapting the latest version) every single day \non new data is impractical and cost-ineffective. In fact, LLMs can take weeks to \ntrain. \n109 DailyDoseofDS.com \nAlso, what"
+    },
+    {
+      "section_idx": 39,
+      "section_title": "Workflow of a RAG system",
+      "start_page": 114,
+      "end_page": 119,
+      "summary": "DailyDoseofDS.com \n \nConsequently, the LLM can easily incorporate this info while generating text \nbecause it now has the relevant details available in the prompt. \nNow that we understand the purpose, let's get into the technical details. \nWorkflow of a RAG system \nTo build a RAG system, it's crucial to understand the foundational components \nthat go into it and how they interact. Thus, in this section, let's explore each \nelement in detail. \nHere's an architecture diagram of a typical RAG setup: \n \n113 DailyDoseofDS.com \nLet's break it down step by step. \nWe start with some external knowledge that wasn't seen during training, and we \nwant to augment the LLM with: \n \n#1) Create chunks \nThe first step is to break down this additional knowledge into chunks before \nembedding and storing it in the vector database. \n \nWe do this because the additional document(s) can be pretty large. Thus, it"
+    },
+    {
+      "section_idx": 40,
+      "section_title": "5 chunking strategies for RAG",
+      "start_page": 119,
+      "end_page": 125,
+      "summary": "DailyDoseofDS.com \nAlmost done! \nOnce the most relevant chunks are re-ranked, they are fed into the LLM. \nThis model combines the user's original query with the retrieved chunks in a \nprompt template to generate a response that synthesizes information from the \nselected documents. \nThis is depicted below: \n \nThe LLM leverages the context provided by the chunks to generate a coherent \nand contextually relevant answer that directly addresses the user\u2019s query. \nSince chunking is the very first step in any RAG pipeline, it\u2019s important to \nunderstand the different ways it can be done. \n5 chunking strategies for RAG \nHere\u2019s the typical workflow of RAG: \n \n118 DailyDoseofDS.com \nSince the additional document(s) can be large, step 1 also involves chunking, \nwherein a large document is divided into smaller/manageable pieces. \nThis step is crucial since it ensures the text fits the input size of t"
+    },
+    {
+      "section_idx": 41,
+      "section_title": "Prompting vs. RAG vs. Finetuning?",
+      "start_page": 125,
+      "end_page": 127,
+      "summary": "DailyDoseofDS.com \nAlso, since LLMs typically have a limited context window, that is something to be \ntaken care of. \nEach technique has its own advantages and trade-offs. \nWe have observed that semantic chunking works pretty well in many cases, but \nagain, you need to test. \nThe choice will depend on the nature of your content, the capabilities of the \nembedding model, computational resources, etc. \nPrompting vs. RAG vs. \nFinetuning? \nIf you are building real-world LLM-based apps, it is unlikely you can start using \nthe model right away without adjustments. To maintain high utility, you either \nneed: \n\u25cf Prompt engineering \n\u25cf Fine-tuning \n\u25cf RAG \n\u25cf Or a hybrid approach (RAG + fine-tuning) \nThe following visual will help you decide which one is best for you: \n124 DailyDoseofDS.com \n \nTwo important parameters guide this decision: \n\u25cf The amount of external knowledge required for your task. \n"
+    },
+    {
+      "section_idx": 42,
+      "section_title": "8 RAG architectures",
+      "start_page": 127,
+      "end_page": 129,
+      "summary": "DailyDoseofDS.com \nOnce you've decided that RAG is the right approach, the next step is choosing \nthe right RAG architecture for your use case. \n8 RAG architectures \nWe prepared the following visual that details 8 types of RAG architectures used \nin AI systems: \n \nLet\u2019s discuss them briefly: \n1) Naive RAG \n126 DailyDoseofDS.com \nRetrieves documents purely based on vector similarity between the query \nembedding and stored embeddings. \nWorks best for simple, fact-based queries where direct semantic matching \nsuffices. \n2) Multimodal RAG \nHandles multiple data types (text, images, audio, etc.) by embedding and \nretrieving across modalities. \nIdeal for cross-modal retrieval tasks like answering a text query with both text \nand image context. \n3) HyDE \nQueries are not semantically similar to documents. \nThis technique generates a hypothetical answer document from the query before \nretrieval. "
+    },
+    {
+      "section_idx": 43,
+      "section_title": "RAG vs Agentic RAG",
+      "start_page": 129,
+      "end_page": 132,
+      "summary": "DailyDoseofDS.com \n6) Hybrid RAG \nCombines dense vector retrieval with graph-based retrieval in a single pipeline. \nUseful when the task requires both unstructured text and structured relational \ndata for richer answers. \n7) Adaptive RAG \nDynamically decides if a query requires a simple direct retrieval or a multi-step \nreasoning chain. \nBreaks complex queries into smaller sub-queries for better coverage and \naccuracy. \n8) Agentic RAG \nUses AI agents with planning, reasoning (ReAct, CoT), and memory to \norchestrate retrieval from multiple sources. \nBest suited for complex workflows that require tool use, external APIs, or \ncombining multiple RAG techniques. \nRAG vs Agentic RAG \nThese are some issues with the traditional  RAG system : \n \n128 DailyDoseofDS.com \nThese systems retrieve once and generate once. This means if the retrieved \ncontext isn't enough, the LLM can not dynamically sear"
+    },
+    {
+      "section_idx": 44,
+      "section_title": "Traditional RAG vs HyDE",
+      "start_page": 132,
+      "end_page": 135,
+      "summary": "DailyDoseofDS.com \nTraditional RAG vs HyDE \nAnother critical problem with the traditional  RAG system is that questions are \nnot semantically similar to their answers. \n \nAs a result, several irrelevant contexts get retrieved during the retrieval step due \nto a higher cosine similarity than the documents actually containing the answer. \nHyDE solves this. \nThe following visual depicts how it differs from traditional RAG and HyDE. \n131 DailyDoseofDS.com \n \nLet's understand this in more detail. \nAs mentioned earlier, questions are not semantically similar to their answers, \nwhich leads to several irrelevant contexts during retrieval. \n \nHyDE handles this as follows: \n132 DailyDoseofDS.com \nUse an LLM to generate a hypothetical answer H for the query Q (this answer \ndoes not have to be entirely correct). \nEmbed the answer using a contriever model to get E  (Bi-encoders are famously \nused her"
+    },
+    {
+      "section_idx": 45,
+      "section_title": "Full-model Fine-tuning vs. LoRA vs. RAG",
+      "start_page": 135,
+      "end_page": 140,
+      "summary": "DailyDoseofDS.com \nBut this comes at the cost of increased latency and more LLM usage. \nFull-model Fine-tuning vs. LoRA \nvs. RAG \n \nAll three techniques are used to augment the knowledge of an existing model \nwith additional data. \n1) Full fine-tuning \n134 DailyDoseofDS.com \nFine-tuning means adjusting the weights of a pre-trained model on a new dataset \nfor better performance. \n \nWhile this fine-tuning technique has been successfully used for a long time, \nproblems arise when we use it on much larger models \u2014 LLMs, for instance, \nprimarily because of: \nTheir size. \nThe cost involved in fine-tuning all weights. \nThe cost involved in maintaining all large fine-tuned models. \n2) LoRA fine-tuning \nLoRA fine-tuning addresses the limitations of traditional fine-tuning. \nThe core idea is to decompose the weight matrices (some or all) of the original \nmodel into low-rank matrices and train them"
+    },
+    {
+      "section_idx": 46,
+      "section_title": "RAG vs REFRAG",
+      "start_page": 140,
+      "end_page": 142,
+      "summary": "DailyDoseofDS.com \nRAGs involve similarity matching between the query vector and the vectors of \nthe additional documents. However, questions are structurally very different from \nanswers. \nTypical RAG systems are well-suited only for lookup-based question-answering \nsystems. For instance, we cannot build a RAG pipeline to summarize the \nadditional data. The LLM never gets info about all the documents in its prompt \nbecause the similarity matching step only retrieves top matches. \nSo, it\u2019s pretty clear that RAG has both pros and cons. \n\u25cf We never have to fine-tune the model, which saves a lot of computing \npower. \n\u25cf But this also limits the applicability to specific types of systems. \nRAG vs REFRAG  \nMost of what we retrieve in RAG setups never actually helps the LLM. \nAs discussed earlier, in classic RAG, when a query arrives: \n\u25cf You encode it into a vector. \n\u25cf Fetch similar chunks from"
+    },
+    {
+      "section_idx": 47,
+      "section_title": "RAG vs CAG",
+      "start_page": 142,
+      "end_page": 144,
+      "summary": "DailyDoseofDS.com \nThis way, the model processes just what matters and ignores the rest. \nHere's the step-by-step walkthrough: \nStep 1-2) Encode the docs and store them in a vector database. \nStep 3-5) Encode the full user query and find relevant chunks. Also, compute the \ntoken-level embeddings for both the query (step 7) and matching chunks. \nStep 6) Use a relevance policy (trained via RL) to select chunks to keep. \nStep 8) Concatenate the token-level representations of the input query with the \ntoken-level embedding of selected chunks and a compressed single-vector \nrepresentation of the rejected chunks. \nStep 9-10) Send all that to the LLM. \nThe RL step makes REFRAG a more relevance-aware RAG pipeline. \nBased on the research paper, this approach: \n\u25cf has 30.85x faster time-to-first-token (3.75x better than previous SOTA) \n\u25cf provides 16x larger context windows \n\u25cf outperforms LLaMA on 1"
+    },
+    {
+      "section_idx": 48,
+      "section_title": "RAG, Agentic RAG and AI Memory",
+      "start_page": 144,
+      "end_page": 147,
+      "summary": "DailyDoseofDS.com \n\u25cb The dynamic, frequently updated data, like recent customer \ninteractions or live documents, continues to be fetched via retrieval. \nThis way, the model doesn\u2019t have to reprocess the same static information every \ntime. \nIt uses it instantly from cache, and supplements it with whatever\u2019s new via \nretrieval to give faster inference. \nThe key here is to be selective about what you cache. \nYou should only include stable, high-value knowledge that doesn\u2019t change often. \nIf you cache everything, you\u2019ll hit context limits, so separating \u201ccold\u201d (cacheable) \nand \u201chot\u201d (retrievable) data is what keeps this system reliable. \nYou can also see this in practice above. \nMany APIs like OpenAI and Anthropic already support prompt caching, so you \ncan start experimenting right away. \nRAG, Agentic RAG and AI \nMemory \nRAG was never the end goal. Memory in AI agents is where everything i"
+    },
+    {
+      "section_idx": 49,
+      "section_title": "Context Engineering",
+      "start_page": 147,
+      "end_page": 148,
+      "summary": "DailyDoseofDS.com \n \n \n \n \n \n \n \n \n \nContext \nEngineering \n \n \n \n \n \n \n \n \n \n \n \n \n \n146 DailyDoseofDS.com \nWhat is Context Engineering?  \nContext engineering is rapidly becoming a crucial skill for AI engineers. It's no \nlonger just about clever prompting, it's about the systematic orchestration of \ncontext. \nHere\u2019s the current problem: \nMost AI agents (or LLM apps) fail not because the models are bad, but because \nthey lack the right context to succeed. \nFor instance, a RAG workflow is typically 80% retrieval and 20% generation. \n \nThus: \n\u25cf Good retrieval could still work with a weak LLM. \n\u25cf But bad retrieval can NEVER work even with the best of LLMs. \nIf your RAG isn't working, most likely, it's a context retrieval issue. \nIn the same way, LLMs aren't mind readers. They can only work with what you \ngive them. \n \n147"
+    },
+    {
+      "section_idx": 50,
+      "section_title": "What is Context Engineering?",
+      "start_page": 148,
+      "end_page": 150,
+      "summary": "DailyDoseofDS.com \nWhat is Context Engineering?  \nContext engineering is rapidly becoming a crucial skill for AI engineers. It's no \nlonger just about clever prompting, it's about the systematic orchestration of \ncontext. \nHere\u2019s the current problem: \nMost AI agents (or LLM apps) fail not because the models are bad, but because \nthey lack the right context to succeed. \nFor instance, a RAG workflow is typically 80% retrieval and 20% generation. \n \nThus: \n\u25cf Good retrieval could still work with a weak LLM. \n\u25cf But bad retrieval can NEVER work even with the best of LLMs. \nIf your RAG isn't working, most likely, it's a context retrieval issue. \nIn the same way, LLMs aren't mind readers. They can only work with what you \ngive them. \n \n147 DailyDoseofDS.com \n \nContext engineering involves creating dynamic systems that offer: \n\u25cf The right information \n\u25cf The right tools \n\u25cf In the right format \nThi"
+    },
+    {
+      "section_idx": 51,
+      "section_title": "Context Engineering for Agents",
+      "start_page": 150,
+      "end_page": 157,
+      "summary": "DailyDoseofDS.com \n \nSmart tool access: If your AI needs external information or actions, give it the \nright tools. Format the outputs so they're maximally digestible. \nMemory management: \n\u25cf Short-term: Summarize long conversations \n\u25cf Long-term: Remember user preferences across sessions \nFormat optimization: A short, descriptive error message beats a massive JSON \nblob every time. \nThe bottom line is... \nContext engineering is becoming the new core skill since it addresses the real \nbottleneck, which is not model capability, but setting up an architecture of \ninformation. \nAs models get better, context quality becomes the limiting factor. \nContext Engineering for Agents \nSimply put, context engineering is the art and science of delivering the right \ninformation, in the right format, at the right time, to your LLM. \nHere's a quote by Andrej Karpathy on context engineering... \n149 DailyDos"
+    },
+    {
+      "section_idx": 52,
+      "section_title": "6 Types of Contexts for AI Agents",
+      "start_page": 157,
+      "end_page": 159,
+      "summary": "DailyDoseofDS.com \n6 Types of Contexts for AI \nAgents \nA poor LLM can possibly work with an appropriate context, but a SOTA LLM \ncan never make up for an incomplete context. \nThat is why production-grade LLM apps don\u2019t just need instructions but rather \nstructure, which is the full ecosystem of context that defines their reasoning, \nmemory, and decision loops. \nAnd all advanced agent architectures now treat context as a multi-dimensional \ndesign layer, not a line in a prompt. \nHere\u2019s the mental model to use when you think about the types of contexts for \nAgents: \n \n156 DailyDoseofDS.com \n1) Instructions \nThis defines the who, why, and how: \n\u25cf Who\u2019s the agent? (PM, researcher, coding assistant) \n\u25cf Why is it acting? (goal, motivation, outcome) \n\u25cf How should it behave? (steps, tone, format, constraints) \n2) Examples \nThis shows what good and bad look like: \n\u25cf This includes behavioral demos,"
+    },
+    {
+      "section_idx": 53,
+      "section_title": "Build a Context Engineering workflow",
+      "start_page": 159,
+      "end_page": 169,
+      "summary": "DailyDoseofDS.com \n6) Tool Results \n\u25cf This layer feeds the tool\u2019s results back to the model to enable \nself-correction, adaptation, and dynamic decision-making. \nThese are the exact six layers that help you build fully context-aware Agents. \nBuild a Context Engineering \nworkflow \nWe'll build a multi-agent research assistant using context engineering principles. \nThis Agent will gather its context across 4 sources: Documents, Memory, Web \nsearch, and Arxiv. \nHere\u2019s our workflow: \n \n158 DailyDoseofDS.com \n\u25cf User submits query. \n\u25cf Fetch context from docs, web, arxiv API, and memory. \n\u25cf Pass the aggregated context to an agent for filtering. \n\u25cf Pass the filtered context to another agent to generate a response. \n\u25cf Save the final response to memory. \nTech stack: \n\u25cf  Tensorlake to get RAG-ready data from complex docs \n\u25cf  Zep for memory \n\u25cf  Firecrawl for web search \n\u25cf  Milvus for vector DB \n\u25cf Cre"
+    },
+    {
+      "section_idx": 54,
+      "section_title": "Context Engineering in Claude Skills",
+      "start_page": 169,
+      "end_page": 172,
+      "summary": "DailyDoseofDS.com \n\u25cf Provides citations with links and metadata. \n\u25cf Provides insights into relevant sources. \nThe workflow explained above is one of the many blueprints. Your implementation can \nvary. \nContext Engineering in Claude \nSkills \nClaude Skills are Anthropic\u2019s mechanism for giving agents reusable, persistent \nabilities without overloading the model\u2019s context window. \nThey solve a practical issue in agent design: LLMs forget everything unless all \ninstructions, examples and edge cases are restated each time. \nSkills package this information into small, self-contained units that Claude loads \nonly when they\u2019re relevant. \nThis allows an agent to use hundreds of specialized workflows while keeping its \nactive context lightweight. \nTo make this scalable, Skills use a three-layer context management system that \nlets it use 100s of skills without hitting context limits. \n \n168 DailyDo"
+    },
+    {
+      "section_idx": 55,
+      "section_title": "Manual RAG Pipeline vs Agentic Context Engineering",
+      "start_page": 172,
+      "end_page": 177,
+      "summary": "DailyDoseofDS.com \nBuilding Your Own Skills \nThe creation process is straightforward: \n1. Identify a workflow you repeat constantly. \n2. Create a skill folder and add a skill.md file. \n3. Write the YAML front matter + full markdown instructions. \n4. Add any scripts, examples, or supporting resources. \n5. Zip the folder and upload it in Claude\u2019s capabilities. \nClaude Desktop even includes a \u201cSkill Creator\u201d skill that helps generate the \nstructure for you. \nManual RAG Pipeline vs Agentic \nContext Engineering \nImagine you have data that\u2019s spread across several sources (Gmail, Drive, etc.). \n \nHow would you build a unified query engine over it? \nDevs would typically treat context retrieval like a weekend project. \n...and their approach would be: \u201cEmbed the data, store in a vector DB and do \nRAG.\u201d \nThis works beautifully for static sources. \nBut the problem is that no real-world workflow look"
+    },
+    {
+      "section_idx": 56,
+      "section_title": "AI Agents",
+      "start_page": 177,
+      "end_page": 178,
+      "summary": "DailyDoseofDS.com \n \n \n \n \nAI Agents  \n \n \n \n \n \n \n176 DailyDoseofDS.com \n \nWhat is an AI Agent? \nImagine you want to generate a report on the latest trends in AI research. If you \nuse a standard LLM, you might: \n \n1. Ask for a summary of recent AI research papers. \n2. Review the response and realize you need sources. \n3. Obtain a list of papers along with citations. \n4. Find that some sources are outdated, so you refine your query. \n5. Finally, after multiple iterations, you get a useful output. \nThis iterative process takes time and effort, requiring you to act as the \ndecision-maker at every step. \nNow, let\u2019s see how AI agents handle this differently: \nA Research Agent autonomously searches and retrieves relevant AI research \npapers from arXiv, Semantic Scholar, or Google Scholar. \n177"
+    },
+    {
+      "section_idx": 57,
+      "section_title": "What is an AI Agent?",
+      "start_page": 178,
+      "end_page": 181,
+      "summary": "DailyDoseofDS.com \n \nWhat is an AI Agent? \nImagine you want to generate a report on the latest trends in AI research. If you \nuse a standard LLM, you might: \n \n1. Ask for a summary of recent AI research papers. \n2. Review the response and realize you need sources. \n3. Obtain a list of papers along with citations. \n4. Find that some sources are outdated, so you refine your query. \n5. Finally, after multiple iterations, you get a useful output. \nThis iterative process takes time and effort, requiring you to act as the \ndecision-maker at every step. \nNow, let\u2019s see how AI agents handle this differently: \nA Research Agent autonomously searches and retrieves relevant AI research \npapers from arXiv, Semantic Scholar, or Google Scholar. \n177 DailyDoseofDS.com \n \n \n\u25cf A Filtering Agent scans the retrieved papers, identifying the most relevant \nones based on citation count, publication date, and k"
+    },
+    {
+      "section_idx": 58,
+      "section_title": "Agent vs LLM vs RAG",
+      "start_page": 181,
+      "end_page": 182,
+      "summary": "DailyDoseofDS.com \nAgent vs LLM vs RAG \n  \nLet\u2019s break it down with a simple analogy: \n\u25cf LLM is the brain. \n\u25cf RAG is feeding that brain with fresh information. \n\u25cf An agent is the decision-maker that plans and acts using the brain and the \ntools. \nLLM (Large Language Model) \nAn LLM like GPT-4 is trained on massive text data. \nIt can reason, generate, summarize but only using what it already knows (i.e., its \ntraining data). \n \nIt\u2019s smart, but static. It can\u2019t access the web, call APIs, or fetch new facts on its \nown. \n180 DailyDoseofDS.com \nRAG (Retrieval-Augmented Generation) \nRAG enhances an LLM by retrieving external documents (from a vector DB, \nsearch engine, etc.) and feeding them into the LLM as context before generating \na response. \n \nRAG makes the LLM aware of updated, relevant info without retraining. \nAgent \nAn Agent adds autonomy to the mix. \n \nIt doesn\u2019t just answer a questi"
+    },
+    {
+      "section_idx": 59,
+      "section_title": "Building blocks of AI Agents",
+      "start_page": 182,
+      "end_page": 196,
+      "summary": "DailyDoseofDS.com \nRAG (Retrieval-Augmented Generation) \nRAG enhances an LLM by retrieving external documents (from a vector DB, \nsearch engine, etc.) and feeding them into the LLM as context before generating \na response. \n \nRAG makes the LLM aware of updated, relevant info without retraining. \nAgent \nAn Agent adds autonomy to the mix. \n \nIt doesn\u2019t just answer a question\u2014it decides what steps to take: \nShould it call a tool? Search the web? Summarize? Store info? \nAn Agent uses an LLM, calls tools, makes decisions, and orchestrates workflows \njust like a real assistant. \nBuilding blocks of AI Agents \nAI agents are designed to reason, plan, and take action autonomously. However, \n181 DailyDoseofDS.com \nto be effective, they must be built with certain key principles in mind. There are \nsix essential building blocks that make AI agents more reliable, intelligent, and \nuseful in real-world"
+    },
+    {
+      "section_idx": 60,
+      "section_title": "Memory Types in AI Agents",
+      "start_page": 196,
+      "end_page": 197,
+      "summary": "DailyDoseofDS.com \n \nDifferent types of memory in AI agents include: \n\u25cf Short-term memory \u2013 Exists only during execution (e.g., recalling recent \nconversation history). \n\u25cf Long-term memory \u2013 Persists after execution (e.g., remembering user \npreferences over multiple interactions). \n\u25cf Entity memory \u2013 Stores information about key subjects discussed (e.g., \ntracking customer details in a CRM agent). \nFor example, in an AI-powered tutoring system, memory allows the agent to \nrecall past lessons, tailor feedback, and avoid repetition. \nMemory Types in AI Agents \nNow, let us look at the memory types for AI agents in more detail. \nJust like humans, long-term memory in agents can be: \n\u25cf Semantic \u2192 Stores facts and knowledge \n\u25cf Episodic \u2192 Recalls past experiences or task completions \n\u25cf Procedural \u2192 Learns how to do things (think: internalized \nprompts/instructions) \n \n195 DailyDoseofDS.com \n \nThi"
+    },
+    {
+      "section_idx": 61,
+      "section_title": "Importance of Memory for Agentic Systems",
+      "start_page": 197,
+      "end_page": 200,
+      "summary": "DailyDoseofDS.com \n \nThis memory isn\u2019t just nice-to-have but it enables agents to learn from past \ninteractions without retraining the model. \nThis is especially powerful for continual learning: letting agents adapt to new \ntasks without touching LLM weights. \nImportance of Memory for \nAgentic Systems \nLet us now understand why memory is so powerful for Agentic systems? \nConsider an Agentic system without Memory (below): \n196 DailyDoseofDS.com \n \n\u25cf In iteration #1, the user mentions their favorite color. \n\u25cf In iteration #2, the Agent knows nothing about iteration #1. \nThis means the Agent is mostly stateless, and it has no recall abilities. \nBut now consider an Agentic system built with Memory (below): \n \n\u25cf In iteration #1, the user mentions their favorite color. \n\u25cf In iteration #2, the Agent can recall iteration #1. \nMemory matters because if a memory-less Agentic system is deployed in "
+    },
+    {
+      "section_idx": 62,
+      "section_title": "5 Agentic AI Design Patterns",
+      "start_page": 200,
+      "end_page": 206,
+      "summary": "DailyDoseofDS.com \n\u25cf User Memory \nEach serves a unique purpose in helping agents \u201cremember\u201d and utilize past \ninformation. \nTo simulate memory, the system has to manage context explicitly: choosing what \nto keep, what to discard, and what to retrieve before each new model call. \n \nThis is why memory is not a property of the model itself. It is a system design \nproblem. \n5 Agentic AI Design Patterns \nAgentic behaviors allow LLMs to refine their output by incorporating \nself-evaluation, planning, and collaboration! \nThe following visual depicts the 5 most popular design patterns employed in \nbuilding AI agents. \n199 DailyDoseofDS.com \n \n1) Reflection pattern \n200 DailyDoseofDS.com \n \nThe AI reviews its own work to spot mistakes and iterate until it produces the \nfinal response. \n2) Tool use pattern \n \nTools allow LLMs to gather more information by: \n\u25cf Querying a vector database \n\u25cf Executin"
+    },
+    {
+      "section_idx": 63,
+      "section_title": "ReAct Implementation from Scratch",
+      "start_page": 206,
+      "end_page": 232,
+      "summary": "DailyDoseofDS.com \n\u25cf There are several agents, each with a specific role and task. \n\u25cf Each agent can also access tools. \nAll agents work together to deliver the final outcome, while delegating tasks to \nother agents if needed. \nReAct Implementation from \nScratch \nBelow, we shall implement a ReAct Agent in two ways: \n\u25cf Manually executing each step for better clarity. \n\u25cf Without manual intervention to fully automate the Reasoning and Action \nprocess. \nLet's look at the manual process first. \n#1) ReAct with manual execution \nIn this section, we\u2019ll implement a lightweight ReAct-style agent from scratch, \nwithout using any orchestration framework like CrewAI or LangChain. \nWe'll manually simulate each round of the agent's reasoning, pausing, acting and \nobserving exactly as a ReAct loop is meant to function. \nBy running the logic cell-by-cell, we will gain full visibility and control over the"
+    },
+    {
+      "section_idx": 64,
+      "section_title": "5 Levels of Agentic AI Systems",
+      "start_page": 232,
+      "end_page": 236,
+      "summary": "DailyDoseofDS.com \n\u25cf We\u2019re also assuming that the agent will never call a tool that doesn\u2019t exist, \nand that all tools will succeed silently. \nIn a production-grade system, you\u2019d want to: \n\u25cf Add more robust parsing (e.g., structured prompts with JSON outputs or \nfunction calling). \n\u25cf Include tool validation, retries, and exception handling. \n\u25cf Use guardrails or output formatters to constrain what the LLM is allowed \nto emit. \nBut for the purpose of understanding how ReAct-style loops work under the \nhood, this is a clean and minimal place to start. It gives you complete \ntransparency into what\u2019s happening at each stage of the agent\u2019s reasoning and \nexecution process. \nThis loop demonstrates how a simple agent can think, act, and observe, all \npowered by your own Python + local LLM stack. \n5 Levels of Agentic AI Systems \nAgentic AI systems don't just generate text; they can make decisions"
+    },
+    {
+      "section_idx": 65,
+      "section_title": "30 Must-Know Agentic AI Terms",
+      "start_page": 236,
+      "end_page": 241,
+      "summary": "DailyDoseofDS.com \n \nThe most advanced pattern, wherein, the LLM generates and executes new code \nindependently, effectively acting as an independent AI developer. \n30 Must-Know Agentic AI Terms \nWe put together a quick visual guide to the 30 most important terms in Agentic \nAI, covering some of the most essential things you need to understand about how \nmodern AI agents actually think, act, and collaborate. \nIf you\u2019ve been exploring agent frameworks like CrewAI, LangGraph, or AutoGen, \nthis glossary will help you connect the dots between key building blocks. \n235 DailyDoseofDS.com \n \nAgent: An autonomous AI entity that perceives, reasons, and acts toward a goal \n(covered with full implementations here). \nEnvironment: The world or system in which an agent operates and interacts. \nAction: A response or task performed by an agent based on its reasoning or \ngoals. \nObservation: The data or "
+    },
+    {
+      "section_idx": 66,
+      "section_title": "4 Layers of Agentic AI",
+      "start_page": 241,
+      "end_page": 243,
+      "summary": "DailyDoseofDS.com \nRouter: A mechanism that directs tasks to the most appropriate agent or tool. \nEach of these terms forms a key piece of the agentic AI ecosystem that AI \nengineers should know. \n4 Layers of Agentic AI \nThe following graphic depicts a layered overview of Agentic AI concepts, \ndepicting how the ecosystem is structured from the ground up (LLMs) to \nhigher-level orchestration (Agentic Infrastructure). \n \nLet\u2019s break it down layer by layer: \n1) LLMs (foundation layer) \n240 DailyDoseofDS.com \nAt the core, you have LLMs like GPT, DeepSeek, etc. \nCore concepts here: \n\u25cf Tokenization & inference parameters: how text is broken into tokens and \nprocessed by the model. \n\u25cf Prompt engineering: designing inputs to get better outputs. \n\u25cf LLM APIs: programmatic interfaces to interact with the model. \nThis is the engine that powers everything else. \n2) AI Agents (built on LLMs) \nAgents w"
+    },
+    {
+      "section_idx": 67,
+      "section_title": "7 Patterns in Multi-Agent Systems",
+      "start_page": 243,
+      "end_page": 246,
+      "summary": "DailyDoseofDS.com \n\u25cf Agent roles & specialization: Agents with unique purposes \n\u25cf Orchestration frameworks: tools (like CrewAI, etc.) to build workflows. \nThis layer is about collaboration and coordination among agents. \n4) Agentic Infrastructure \nThe top layer ensures these systems are robust, scalable, and safe. \nThis includes: \n\u25cf Observability & logging: tracking performance and outputs (using \nframeworks like DeepEval). \n\u25cf Error handling & retries: resilience against failures. \n\u25cf Security & access control: ensuring agents don\u2019t overstep. \n\u25cf Rate limiting & cost management: controlling resource usage. \n\u25cf Workflow automation: integrating agents into broader pipelines. \n\u25cf Human-in-the-loop controls: allowing human oversight and intervention. \nThis layer ensures trust, safety, and scalability for enterprise/production \nenvironments. \nOverall, Agentic AI, as a whole, involves a stacked ar"
+    },
+    {
+      "section_idx": 68,
+      "section_title": "Agent2Agent(A2A) Protocol",
+      "start_page": 246,
+      "end_page": 249,
+      "summary": "DailyDoseofDS.com \nand makes final calls. This is exactly like a manager and their team. \nOne thing we constantly think about when picking a pattern to build a \nmulti-agent system (provided we do need an Agent and it has to be a multi-agent \nsystem) is not which one looks coolest, but which one minimizes friction between \nagents. \nIt\u2019s easy to spin up 10 agents and call it a team. What\u2019s hard is designing the \ncommunication flow so that: \n\u25cf No two agents duplicate work. \n\u25cf Every agent knows when to act and when to wait. \n\u25cf The system collectively feels smarter than any individual part. \nAgent2Agent(A2A) Protocol \nAgentic applications require both A2A and MCP. \n \n245 DailyDoseofDS.com \nMCP provides agents with access to tools. \nWhile A2A allows agents to connect with other agents and collaborate in teams. \nLet's clearly understand what A2A is and how it can work with MCP. \nIf you don't kn"
+    },
+    {
+      "section_idx": 69,
+      "section_title": "Agent-User Interaction Protocol(AG-UI)",
+      "start_page": 249,
+      "end_page": 253,
+      "summary": "DailyDoseofDS.com \n \n\u25cf Secure collaboration \n\u25cf Task and state management \n\u25cf Capability discovery \n\u25cf Agents from different frameworks working together (LlamaIndex, CrewAI, \netc.) \nAdditionally, it can integrate with MCP. \nIt's good to standardize Agent-to-Agent collaboration, similar to how MCP does \nfor Agent-to-tool interaction. \nAgent-User Interaction \nProtocol(AG-UI) \n \nIn the realm of Agents: \n\u25cf MCP standardized Agent-to-Tool communication. \n248 DailyDoseofDS.com \n\u25cf Agent2Agent protocol standardized Agent-to-Agent communication. \nBut there\u2019s one piece still missing... \nAnd that\u2019s a protocol for Agent-to-User communication: \n \nLet\u2019s understand why this is important. \nThe problem \nToday, you can build powerful multi-step agentic workflows using a toolkit like \nLangGraph, CrewAI, Mastra, etc. \n \nBut the moment you try to bring that Agent into a real-world app, things fall \napart: \n\u25cf You"
+    },
+    {
+      "section_idx": 70,
+      "section_title": "Agent Protocol Landscape",
+      "start_page": 253,
+      "end_page": 256,
+      "summary": "DailyDoseofDS.com \n\u25cf TEXT_MESSAGE_CONTENT for token streaming. \n\u25cf TOOL_CALL_START to show tool execution. \n\u25cf STATE_DELTA to update shared state (code, data, etc.) \n\u25cf AGENT_HANDOFF to smoothly pass control between agents \nAnd it comes with SDKs in TypeScript and Python to make this plug-and-play for \nany stack, like shown below: \n \nIn the above image, the response from the Agent is not specific to any toolkit. It \nis a standardized AG-UI response. \nThis means you need to write your backend logic once and hook it into AG-UI, \nand everything just works: \n\u25cf LangGraph, CrewAI, Mastra\u2014all can emit AG-UI events. \n\u25cf UIs can be built using CopilotKit components or your own React stack. \n\u25cf You can swap GPT-4 for Llama-3 locally and not change anything in the \nfrontend. \nThis is the layer that will make your Agent apps feel like real software, not just \nglorified chatbots. \nAgent Protocol Landscape"
+    },
+    {
+      "section_idx": 71,
+      "section_title": "Agent optimization with Opik",
+      "start_page": 256,
+      "end_page": 261,
+      "summary": "DailyDoseofDS.com \n \nIt breaks down handshakes, misconceptions and real examples and shows exactly \nhow to start building. \nAgent optimization with Opik \nDevelopers manually iterate through prompts to find an optimal one. This is not \nscalable and performance can degrade across models. \nLet\u2019s learn how to use the Opik Agent Optimizer toolkit that lets you \nautomatically optimize prompts for LLM apps. \nThe idea is to start with an initial prompt and an evaluation dataset, and let an \nLLM iteratively improve the prompt based on evaluations. \n \n255 DailyDoseofDS.com \nTo begin, install Opik and its optimizer package, and configure Opik: \n \nNext, import all the required classes and functions from opik and \nopik_optimizer: \n \n\u25cf LevenshteinRatio \u2192 Our metric to evaluate the prompt\u2019s effectiveness in \ngenerating a precise output for the given input. \n\u25cf MetaPromptOptimizer \u2192 An algorithm that use"
+    },
+    {
+      "section_idx": 72,
+      "section_title": "AI Agent Deployment Strategies",
+      "start_page": 261,
+      "end_page": 265,
+      "summary": "DailyDoseofDS.com \nAI Agent Deployment Strategies \nDeploying AI agents isn\u2019t one-size-fits-all. The architecture you choose can make \nor break your agent\u2019s performance, cost efficiency, and user experience. \nHere are the 4 main deployment patterns you need to know: \n \n1) Batch deployment \nYou can think of this as a scheduled automation. \n260 DailyDoseofDS.com \n \n\u25cf The Agent runs periodically, like a scheduled CLI job. \n\u25cf Just like any other Agent, it can connect to external context (databases, \nAPIs, or tools), process data in bulk, and store results. \n\u25cf This typically optimizes for throughput over latency. \n\u25cf This is best for processing large volumes of data that don\u2019t need immediate \nresponses. \n2) Stream deployment \nHere, the Agent becomes part of a streaming data pipeline. \n \n\u25cf It continuously processes data as it flows through systems. \n\u25cf Your agent stays active, handling concurrent"
+    },
+    {
+      "section_idx": 73,
+      "section_title": "MCP",
+      "start_page": 265,
+      "end_page": 266,
+      "summary": "DailyDoseofDS.com \n \n \n \n \n \nMCP \n \n \n \n \n \n264 DailyDoseofDS.com \nWhat is MCP? \nImagine you only know English. To get info from a person who only knows: \n \n\u25cf French, you must learn French. \n\u25cf German, you must learn German. \n\u25cf And so on. \n \nIn this setup, learning even 5 languages will be a nightmare for you. \nBut what if you add a translator that understands all languages? \n \n \n265"
+    },
+    {
+      "section_idx": 74,
+      "section_title": "What is MCP?",
+      "start_page": 266,
+      "end_page": 268,
+      "summary": "DailyDoseofDS.com \nWhat is MCP? \nImagine you only know English. To get info from a person who only knows: \n \n\u25cf French, you must learn French. \n\u25cf German, you must learn German. \n\u25cf And so on. \n \nIn this setup, learning even 5 languages will be a nightmare for you. \nBut what if you add a translator that understands all languages? \n \n \n265 DailyDoseofDS.com \nThis is simple, isn't it? \n \nThe translator is like an MCP! \n \nIt lets you (Agents) talk to other people (tools or other capabilities) through a \nsingle interface. \n \nTo formalize, while LLMs possess impressive knowledge and reasoning skills, \nwhich allow them to perform many complex tasks, their knowledge is limited to \ntheir initial training data. \n \n \nIf they need to access real-time information, they must use external tools and \nresources on their own. \n \nModel context protocol (MCP) is a standardized interface and framework that \nal"
+    },
+    {
+      "section_idx": 75,
+      "section_title": "Why was MCP created?",
+      "start_page": 268,
+      "end_page": 270,
+      "summary": "DailyDoseofDS.com \nWhy was MCP created? \nWithout MCP, adding a new tool or integrating a new model was a headache. \nIf you had three AI applications and three external tools, you might end up \nwriting nine different integration modules (each AI x each tool) because there \nwas no common standard. This doesn\u2019t scale. \n \nDevelopers of AI apps were essentially reinventing the wheel each time, and tool \nproviders had to support multiple incompatible APIs to reach different AI \nplatforms. \n \n \nLet\u2019s understand this in detail. \n \nThe problem \nBefore MCP, the landscape of connecting AI to external data and actions looked \nlike a patchwork of one-off solutions. \nEither you hard-coded logic for each tool, managed prompt chains that were not \n267 DailyDoseofDS.com \nrobust, or you used vendor-specific plugin frameworks. \nThis led to the infamous M\u00d7N integration problem. \nEssentially, if you have M d"
+    },
+    {
+      "section_idx": 76,
+      "section_title": "MCP Architecture Overview",
+      "start_page": 270,
+      "end_page": 274,
+      "summary": "DailyDoseofDS.com \n \n\u25cf On the left (pre-MCP), every model had to wire into every tool. \n\u25cf On the right (with MCP), each model and tool connects to the MCP layer, \ndrastically simplifying connections. You can also relate this to the \ntranslator example we discussed earlier. \nMCP Architecture Overview \nAt its heart, MCP follows a client-server architecture (much like the web or other \nnetwork protocols). \nHowever, the terminology is tailored to the AI context. There are three main \nroles to understand: the Host, the Client, and the Server. \n269 DailyDoseofDS.com \n \nHost \nThe Host is the user-facing AI application, the environment where the AI model \nlives and interacts with the user. \nThis could be a chat application (like OpenAI\u2019s ChatGPT interface or Anthropic\u2019s \nClaude desktop app), an AI-enhanced IDE (like Cursor), or any custom app that \nembeds an AI assistant like Chainlit. \nHost is "
+    },
+    {
+      "section_idx": 77,
+      "section_title": "Tools, Resources and Prompts",
+      "start_page": 274,
+      "end_page": 279,
+      "summary": "DailyDoseofDS.com \nTools, Resources and Prompts \nTools, prompts and resources form the three core capabilities of the MCP \nframework. Capabilities are essentially the features or functions that the server \nmakes available.  \n\u25cf Tools: Executable actions or functions that the AI (host/client) can invoke \n(often with side effects or external API calls). \n\u25cf Resources: Read-only data sources that the AI (host/client) can query for \ninformation (no side effects, just retrieval). \n\u25cf Prompts: Predefined prompt templates or workflows that the server can \nsupply. \nTools \nTools are what they sound like: functions that do something on behalf of the AI \nmodel. These are typically operations that can have effects or require \ncomputation beyond the AI\u2019s own capabilities. \nImportantly, tools are usually triggered by the AI model\u2019s choice, which means \nthe LLM (via the host) decides to call a tool when i"
+    },
+    {
+      "section_idx": 78,
+      "section_title": "API versus MCP",
+      "start_page": 279,
+      "end_page": 282,
+      "summary": "DailyDoseofDS.com \nThen it provides these messages to the model before the model\u2019s own answer. \nEssentially, the server is helping to structure the conversation. \nWhile we have personally not seen much applicability of this yet, common use \ncases for prompt capabilities include things like \u201cbrainstorming guide,\u201d \n\u201cstep-by-step problem solver template,\u201d or domain-specific system roles. \nBy having them on the server, they can be updated or improved without changing \nthe client app, and different servers can offer different specialized prompts. \nAn important point to note here is that prompts, as a capability, blur the line \nbetween data and instructions. \nThey represent best practices or predefined strategies for the AI to use. \nIn a way, MCP prompts are similar to how ChatGPT plugins can suggest how to \nformat a query, but here it\u2019s standardized and discoverable via the protocol. \nAPI ver"
+    },
+    {
+      "section_idx": 79,
+      "section_title": "MCP versus Function calling",
+      "start_page": 282,
+      "end_page": 283,
+      "summary": "DailyDoseofDS.com \ncustom client and see how it communicates with the server. \nMCP versus Function calling \nBefore MCPs became mainstream (or popular like they are right now), most AI \nworkflows relied on traditional function calling for tools. \nHere\u2019s a visual that explains Function calling & MCP: \n \nFunction calling enables LLMs to execute predefined functions based on user \ninputs. In this approach, developers define specific functions, and the LLM \n281 DailyDoseofDS.com \ndetermines which function to invoke by analyzing the user's prompt. The process \ninvolves: \n1. Developers create functions with clear input and output parameters. \n2. The LLM interprets the user's input to identify the appropriate function to \ncall. \n3. The application executes the identified function, processes the result, and \nreturns the response to the user. \nBut there are limitations as well: \n\u25cf As the number of"
+    },
+    {
+      "section_idx": 80,
+      "section_title": "6 Core MCP Primitives",
+      "start_page": 283,
+      "end_page": 287,
+      "summary": "DailyDoseofDS.com \ndetermines which function to invoke by analyzing the user's prompt. The process \ninvolves: \n1. Developers create functions with clear input and output parameters. \n2. The LLM interprets the user's input to identify the appropriate function to \ncall. \n3. The application executes the identified function, processes the result, and \nreturns the response to the user. \nBut there are limitations as well: \n\u25cf As the number of functions grows, managing and integrating them \nbecomes complex. Requires M\u00d7N integrations. \n\u25cf Functions are closely tied to specific applications, making reuse across \ndifferent systems challenging. \n\u25cf Any changes require manual updates across all instances where the \nfunction is used. \nMCP offers a standardized protocol for integrating LLMs with external tools and \ndata sources. It decouples tool implementation from their consumption, allowing \nfor more "
+    },
+    {
+      "section_idx": 81,
+      "section_title": "Creating MCP Agents",
+      "start_page": 287,
+      "end_page": 288,
+      "summary": "DailyDoseofDS.com \nCreating MCP Agents \nmcp-use makes it easy to build MCP-enabled agents without handling low-level \nprotocol details yourself. \nIt sets up the MCP client, connects to one or more servers, discovers available \ntools, and exposes them to the LLM in a structured way. \nThis allows the agent to decide when to call a tool, while the framework manages \ncapability loading and communication under the hood. \n \nWe can build an mcp-enabled agent using mcp-use in just 6 lines of code: \n \nThis creates an MCP client, connects it to a server (Playwright in this example), \nwraps the server\u2019s capabilities as tools, and passes them to an LLM-powered \nagent. \nFrom here, the LLM can request tool calls naturally during reasoning, while \nmcp-use handles execution and streaming. \n286 DailyDoseofDS.com \nCommon Pitfall: Tool Overload \nWhen LLMs gain access to many server tools, certain predictab"
+    },
+    {
+      "section_idx": 82,
+      "section_title": "Common Pitfall: Tool Overload",
+      "start_page": 288,
+      "end_page": 288,
+      "summary": "DailyDoseofDS.com \nCommon Pitfall: Tool Overload \nWhen LLMs gain access to many server tools, certain predictable issues appear: \n#1) Tool-name hallucinations \nThe model may invent a tool that does not exist. This usually happens when the \ntool list is large or poorly named. \n#2) Confusion between similar tools \nIf a server exposes several tools with overlapping responsibilities, the model may \nstruggle to choose the correct one. \n#3) Degraded decision quality with large toolsets \nPresenting too many tools at once increases cognitive load for the LLM, leading \nto inconsistent tool selection or unnecessary calls. \nThese issues arise from typical LLM behavior when exposed to large toolsets. \nSolution: The Server Manager \nmcp-use includes a built-in Server Manager, which directly addresses the \ncommon failure modes agents face when interacting with large or multi-server \ntoolsets. \n287"
+    },
+    {
+      "section_idx": 83,
+      "section_title": "Solution: The Server Manager",
+      "start_page": 288,
+      "end_page": 290,
+      "summary": "DailyDoseofDS.com \nCommon Pitfall: Tool Overload \nWhen LLMs gain access to many server tools, certain predictable issues appear: \n#1) Tool-name hallucinations \nThe model may invent a tool that does not exist. This usually happens when the \ntool list is large or poorly named. \n#2) Confusion between similar tools \nIf a server exposes several tools with overlapping responsibilities, the model may \nstruggle to choose the correct one. \n#3) Degraded decision quality with large toolsets \nPresenting too many tools at once increases cognitive load for the LLM, leading \nto inconsistent tool selection or unnecessary calls. \nThese issues arise from typical LLM behavior when exposed to large toolsets. \nSolution: The Server Manager \nmcp-use includes a built-in Server Manager, which directly addresses the \ncommon failure modes agents face when interacting with large or multi-server \ntoolsets. \n287 Dail"
+    },
+    {
+      "section_idx": 84,
+      "section_title": "Creating MCP Client",
+      "start_page": 290,
+      "end_page": 292,
+      "summary": "DailyDoseofDS.com \nWith this, agents no longer need to juggle dozens of tools at once. \nThe Server Manager becomes the orchestrator - deciding which server to \nactivate, which tools to load, and when to surface them resulting in clearer tool \nselection and more stable agent behavior across multi-server environments. \nCreating MCP Client \nWithin mcp-use, every agent embeds an MCP client. \nThe client is the component responsible for all communication between the \nagent and any MCP server. \nIt manages the transport layer and ensures that capabilities (tools, resources, \nprompts, etc.) remain synchronized throughout an interaction. \nAt a high level, the MCP client handles: \n\u25cf Connecting to MCP servers \n\u25cf Performing the initial capability handshake \n\u25cf Streaming tool calls and tool responses \n\u25cf Retrieving resources \n\u25cf Receiving notifications \n\u25cf Routing elicitation requests back to the user or "
+    },
+    {
+      "section_idx": 85,
+      "section_title": "MCP Server",
+      "start_page": 292,
+      "end_page": 305,
+      "summary": "DailyDoseofDS.com \navailable, we can inspect using this: \n \nMCP Server \nAgents and clients decide how to act, but MCP servers are what make those \nactions possible. \nA server is the source of truth for capabilities - tools to execute, resources to \nread, prompts to supply, and structured interactions like sampling or elicitation. \nOnce a server exposes these capabilities, any standard MCP client can discover \nand use them. \nmcp-use provides a lightweight framework for defining these capabilities \ndeclaratively, making it easier to build servers that integrate cleanly with MCP \nagents. \nNote: All examples in this section use TypeScript. \nThe following sections walk through how to create, run, test and deploy MCP \nservers using mcp-use. \n1) Project Generator: create-mcp-use-app \n291 DailyDoseofDS.com \nmcp-use includes a project generator that lets you create a new server project \nwith thes"
+    },
+    {
+      "section_idx": 86,
+      "section_title": "LLM Optimization",
+      "start_page": 305,
+      "end_page": 306,
+      "summary": "DailyDoseofDS.com \n \n \n \nLLM \nOptimization  \n \n \n \n \n \n \n \n \n304 DailyDoseofDS.com \nWhy do we need optimization? \nMachine learning systems are usually developed with one primary objective: \nimprove accuracy. \nAs a result, models grow larger and more complex because bigger models often \nperform better during training. \n \nHowever, high accuracy does not automatically translate to a practical system. A \nmodel that performs well in experiments can still be unsuitable for deployment if \nit is slow, costly to run, or difficult to scale. \nIn production, the requirements shift. \nA deployed model must respond quickly, handle unpredictable load, fit within \nstrict memory limits, and remain cost-efficient to operate. \n \nThese constraints determine whether a model can reliably serve real users. Even \na highly accurate system may be unusable if inference is slow or memory-hungry. \n305"
+    },
+    {
+      "section_idx": 87,
+      "section_title": "Why do we need optimization?",
+      "start_page": 306,
+      "end_page": 307,
+      "summary": "DailyDoseofDS.com \nWhy do we need optimization? \nMachine learning systems are usually developed with one primary objective: \nimprove accuracy. \nAs a result, models grow larger and more complex because bigger models often \nperform better during training. \n \nHowever, high accuracy does not automatically translate to a practical system. A \nmodel that performs well in experiments can still be unsuitable for deployment if \nit is slow, costly to run, or difficult to scale. \nIn production, the requirements shift. \nA deployed model must respond quickly, handle unpredictable load, fit within \nstrict memory limits, and remain cost-efficient to operate. \n \nThese constraints determine whether a model can reliably serve real users. Even \na highly accurate system may be unusable if inference is slow or memory-hungry. \n305 DailyDoseofDS.com \nTo illustrate this, consider the two models below. \n \n\u25cf Model"
+    },
+    {
+      "section_idx": 88,
+      "section_title": "Model Compression",
+      "start_page": 307,
+      "end_page": 319,
+      "summary": "DailyDoseofDS.com \nTo illustrate this, consider the two models below. \n \n\u25cf Model A is more accurate, but it is significantly slower and much larger. \n\u25cf Model B is slightly less accurate but is faster, smaller, and far easier to \ndeploy. \nIn most real-world systems, Model B is the more suitable choice because it \ndelivers a better user experience and is simpler to scale. \nThis is why optimization matters. \nProduction systems prioritize responsiveness and efficiency, not just accuracy. \nTo meet these requirements, models must be optimized beyond their initial \ntraining. \nModel compression techniques help address this need. They reduce the model\u2019s \nsize and computational cost while preserving most of its performance, making \nthe model practical for real-world deployment. \nModel Compression \nAs the name suggests, model compression is a set of techniques used to reduce \nthe size and computati"
+    },
+    {
+      "section_idx": 89,
+      "section_title": "Regular ML Inference vs. LLM Inference",
+      "start_page": 319,
+      "end_page": 327,
+      "summary": "DailyDoseofDS.com \nWhile reducing the bit-width of parameters makes the model smaller, it also \nleads to a loss of precision. \nThis means the model's predictions become more approximate than the original, \nfull-precision model. \nThus, it is important to carefully evaluate the trade-off between model \nsize/inference speed and accuracy when considering Quantization for \ndeployment. \nDespite this trade-off, Quantization can be particularly useful in scenarios where \nmodel size is a critical constraint, such as edge devices, mobile applications, or \nspecialized hardware like smartphones. \nModel compression makes models smaller and faster, but LLMs also introduce \nchallenges that show up only during inference.  \nTo handle those, we use techniques built for autoregressive decoding like KV \ncaching. \nRegular ML Inference vs. LLM \nInference \nLLM Inference presents unique challenges over regular "
+    },
+    {
+      "section_idx": 90,
+      "section_title": "KV Caching in LLMs",
+      "start_page": 327,
+      "end_page": 332,
+      "summary": "DailyDoseofDS.com \nSo each GPU holds the full weights of only some experts, not all. This means that \neach GPU processes only the tokens assigned to the experts stored on that GPU. \nNow, when a query arrives, the gating network in the MoE layer dynamically \ndecides which GPU it should go to, depending on which experts are activated. \nThis is a complex internal routing problem that cannot be treated like a simple \nreplicated model. You need a sophisticated inference engine to manage the \ndynamic flow of computation across the sharded expert pool. \nKV Caching in LLMs \nKV caching is a popular technique to speed up LLM inference. \nTo get some perspective, look at the inference speed difference in the image \nbelow: \n \n\u25cf with KV caching \u2192 9 seconds \n\u25cf without KV caching \u2192 40 seconds (~4.5x slower, and this gap grows as more \ntokens are produced). \nLet\u2019s visually understand how KV caching works"
+    },
+    {
+      "section_idx": 91,
+      "section_title": "LLM Evaluation",
+      "start_page": 332,
+      "end_page": 333,
+      "summary": "DailyDoseofDS.com \n \n \n \n \nLLM Evaluation \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n331 DailyDoseofDS.com \nOptimizing a model makes it faster and cheaper but it doesn\u2019t tell you whether \nthe system is actually good. \nTo understand that, we need evaluation. \nIn practice, this means measuring how well the model reasons, follows \ninstructions, uses tools, stays consistent across turns, and remains safe under \nadversarial pressure. \nTo do that, we use techniques like LLM-as-a-judge scoring, arena comparisons, \nmulti-turn evals, component-level tracing etc. \nLet\u2019s walk through them. \nG-eval \nIf you are building with LLMs, you absolutely need to evaluate them. \nLet\u2019s understand how to create any evaluation metric for your LLM apps in pure \nEnglish with Opik - an open-source, production-ready end-to-end LLM \nevaluation platform. \nLet\u2019s begin! \nThe problem \nStandard metrics are usually not that helpf"
+    },
+    {
+      "section_idx": 92,
+      "section_title": "G-eval",
+      "start_page": 333,
+      "end_page": 336,
+      "summary": "DailyDoseofDS.com \nOptimizing a model makes it faster and cheaper but it doesn\u2019t tell you whether \nthe system is actually good. \nTo understand that, we need evaluation. \nIn practice, this means measuring how well the model reasons, follows \ninstructions, uses tools, stays consistent across turns, and remains safe under \nadversarial pressure. \nTo do that, we use techniques like LLM-as-a-judge scoring, arena comparisons, \nmulti-turn evals, component-level tracing etc. \nLet\u2019s walk through them. \nG-eval \nIf you are building with LLMs, you absolutely need to evaluate them. \nLet\u2019s understand how to create any evaluation metric for your LLM apps in pure \nEnglish with Opik - an open-source, production-ready end-to-end LLM \nevaluation platform. \nLet\u2019s begin! \nThe problem \nStandard metrics are usually not that helpful since LLMs can produce varying \noutputs while conveying the same message. \n332 D"
+    },
+    {
+      "section_idx": 93,
+      "section_title": "LLM Arena-as-a-Judge",
+      "start_page": 336,
+      "end_page": 338,
+      "summary": "DailyDoseofDS.com \noutline an evaluation step. \nNext, these evaluation steps are combined with the task to return a single score. \nThat said, you can easily self-host Opik, so your data stays where you want. \nIt integrates with nearly all popular frameworks, including CrewAI, LlamaIndex, \nLangChain, and HayStack. \nG-Eval works well for single-output scoring, but it still treats each output in \nisolation. \nTo compare models or prompts reliably, we need head-to-head evaluations. \nLLM Arena-as-a-Judge \nTypical LLM-powered evals can easily mislead you to believe that one model is \nbetter than the other, primarily due to the way they are set up. \nFor instance, techniques like G-Eval assume you\u2019re scoring one output at a time \nin isolation, without understanding the alternative. \nSo when prompt A scores 0.72 and prompt B scores 0.74, you still don\u2019t know \nwhich one\u2019s actually better. \n \nThis i"
+    },
+    {
+      "section_idx": 94,
+      "section_title": "Multi-turn Evals for LLM Apps",
+      "start_page": 338,
+      "end_page": 342,
+      "summary": "DailyDoseofDS.com \n \n\u25cf Create an ArenaTestCase with a list of \u201ccontestants\u201d and their respective \nLLM interactions. \n\u25cf Next, define your criteria for comparison using the Arena G-Eval metric, \nwhich incorporates the G-Eval algorithm for a comparison use case. \n\u25cf Finally, run the evaluation and print the scores. \nThis gives you an accurate head-to-head comparison. \nNote: LLM Arena-as-a-Judge can either be referenceless (like shown in the snippet \nbelow) or reference-based. If needed, you can specify an expected output as well for the \ngiven input test case and specify that in the evaluation parameters. \nSingle-turn evaluation is not enough for assistants, agents, or chatbots. \nConversations unfold across multiple messages, so the evaluation must too. \nMulti-turn Evals for LLM Apps \nConversational systems need a different kind of evaluation. \n337 DailyDoseofDS.com \nUnlike single-turn tasks"
+    },
+    {
+      "section_idx": 95,
+      "section_title": "Evaluating MCP-powered LLM apps",
+      "start_page": 342,
+      "end_page": 349,
+      "summary": "DailyDoseofDS.com \n \nConversations get even more complex when tools are involved. \nIn MCP apps, we must evaluate not only what the model says but how it uses \ntools. \nEvaluating MCP-powered LLM \napps \nThere are primarily 2 factors that determine how well an MCP app works: \n\u25cf If the model is selecting the right tool? \n\u25cf And if it's correctly preparing the tool call? \nLet's learn how to evaluate any MCP workflow using DeepEval\u2019s latest MCP \nevaluations (open-source). \nHere's the workflow: \n341 DailyDoseofDS.com \n \n\u25cf Integrate the MCP server with the LLM app. \n\u25cf Send queries and log tool calls, tool outputs in DeepEval. \n\u25cf Once done, run the eval to get insights on the MCP interactions. \nNow let's dive into the code for this! \n#1) Setup \nFirst, we install DeepEval to run MCP evals. \n \n#2) Create an MCP server \n342 DailyDoseofDS.com \nNext, we define our own MCP server with two tools that the"
+    },
+    {
+      "section_idx": 96,
+      "section_title": "Component-level Evals for LLM Apps",
+      "start_page": 349,
+      "end_page": 353,
+      "summary": "DailyDoseofDS.com \napp which initially passed only 1 or 2 out of 24 test cases, now achieves a 100% \nsuccess rate: \n \nBeyond end-to-end scoring, LLM apps need fine-grained visibility. \nIssues can come from the retriever, the model, or the tool handler, so we evaluate \neach component separately. \nComponent-level Evals for LLM \nApps \nMost LLM evals treat the app like a black box. \nFeed the input \u2192 Get the output \u2192 Run evals on the overall end-to-end system. \n \n348 DailyDoseofDS.com \nBut LLM apps need component-level evals and tracing since the issue can be \nanywhere inside the box, like the retriever, tool call, or the LLM itself. \nIn DeepEval (open-source), you can do that in just three steps: \nTrace individual LLM components (tools, retrievers, generators) with the \n@observe decorator. \nAttach different metrics to each part. \nGet a visual breakdown of what\u2019s working on a test-case-level "
+    },
+    {
+      "section_idx": 97,
+      "section_title": "Red teaming LLM apps",
+      "start_page": 353,
+      "end_page": 359,
+      "summary": "DailyDoseofDS.com \n \nCorrectness and reliability are only part of the story. \nWe also need to test how the system behaves under adversarial pressure - this is \nwhere red teaming comes in. \nRed teaming LLM apps \nEvaluating LLMs against correctness, faithfulness, or factual accuracy gives you a \ngood model but not the IDEAL model. \nBecause none of these metrics tells how easily the model can be exploited to do \nsomething it should never do. \nA well-crafted prompt can make even the safest model leak PII, generate harmful \ncontent, or give away internal data. That\u2019s why every major AI lab treats red \nteaming as a core part of model development. \n352 DailyDoseofDS.com \n \nIn practice, fixing this demands implementing SOTA adversarial strategies like \nprompt injections, jailbreaking, response manipulation, etc. \nAlongside these strategies, you need well-crafted and clever prompts that mimic \nre"
+    },
+    {
+      "section_idx": 98,
+      "section_title": "LLM Deployment",
+      "start_page": 359,
+      "end_page": 360,
+      "summary": "DailyDoseofDS.com \n \n \n \n \nLLM Deployment \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n \n358 DailyDoseofDS.com \n \nUp to this point, we\u2019ve optimized our model and evaluated how well it behaves. \nThe next step is to serve it to real users. \nDeployment is where everything becomes real. Latency, throughput, memory \nlimits, cost constraints and unpredictable user behavior all show up here. \nA production LLM system must be fast, stable as well as scalable under load. To \ndo that, we need two things: \n1. An inference engine that can execute tokens efficiently. \n2. A deployment strategy that can scale without forcing you to manually \nmanage infrastructure. \nLet\u2019s first understand why LLM deployment is uniquely challenging. \nWhy is LLM Deployment \nDifferent? \nTraditional ML inference is simple: \n \nLLMs do not work like this. They introduce several challenges: \n1) Continuous Batching \nEarlier, we saw how LLM "
+    },
+    {
+      "section_idx": 99,
+      "section_title": "Why is LLM Deployment Different?",
+      "start_page": 360,
+      "end_page": 362,
+      "summary": "DailyDoseofDS.com \n \nUp to this point, we\u2019ve optimized our model and evaluated how well it behaves. \nThe next step is to serve it to real users. \nDeployment is where everything becomes real. Latency, throughput, memory \nlimits, cost constraints and unpredictable user behavior all show up here. \nA production LLM system must be fast, stable as well as scalable under load. To \ndo that, we need two things: \n1. An inference engine that can execute tokens efficiently. \n2. A deployment strategy that can scale without forcing you to manually \nmanage infrastructure. \nLet\u2019s first understand why LLM deployment is uniquely challenging. \nWhy is LLM Deployment \nDifferent? \nTraditional ML inference is simple: \n \nLLMs do not work like this. They introduce several challenges: \n1) Continuous Batching \nEarlier, we saw how LLM requests finish at different times, leaving GPUs idle \nunless batching is managed"
+    },
+    {
+      "section_idx": 100,
+      "section_title": "vLLM: An LLM Inference Engine",
+      "start_page": 362,
+      "end_page": 366,
+      "summary": "DailyDoseofDS.com \nvLLM takes care of this through prefix-aware routing, which keeps \nprefix-sharing sequences on the same worker to avoid recomputing KV-cache. \nThis reduces both compute and memory cost. \n5) LoRA and Multi-Model Support \nBecause LoRA adapters are lightweight, vLLM loads them once and applies them \nper-request without duplicating memory. \nIt can also host multiple models inside one server, making it easy to support: \n\u25cf Personalization \n\u25cf A/B testing \n\u25cf Multi-feature applications \nwith minimal overhead. \n6) Familiar OpenAI-Compatible API \nSince vLLM exposes the same API structure as OpenAI\u2019s Chat Completions API, \nmigrating your application is often as simple as changing the base_url. \nSo, no SDK migrations or code rewrites are required. \nAll these challenges explain why specialized inference engines exist and why \nframeworks like vLLM, SGLang, TensorRT-LLM, and LMCache a"
+    },
+    {
+      "section_idx": 101,
+      "section_title": "LitServe",
+      "start_page": 366,
+      "end_page": 371,
+      "summary": "DailyDoseofDS.com \n \nEach request simply specifies the model to use. \nLitServe \nWith vLLM, we now have a reliable way to serve LLMs efficiently. It handles the \ncore challenges of inference like batching, KV-cache management and routing \nwhile letting us expose a simple API endpoint. \nHowever, deployment often requires more than just running the model. \nReal systems usually need additional components such as: \n\u25cf request validation \n\u25cf preprocessing and postprocessing \n\u25cf custom routing \n\u25cf authentication \n\u25cf logging and monitoring \nTo support these pieces, we typically wrap the model inside a broader application \nserver. \nLitServe provides a simple way to build this layer. \nIt is an open-source framework that lets you build your own custom inference \nengine. \nIt gives you control over how requests are handled - batching, streaming, routing, \nand coordinating multiple models or components. \n3"
+    },
+    {
+      "section_idx": 102,
+      "section_title": "LLM Observability",
+      "start_page": 371,
+      "end_page": 372,
+      "summary": "DailyDoseofDS.com \n \n \n \n \nLLM \nObservability \n \n \n \n \n \n \n \n \n \n \n \n \n370 DailyDoseofDS.com \nOnce a model is deployed, its behavior is no longer defined only by its weights or \nthe test set. \nReal users, prompts, edge cases and system interactions now shape how the \napplication performs. \nAt this stage, the core question shifts from \u201cIs the model good?\u201d to \u201cWhat is actually \nhappening inside the system?\u201d \n \nThat is the purpose of observability. \nObservability helps us see how the system behaves as it runs -  \n\u25cf What inputs does it receive? \n\u25cf How does the model respond? \n\u25cf Which components are triggered? \n\u25cf How long does each step take? \n\u25cf Where do things break or drift over time? \nWithout this visibility, even a well-evaluated model can become unreliable in \nproduction. \nEvaluation vs Observability \nBefore we dive deeper, let\u2019s understand the difference between evaluation and \n371"
+    },
+    {
+      "section_idx": 103,
+      "section_title": "Evaluation vs Observability",
+      "start_page": 372,
+      "end_page": 374,
+      "summary": "DailyDoseofDS.com \nOnce a model is deployed, its behavior is no longer defined only by its weights or \nthe test set. \nReal users, prompts, edge cases and system interactions now shape how the \napplication performs. \nAt this stage, the core question shifts from \u201cIs the model good?\u201d to \u201cWhat is actually \nhappening inside the system?\u201d \n \nThat is the purpose of observability. \nObservability helps us see how the system behaves as it runs -  \n\u25cf What inputs does it receive? \n\u25cf How does the model respond? \n\u25cf Which components are triggered? \n\u25cf How long does each step take? \n\u25cf Where do things break or drift over time? \nWithout this visibility, even a well-evaluated model can become unreliable in \nproduction. \nEvaluation vs Observability \nBefore we dive deeper, let\u2019s understand the difference between evaluation and \n371 DailyDoseofDS.com \nobservability, since both play different roles in an LLM sys"
+    },
+    {
+      "section_idx": 104,
+      "section_title": "Implementation",
+      "start_page": 374,
+      "end_page": 384,
+      "summary": "DailyDoseofDS.com \n \n\u25cf It captures real inputs, model outputs, retrieved context, latencies, costs \nand component-level traces. \n\u25cf It helps identify regressions, bottlenecks, failure cases and shifts in user \nbehavior after the system goes live. \nEvaluation ensures the system meets a defined standard of quality.  \nObservability ensures the system continues to meet that standard under real \noperating conditions. \nTogether, they provide complementary views of system behavior: evaluation \nestablishes expectations, while observability reveals whether those expectations \nhold during operation. \nImplementation \nNow that we understand what observability means in an LLM system, the next \nstep is to implement it in practice. For this, we will use Opik, an open-source \nframework that provides tracing and monitoring tools for LLM applications. \nOpik offers a lightweight way to capture prompts, mode"
+    }
+  ],
+  "chunk_count": 482
+}

@@ -1,0 +1,309 @@
+{
+  "video_id": "tYchws8hpd8",
+  "title": "AI Harness Engineering - Forward Deployed Engineering Tutorial",
+  "duration_sec": 880.0,
+  "mean_logprob": -0.116,
+  "mean_ocr_conf": 0.0,
+  "passed_guard": true,
+  "guard_reason": "Passed English ASR quality gates.",
+  "windows": [
+    {
+      "start_sec": 0.0,
+      "end_sec": 30.22,
+      "timestamp": "00:00",
+      "speech_text": "256 years ago, in the 1770s, all big industries relied on horses because they were strong and very fast. But one Scottish engineer realised that more than horses, there is another force of nature that can help him and all the other industries in the world to get things done. Steam. When James Watt introduced the steam engine, all miners and factory owners were very hesitant",
+      "slide_ocr_text": "",
+      "combined_text": "256 years ago, in the 1770s, all big industries relied on horses because they were strong and very fast. But one Scottish engineer realised that more than horses, there is another force of nature that can help him and all the other industries in the world to get things done. Steam. When James Watt introduced the steam engine, all miners and factory owners were very hesitant",
+      "avg_logprob": -0.1425
+    },
+    {
+      "start_sec": 30.22,
+      "end_sec": 60.78,
+      "timestamp": "00:30",
+      "speech_text": "because explaining machine power in terms of cylinder volume or boiler pressure or coal consumption meant nothing to a farmer or to an industry owner. So all mine owners used to ask him just one thing. How many horses can this one machine replace? And that made the word horsepower very very popular. And it makes sense because a farmer, a factory operator or a miner immediately",
+      "slide_ocr_text": "",
+      "combined_text": "because explaining machine power in terms of cylinder volume or boiler pressure or coal consumption meant nothing to a farmer or to an industry owner. So all mine owners used to ask him just one thing. How many horses can this one machine replace? And that made the word horsepower very very popular. And it makes sense because a farmer, a factory operator or a miner immediately",
+      "avg_logprob": -0.0858
+    },
+    {
+      "start_sec": 60.78,
+      "end_sec": 90.36,
+      "timestamp": "01:00",
+      "speech_text": "understood the economic value of buying a 12 horsepower engine instead of feeding and caring for 20 horses. So in their mind, the comparison became easy. Now you can't control a horse without a harness. Harness is basically the entire system of the collar and the buckle which basically allows you to control the horse. Now just like you need a harness for a really strong horse, you need a harness for AI as well. Without a",
+      "slide_ocr_text": "",
+      "combined_text": "understood the economic value of buying a 12 horsepower engine instead of feeding and caring for 20 horses. So in their mind, the comparison became easy. Now you can't control a horse without a harness. Harness is basically the entire system of the collar and the buckle which basically allows you to control the horse. Now just like you need a harness for a really strong horse, you need a harness for AI as well. Without a",
+      "avg_logprob": -0.1146
+    },
+    {
+      "start_sec": 90.36,
+      "end_sec": 116.2,
+      "timestamp": "01:30",
+      "speech_text": "good harness, your AI will always waste time and money and go into directions you don't really want. And the entire subject of making and testing a harness is is called harness engineering. Now learning this new skill, which is not being taught properly anywhere, can help you enter the 0.1%. So like always, today we will teach you how to use your real intelligence to build a harness for artificial intelligence.",
+      "slide_ocr_text": "",
+      "combined_text": "good harness, your AI will always waste time and money and go into directions you don't really want. And the entire subject of making and testing a harness is is called harness engineering. Now learning this new skill, which is not being taught properly anywhere, can help you enter the 0.1%. So like always, today we will teach you how to use your real intelligence to build a harness for artificial intelligence.",
+      "avg_logprob": -0.1463
+    },
+    {
+      "start_sec": 116.44,
+      "end_sec": 144.02,
+      "timestamp": "01:56",
+      "speech_text": "So without further ado, let's get started. Thank you, Ansh. Now in this video, I'm going to tell you everything you need to know about harness engineering and how it is the most important step while you are trying to build AI products. Most people think that choosing the right AI model is the main feature of the AI product, but it's not. It's the harness. Let's understand harness with a simple definition. So harness engineering is designing the environment, tools, context, rules, as well as the state along with",
+      "slide_ocr_text": "",
+      "combined_text": "So without further ado, let's get started. Thank you, Ansh. Now in this video, I'm going to tell you everything you need to know about harness engineering and how it is the most important step while you are trying to build AI products. Most people think that choosing the right AI model is the main feature of the AI product, but it's not. It's the harness. Let's understand harness with a simple definition. So harness engineering is designing the environment, tools, context, rules, as well as the state along with",
+      "avg_logprob": -0.1229
+    },
+    {
+      "start_sec": 144.02,
+      "end_sec": 171.28,
+      "timestamp": "02:24",
+      "speech_text": "the feedback loops around these AI models. And this also helps you define the complete environment where your AI model will live. Now let's understand this with a simple example of a human body. Think about your own body for a second. You have a brain and that's where all the thinking happens. But imagine I take your brain and put it in a room by itself. It can think, it can reason, it can make decisions. But it can't actually do much in the real world. It needs the memory to",
+      "slide_ocr_text": "",
+      "combined_text": "the feedback loops around these AI models. And this also helps you define the complete environment where your AI model will live. Now let's understand this with a simple example of a human body. Think about your own body for a second. You have a brain and that's where all the thinking happens. But imagine I take your brain and put it in a room by itself. It can think, it can reason, it can make decisions. But it can't actually do much in the real world. It needs the memory to",
+      "avg_logprob": -0.0796
+    },
+    {
+      "start_sec": 171.28,
+      "end_sec": 198.34,
+      "timestamp": "02:51",
+      "speech_text": "remember what it has learned and what's happened before. It needs hands to interact with the real world. It needs the nervous system to coordinate everything that's happening. Now think about an AI model. The model is essentially the brain. It can reason, it can understand information, it can generate decisions. But the model alone isn't an AI product. It needs context, so it knows what's relevant. It needs tools, so it can actually do things. It needs orchestration,",
+      "slide_ocr_text": "",
+      "combined_text": "remember what it has learned and what's happened before. It needs hands to interact with the real world. It needs the nervous system to coordinate everything that's happening. Now think about an AI model. The model is essentially the brain. It can reason, it can understand information, it can generate decisions. But the model alone isn't an AI product. It needs context, so it knows what's relevant. It needs tools, so it can actually do things. It needs orchestration,",
+      "avg_logprob": -0.0942
+    },
+    {
+      "start_sec": 198.6,
+      "end_sec": 229.75,
+      "timestamp": "03:18",
+      "speech_text": "so it can coordinate multiple steps. It needs control, so it doesn't just do whatever it wants. And it needs feedback, so we can understand whether what it did actually worked. And that's what harness engineering is. If you understand harness engineering with the example of the human body you will understand it in a much better way Now let understand what is the main difference between prompt engineering context engineering and the new term the harness engineering So in prompt engineering you actually define your AI model of what it needs to do It a one or a two",
+      "slide_ocr_text": "",
+      "combined_text": "so it can coordinate multiple steps. It needs control, so it doesn't just do whatever it wants. And it needs feedback, so we can understand whether what it did actually worked. And that's what harness engineering is. If you understand harness engineering with the example of the human body you will understand it in a much better way Now let understand what is the main difference between prompt engineering context engineering and the new term the harness engineering So in prompt engineering you actually define your AI model of what it needs to do It a one or a two",
+      "avg_logprob": -0.1249
+    },
+    {
+      "start_sec": 229.75,
+      "end_sec": 258.37,
+      "timestamp": "03:49",
+      "speech_text": "system in which you actually leave the command and it responds back. The second one is the context engineering. It enables your AI model to see what is happening around to get more context about your documents and how things actually work. Using the context it answers you in the much better way. But now we have the harness engineering example. In this you are the one who can actually build the entire environment around your AI model so that it can have the context along with the tools",
+      "slide_ocr_text": "",
+      "combined_text": "system in which you actually leave the command and it responds back. The second one is the context engineering. It enables your AI model to see what is happening around to get more context about your documents and how things actually work. Using the context it answers you in the much better way. But now we have the harness engineering example. In this you are the one who can actually build the entire environment around your AI model so that it can have the context along with the tools",
+      "avg_logprob": -0.0801
+    },
+    {
+      "start_sec": 258.37,
+      "end_sec": 284.33,
+      "timestamp": "04:18",
+      "speech_text": "actually required to get your work done. Now if you are planning to build actual AI products or AI agents it's very important for you to make it on the harness engineering fundamentals because if you are trying to run something for a long enough time the agent is supposed to break and it's your duty to build the environment around it in such a way that it does not break. It can have guardrails, it can have security, it can have the feedback loops or the iteration loops that it can retry",
+      "slide_ocr_text": "",
+      "combined_text": "actually required to get your work done. Now if you are planning to build actual AI products or AI agents it's very important for you to make it on the harness engineering fundamentals because if you are trying to run something for a long enough time the agent is supposed to break and it's your duty to build the environment around it in such a way that it does not break. It can have guardrails, it can have security, it can have the feedback loops or the iteration loops that it can retry",
+      "avg_logprob": -0.0619
+    },
+    {
+      "start_sec": 284.33,
+      "end_sec": 310.97,
+      "timestamp": "04:44",
+      "speech_text": "by itself. So in that way you are not prompting it again and again, you are not giving the context again and again, you are just building better systems of how it performs. And the best thing is that you have been using harness engineering for a long time now. Let's take an example of Claude. So Claude has three interfaces. One is chat, one is co-work and the third one is code. All these interfaces, all the environments have the same model. Only thing that changes is the environment.",
+      "slide_ocr_text": "",
+      "combined_text": "by itself. So in that way you are not prompting it again and again, you are not giving the context again and again, you are just building better systems of how it performs. And the best thing is that you have been using harness engineering for a long time now. Let's take an example of Claude. So Claude has three interfaces. One is chat, one is co-work and the third one is code. All these interfaces, all the environments have the same model. Only thing that changes is the environment.",
+      "avg_logprob": -0.0771
+    },
+    {
+      "start_sec": 311.19,
+      "end_sec": 338.19,
+      "timestamp": "05:11",
+      "speech_text": "So for example, in chat, you can simply ask Claude questions and then it can give you the answer back by doing some kind of web research and everything. So this is one of the interfaces or one of the environments that your model is working on. The second environment or the harness is Cloud Cowork. In this, you can actually connect your skills and your work tools so that Cloud can do the work for you. It can actually access those work applications so that it can perform each and every task on your",
+      "slide_ocr_text": "",
+      "combined_text": "So for example, in chat, you can simply ask Claude questions and then it can give you the answer back by doing some kind of web research and everything. So this is one of the interfaces or one of the environments that your model is working on. The second environment or the harness is Cloud Cowork. In this, you can actually connect your skills and your work tools so that Cloud can do the work for you. It can actually access those work applications so that it can perform each and every task on your",
+      "avg_logprob": -0.0897
+    },
+    {
+      "start_sec": 338.19,
+      "end_sec": 366.17,
+      "timestamp": "05:38",
+      "speech_text": "behalf and at the end, wait for your approval to get things done. And the third environment is the Cloud Code. So in Cloud Code, the model remains the same, but the ability to interact with your system, with your command prompt, with your internal tools and your coding environments completely changes. It is the enhanced version of Cloud Chat but just in a better harness and a better environment. And if you use ChatGPT on daily purpose, it is the same example. The ChatGPT work",
+      "slide_ocr_text": "",
+      "combined_text": "behalf and at the end, wait for your approval to get things done. And the third environment is the Cloud Code. So in Cloud Code, the model remains the same, but the ability to interact with your system, with your command prompt, with your internal tools and your coding environments completely changes. It is the enhanced version of Cloud Chat but just in a better harness and a better environment. And if you use ChatGPT on daily purpose, it is the same example. The ChatGPT work",
+      "avg_logprob": -0.0887
+    },
+    {
+      "start_sec": 366.17,
+      "end_sec": 393.65,
+      "timestamp": "06:06",
+      "speech_text": "is another environment and Codex is a different environment by itself. So these are different environments where the same model lives but it behaves in a much better way. And all this is possible because of the harness. Now every harness can be divided into five pillars. The first pillar is the context. It can be context engineering, memory, reg, retrieval, knowledge as well as instructions. If you had to relate this with your human body it becomes the eyes and the memory.",
+      "slide_ocr_text": "",
+      "combined_text": "is another environment and Codex is a different environment by itself. So these are different environments where the same model lives but it behaves in a much better way. And all this is possible because of the harness. Now every harness can be divided into five pillars. The first pillar is the context. It can be context engineering, memory, reg, retrieval, knowledge as well as instructions. If you had to relate this with your human body it becomes the eyes and the memory.",
+      "avg_logprob": -0.0853
+    },
+    {
+      "start_sec": 393.65,
+      "end_sec": 421.69,
+      "timestamp": "06:33",
+      "speech_text": "The second pillar is the action. It covers tools, MCPs which is the model context protocol, APIs, browser access, code, execution and different files that your model can access. If you had to relate this to the human body analogy, then it becomes hands and your limbs that actually does the job for you. Third one is the orchestration. It involves planning, loops, state, task, decomposition, checkpoints, sub-agents and even workflows.",
+      "slide_ocr_text": "",
+      "combined_text": "The second pillar is the action. It covers tools, MCPs which is the model context protocol, APIs, browser access, code, execution and different files that your model can access. If you had to relate this to the human body analogy, then it becomes hands and your limbs that actually does the job for you. Third one is the orchestration. It involves planning, loops, state, task, decomposition, checkpoints, sub-agents and even workflows.",
+      "avg_logprob": -0.1055
+    },
+    {
+      "start_sec": 422.05,
+      "end_sec": 448.58,
+      "timestamp": "07:02",
+      "speech_text": "For your human body, it is your nervous system that coordinates signals and actions across the body. The fourth one is the control, which is guardrails, permissions, validations, approvals. For your human body it is the immune system and reflexes that prevents us from harmful actions and response when something goes wrong And the last pillar is the feedback which is evals tracing logs monitoring errors signals as well as latency.",
+      "slide_ocr_text": "",
+      "combined_text": "For your human body, it is your nervous system that coordinates signals and actions across the body. The fourth one is the control, which is guardrails, permissions, validations, approvals. For your human body it is the immune system and reflexes that prevents us from harmful actions and response when something goes wrong And the last pillar is the feedback which is evals tracing logs monitoring errors signals as well as latency.",
+      "avg_logprob": -0.1298
+    },
+    {
+      "start_sec": 448.58,
+      "end_sec": 478.3,
+      "timestamp": "07:28",
+      "speech_text": "For your human body, it is vital as well as signs that everything is going right or wrong. And it constantly tells the body what's working, what's not working and what needs the attention. So every time you are trying to build an AI agent or the harness around it, you need to work on these five pillars. So now we have understood each and every concept and the basic five pillars of harness engineering. Now let's build the actual harness framework around our AI model and for this we will be using the open source framework of the harness released by DeepSeek.",
+      "slide_ocr_text": "",
+      "combined_text": "For your human body, it is vital as well as signs that everything is going right or wrong. And it constantly tells the body what's working, what's not working and what needs the attention. So every time you are trying to build an AI agent or the harness around it, you need to work on these five pillars. So now we have understood each and every concept and the basic five pillars of harness engineering. Now let's build the actual harness framework around our AI model and for this we will be using the open source framework of the harness released by DeepSeek.",
+      "avg_logprob": -0.1282
+    },
+    {
+      "start_sec": 478.42,
+      "end_sec": 505.32,
+      "timestamp": "07:58",
+      "speech_text": "Now because cloud code and codex already exist I want you to build your own agentic harness framework from scratch and DeepSeek actually helps us do it. So this is the open source repository. you can directly go to your GitHub and then this has the complete code. This is the custom open source agent harness framework that you can directly use. You can use any model with it and the main concept around it is that everything is a plugin which means that you can change your tools,",
+      "slide_ocr_text": "",
+      "combined_text": "Now because cloud code and codex already exist I want you to build your own agentic harness framework from scratch and DeepSeek actually helps us do it. So this is the open source repository. you can directly go to your GitHub and then this has the complete code. This is the custom open source agent harness framework that you can directly use. You can use any model with it and the main concept around it is that everything is a plugin which means that you can change your tools,",
+      "avg_logprob": -0.0932
+    },
+    {
+      "start_sec": 505.48,
+      "end_sec": 536.1,
+      "timestamp": "08:25",
+      "speech_text": "you can change your front end, you can change your components, you can change your security using this framework and this is the easiest one to set up. So let's get started. You simply go to this URL. You search for GitHub repository. Now once you are into this GitHub repository, all you need to do is scroll down and you'll find each and every command to set it up. Now don't worry if you are not technical. You can directly go at the starting, choose this drop down menu, and simply copy this. After copying, you can go to your plot code or codex, simply paste this command",
+      "slide_ocr_text": "",
+      "combined_text": "you can change your front end, you can change your components, you can change your security using this framework and this is the easiest one to set up. So let's get started. You simply go to this URL. You search for GitHub repository. Now once you are into this GitHub repository, all you need to do is scroll down and you'll find each and every command to set it up. Now don't worry if you are not technical. You can directly go at the starting, choose this drop down menu, and simply copy this. After copying, you can go to your plot code or codex, simply paste this command",
+      "avg_logprob": -0.1053
+    },
+    {
+      "start_sec": 536.1,
+      "end_sec": 561.52,
+      "timestamp": "08:56",
+      "speech_text": "and say set this up. Now till this is being done, we can simply go to the deep seek again and understand what this framework actually does. So it says that harness is what keep agents working in real world environments. And this is exactly what we learned today. It works on these three components and it says that everything can act as a plugin. So for example, you have plugins inside each and every framework.",
+      "slide_ocr_text": "",
+      "combined_text": "and say set this up. Now till this is being done, we can simply go to the deep seek again and understand what this framework actually does. So it says that harness is what keep agents working in real world environments. And this is exactly what we learned today. It works on these three components and it says that everything can act as a plugin. So for example, you have plugins inside each and every framework.",
+      "avg_logprob": -0.1574
+    },
+    {
+      "start_sec": 561.7,
+      "end_sec": 587.8,
+      "timestamp": "09:21",
+      "speech_text": "You can change this, update it or even delete it. Every run is traceable, which means that you can actually monitor your AI model or the agent running under this harness. And the last one is the multiple running modes, which means that you can define your mode between standard code mode and the creator mode. Using creator mode I'll show you how you can actually make changes to the actual harness look and this is a demo video of how you can customize your deep seek harness and you can directly",
+      "slide_ocr_text": "",
+      "combined_text": "You can change this, update it or even delete it. Every run is traceable, which means that you can actually monitor your AI model or the agent running under this harness. And the last one is the multiple running modes, which means that you can define your mode between standard code mode and the creator mode. Using creator mode I'll show you how you can actually make changes to the actual harness look and this is a demo video of how you can customize your deep seek harness and you can directly",
+      "avg_logprob": -0.1278
+    },
+    {
+      "start_sec": 587.8,
+      "end_sec": 613.12,
+      "timestamp": "09:47",
+      "speech_text": "download it from this resource or join the community to understand more and don't worry we'll be sharing this link in the description so that you can directly go to it and download it. So now you can see that it has completed the execution. I only had to command that start the server after the setup was done and it has now given me a url that works on my local system so i have now created or cloned a agentic framework system that works on the harness engineering",
+      "slide_ocr_text": "",
+      "combined_text": "download it from this resource or join the community to understand more and don't worry we'll be sharing this link in the description so that you can directly go to it and download it. So now you can see that it has completed the execution. I only had to command that start the server after the setup was done and it has now given me a url that works on my local system so i have now created or cloned a agentic framework system that works on the harness engineering",
+      "avg_logprob": -0.0788
+    },
+    {
+      "start_sec": 613.12,
+      "end_sec": 642.3,
+      "timestamp": "10:13",
+      "speech_text": "inside my own machine now if i simply copy this url and open it up on a new tab this is what i see there is one internal testing notice i'll click on continue and it says that add an api to get started it says configure the official leapsick provider to start building i can click on configure later and this is how the interface looks like now you can see that it is not plot code or codex but somewhat similar on the left side you have workspaces there is no new session if i prompt",
+      "slide_ocr_text": "",
+      "combined_text": "inside my own machine now if i simply copy this url and open it up on a new tab this is what i see there is one internal testing notice i'll click on continue and it says that add an api to get started it says configure the official leapsick provider to start building i can click on configure later and this is how the interface looks like now you can see that it is not plot code or codex but somewhat similar on the left side you have workspaces there is no new session if i prompt",
+      "avg_logprob": -0.0703
+    },
+    {
+      "start_sec": 642.3,
+      "end_sec": 667.66,
+      "timestamp": "10:42",
+      "speech_text": "it anything it saves me that please select a folder i can directly click on new folder and say that demo one and click on create now it will work inside this folder only as mentioned in the documentation we have standard mode PTC mode minimal mode as well as creator mode Inside creator mode we can build and create custom agent workflows and plugins inside our own Agent Harness framework",
+      "slide_ocr_text": "",
+      "combined_text": "it anything it saves me that please select a folder i can directly click on new folder and say that demo one and click on create now it will work inside this folder only as mentioned in the documentation we have standard mode PTC mode minimal mode as well as creator mode Inside creator mode we can build and create custom agent workflows and plugins inside our own Agent Harness framework",
+      "avg_logprob": -0.1339
+    },
+    {
+      "start_sec": 668.18,
+      "end_sec": 696.78,
+      "timestamp": "11:08",
+      "speech_text": "And let's see how this works. If I say hi, it says that the configured is not done as of now. You need an API key to get started. Now this is the power of Harness. If I don't want to use DeepSeek and I want to use OpenAI's model inside my Agent Harness framework, then I can directly use that too. For that, you can simply go to platform.openai.com and then directly go to API keys. You can simply click on create new key. Enter your key name as the use case of what you are trying to build.",
+      "slide_ocr_text": "",
+      "combined_text": "And let's see how this works. If I say hi, it says that the configured is not done as of now. You need an API key to get started. Now this is the power of Harness. If I don't want to use DeepSeek and I want to use OpenAI's model inside my Agent Harness framework, then I can directly use that too. For that, you can simply go to platform.openai.com and then directly go to API keys. You can simply click on create new key. Enter your key name as the use case of what you are trying to build.",
+      "avg_logprob": -0.1767
+    },
+    {
+      "start_sec": 697.2,
+      "end_sec": 727.02,
+      "timestamp": "11:37",
+      "speech_text": "So I'll enter DeepSeek Harness Demo and then choose your project. Select the expiration. I'll select one day for now. and click on create key. Now it's very important for you to keep your key secure and give the right name. Once done I can simply copy this key go back to my dashboard go back to settings and I'll see models. Inside models I can add a provider as well. So from providers I can choose openai",
+      "slide_ocr_text": "",
+      "combined_text": "So I'll enter DeepSeek Harness Demo and then choose your project. Select the expiration. I'll select one day for now. and click on create key. Now it's very important for you to keep your key secure and give the right name. Once done I can simply copy this key go back to my dashboard go back to settings and I'll see models. Inside models I can add a provider as well. So from providers I can choose openai",
+      "avg_logprob": -0.1327
+    },
+    {
+      "start_sec": 727.02,
+      "end_sec": 755.12,
+      "timestamp": "12:07",
+      "speech_text": "and inside openai I can directly enter my api key and click on apply and now my openai model is life let's see how it works if I exit the setting start a new session and then say hi change the model from deep seek to gpt4 or gpt 4.1 so now we have a response and you were able to set up this harness framework inside your local system you are able to use a different model which defines",
+      "slide_ocr_text": "",
+      "combined_text": "and inside openai I can directly enter my api key and click on apply and now my openai model is life let's see how it works if I exit the setting start a new session and then say hi change the model from deep seek to gpt4 or gpt 4.1 so now we have a response and you were able to set up this harness framework inside your local system you are able to use a different model which defines",
+      "avg_logprob": -0.0903
+    },
+    {
+      "start_sec": 755.12,
+      "end_sec": 783.98,
+      "timestamp": "12:35",
+      "speech_text": "each and everything that we learned in this video which means that everything can act as a plugin your ability to create systems now becomes important. So let us see what all settings do we have. If I go to settings these are models plugins if I go to plugins I can open configuration file and make changes to it. I can go to shell agent loop subagent web search etc. There is a plugin list as well so I can choose any plugin like tool and make changes to it. So for cloud",
+      "slide_ocr_text": "",
+      "combined_text": "each and everything that we learned in this video which means that everything can act as a plugin your ability to create systems now becomes important. So let us see what all settings do we have. If I go to settings these are models plugins if I go to plugins I can open configuration file and make changes to it. I can go to shell agent loop subagent web search etc. There is a plugin list as well so I can choose any plugin like tool and make changes to it. So for cloud",
+      "avg_logprob": -0.0882
+    },
+    {
+      "start_sec": 783.98,
+      "end_sec": 812.7,
+      "timestamp": "13:03",
+      "speech_text": "and openai or codex you don't have access to these changes directly. This is what they've already done and you are using their own harness framework but for your own usage. Now I was also trying out few things at the end but let's also see what all is possible using this plugin framework. So if I go to the official DeepSeek website, they have an interesting demo that what all you can build with this agentic harness framework. So you can also change the UI so there is a floating whale in the app.",
+      "slide_ocr_text": "",
+      "combined_text": "and openai or codex you don't have access to these changes directly. This is what they've already done and you are using their own harness framework but for your own usage. Now I was also trying out few things at the end but let's also see what all is possible using this plugin framework. So if I go to the official DeepSeek website, they have an interesting demo that what all you can build with this agentic harness framework. So you can also change the UI so there is a floating whale in the app.",
+      "avg_logprob": -0.1485
+    },
+    {
+      "start_sec": 812.7,
+      "end_sec": 837.8,
+      "timestamp": "13:32",
+      "speech_text": "So this is like having a pet inside codex. You can also create a snake game plugin which means that if you directly say that add a playable snake game in the creator mode, it will actually build this game inside your own screen and will change the UI for you. And this is how it will look which means that model is no longer the main thing inside your AI products or AI application.",
+      "slide_ocr_text": "",
+      "combined_text": "So this is like having a pet inside codex. You can also create a snake game plugin which means that if you directly say that add a playable snake game in the creator mode, it will actually build this game inside your own screen and will change the UI for you. And this is how it will look which means that model is no longer the main thing inside your AI products or AI application.",
+      "avg_logprob": -0.1641
+    },
+    {
+      "start_sec": 837.8,
+      "end_sec": 863.44,
+      "timestamp": "13:57",
+      "speech_text": "It's your harness and the better you can give the context, make the five pillars, the better it performs. So this is how you set up your own agent harness framework inside your own local system. And this is exactly what you should try out today. Set up this deep seek harness framework inside your local system, make changes to your UI, add few plugins or actually use the framework commands. So I strongly believe that harness engineering will definitely change how AI products are",
+      "slide_ocr_text": "",
+      "combined_text": "It's your harness and the better you can give the context, make the five pillars, the better it performs. So this is how you set up your own agent harness framework inside your own local system. And this is exactly what you should try out today. Set up this deep seek harness framework inside your local system, make changes to your UI, add few plugins or actually use the framework commands. So I strongly believe that harness engineering will definitely change how AI products are",
+      "avg_logprob": -0.1465
+    },
+    {
+      "start_sec": 863.44,
+      "end_sec": 875.92,
+      "timestamp": "14:23",
+      "speech_text": "now built. Let us know your thoughts in the comments if you think the same. And don't forget to like, share and subscribe and stay tuned for the next upcoming agentic videos. Thank you so much for staying till the end and thank you for watching.",
+      "slide_ocr_text": "",
+      "combined_text": "now built. Let us know your thoughts in the comments if you think the same. And don't forget to like, share and subscribe and stay tuned for the next upcoming agentic videos. Thank you so much for staying till the end and thank you for watching.",
+      "avg_logprob": -0.1566
+    }
+  ],
+  "ocr_slides": [],
+  "step_timings": {
+    "metadata_fetch_sec": 3.54,
+    "audio_download_sec": 8.02,
+    "whisper_asr_sec": 13.36,
+    "transcription_mode": "groq_whisper_audio",
+    "window_merge_sec": 0.0,
+    "total_ingestion_sec": 24.93
+  },
+  "from_cache": false
+}
