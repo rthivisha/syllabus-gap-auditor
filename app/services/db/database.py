@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.pool import NullPool
 from app.config import get_settings
@@ -35,10 +35,25 @@ SessionLocal = sessionmaker(bind=runtime_engine, autoflush=False, autocommit=Fal
 
 
 def init_db() -> None:
-    """Creates all PostgreSQL tables idempotently on startup."""
+    """Creates tables and applies additive document-metadata upgrades."""
     from app.services.db import models  # noqa: F401
 
     Base.metadata.create_all(bind=direct_engine)
+    with direct_engine.begin() as connection:
+        connection.execute(
+            text(
+                "ALTER TABLE documents "
+                "ADD COLUMN IF NOT EXISTS suggested_questions_json "
+                "JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
+        )
+        connection.execute(
+            text(
+                "ALTER TABLE documents "
+                "ADD COLUMN IF NOT EXISTS index_version "
+                "INTEGER NOT NULL DEFAULT 1"
+            )
+        )
 
 
 @contextmanager

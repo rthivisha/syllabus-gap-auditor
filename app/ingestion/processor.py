@@ -2,7 +2,7 @@ import hashlib
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from app.config import get_settings
 from app.ingestion.chunking.splitter import build_hierarchical_chunks
@@ -10,6 +10,8 @@ from app.ingestion.loaders.pdf_loader import load_pdf_sections
 from app.ingestion.loaders.video_loader import extract_video_id, parse_video_source
 from app.services.db.repository import log_audit_event, save_document_record
 from app.services.retrieval.pinecone_service import PineconeService
+
+PDF_INDEX_VERSION = 2
 
 
 def _compute_doc_id(file_path: Path) -> str:
@@ -21,7 +23,11 @@ def _compute_doc_id(file_path: Path) -> str:
 
 
 def ingest_pdf_document(
-    pdf_path: Path, uploaded_by: str = "default_user"
+    pdf_path: Path,
+    uploaded_by: str = "default_user",
+    suggested_questions_generator: Optional[
+        Callable[[str, List[Dict[str, Any]]], List[str]]
+    ] = None,
 ) -> Dict[str, Any]:
     """
     Step 0 Instant PDF Ingestion:
@@ -40,6 +46,7 @@ def ingest_pdf_document(
         file_path=str(pdf_path),
         uploaded_by=uploaded_by,
         status="processing",
+        index_version=PDF_INDEX_VERSION,
     )
     print(f"[INGEST START] {doc_name} (doc_id={doc_id})")
 
@@ -67,6 +74,11 @@ def ingest_pdf_document(
             child_chunks=child_chunks,
             section_summaries=section_summaries,
         )
+        suggested_questions = (
+            suggested_questions_generator(doc_name, child_chunks)
+            if suggested_questions_generator
+            else []
+        )
 
         out_json = settings.PROCESSED_BOOKS_DIR / f"{doc_id}.json"
         out_json.write_text(
@@ -74,9 +86,11 @@ def ingest_pdf_document(
                 {
                     "doc_id": doc_id,
                     "doc_name": doc_name,
+                    "index_version": PDF_INDEX_VERSION,
                     "page_count": page_count,
                     "sections": section_summaries,
                     "chunk_count": len(child_chunks),
+                    "suggested_questions": suggested_questions,
                 },
                 indent=2,
             ),
@@ -90,8 +104,10 @@ def ingest_pdf_document(
             page_count=page_count,
             chunk_count=len(child_chunks),
             sections=section_summaries,
+            suggested_questions=suggested_questions,
             uploaded_by=uploaded_by,
             status="ready",
+            index_version=PDF_INDEX_VERSION,
         )
         log_audit_event(
             action="document_ingested",
@@ -110,10 +126,13 @@ def ingest_pdf_document(
         return {
             "doc_id": doc_id,
             "doc_name": doc_name,
+            "index_version": PDF_INDEX_VERSION,
             "page_count": page_count,
             "section_count": len(sections),
             "chunk_count": len(child_chunks),
             "vector_count": vector_count,
+            "sections": section_summaries,
+            "suggested_questions": suggested_questions,
             "status": "ready",
         }
     except Exception as exc:
@@ -127,6 +146,7 @@ def ingest_pdf_document(
             ],
             uploaded_by=uploaded_by,
             status="failed",
+            index_version=PDF_INDEX_VERSION,
         )
         raise
 

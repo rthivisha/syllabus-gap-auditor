@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 from app.config import get_settings
-from app.gateway.client import get_extraction_llm
+from app.gateway.client import get_structured_extraction_llm
 
 
 class ScopeDecision(BaseModel):
@@ -45,7 +45,7 @@ def resolve_audit_scope(
         for s in doc_sections[:30]
     )
 
-    llm = get_extraction_llm().with_structured_output(ScopeDecision)
+    llm = get_structured_extraction_llm(ScopeDecision)
     sys_prompt = (
         f"{load_agents_contract()}\n\n"
         "You are the Conversational Scope Router.\n"

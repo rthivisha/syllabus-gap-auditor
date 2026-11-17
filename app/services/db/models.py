@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from app.services.db.database import Base
@@ -24,9 +24,15 @@ class DocumentRecord(Base):
     file_path: Mapped[str] = mapped_column(Text, nullable=False)
     page_count: Mapped[int] = mapped_column(Integer, default=0)
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
+    index_version: Mapped[int] = mapped_column(
+        Integer, default=1, server_default=text("1"), nullable=False
+    )
     sections_json: Mapped[list] = mapped_column(
         JSONB, default=list
     )  # Extracted TOC / section titles + page spans
+    suggested_questions_json: Mapped[list] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'::jsonb")
+    )
     status: Mapped[str] = mapped_column(String(32), default="ready")
     uploaded_by: Mapped[str] = mapped_column(String(100), default="default_user")
     created_at: Mapped[datetime] = mapped_column(

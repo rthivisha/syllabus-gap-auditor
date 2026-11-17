@@ -1,82 +1,105 @@
-import json
-import time
-from typing import Any, Dict
-from langchain_core.messages import HumanMessage, SystemMessage
-from app.agents.nodes.scope_router import load_agents_contract
-from app.agents.state import AuditGraphState, EvaluatorVerdict
+from typing import Any, Dict, List
+
+from app.agents.nodes.grounding import match_citation, normalize_citation_records
+from app.agents.state import AuditGraphState
 from app.config import get_settings
-from app.gateway.client import get_auditor_llm
+from app.services.job_tracker import set_job_stage
 
 
 def load_skills_rubric() -> str:
-    """Progressive Disclosure: loads `skills/skills.md` ONLY inside Evaluator & Repair nodes."""
+    """Load the verification and repair policy for the Evaluator and Repair nodes."""
     path = get_settings().SKILLS_MD_PATH
-    return path.read_text(encoding="utf-8") if path.exists() else ""
+    return path.read_text(encoding="utf-8")
 
 
 def evaluator_critic_node(state: AuditGraphState) -> Dict[str, Any]:
-    """
-    Step 4.2 Evaluator Node:
-      - Dynamically loads `skills/skills.md` rubric.
-      - Runs deterministic chunk-ID grounding check + LLM rubric audit.
-      - Outputs PASS or FAIL with actionable `evaluation_notes`.
-    """
-    t0 = time.perf_counter()
-    step_timings = dict(state.get("step_timings") or {})
-    draft = state.get("draft_missed_topics", [])
-    valid_chunk_ids = {c["chunk_id"] for c in state.get("candidate_gaps", [])} | {
-        c["chunk_id"] for c in state.get("cited_chunks", [])
-    }
+    """Pass grounded drafts immediately; otherwise request one targeted repair."""
+    session_id = state.get("session_id", "")
+    set_job_stage(session_id, "4/4 Verifying missed topics against retrieved PDF chunks...")
 
-    # 1. Deterministic Closed-World Chunk ID Check
-    ungrounded = [
-        d["topic_title"]
-        for d in draft
-        if valid_chunk_ids and d.get("chunk_id") not in valid_chunk_ids
-    ]
-    if ungrounded:
-        step_timings["evaluator_sec"] = round(time.perf_counter() - t0, 2)
+    evidence = normalize_citation_records(
+        state.get("retrieved_evidence")
+        or state.get("retrieved_sections")
+        or state.get("candidate_gaps")
+        or state.get("cited_chunks")
+        or []
+    )
+    retrieved = (
+        state.get("retrieved_evidence")
+        or state.get("retrieved_sections")
+        or state.get("candidate_gaps")
+        or []
+    )
+    drafted = (
+        state.get("drafted_gaps")
+        or state.get("draft_missed_topics")
+        or state.get("missed_topics")
+        or []
+    )
+    issues: List[str] = []
+    invalid_topics: List[str] = []
+
+    if not drafted:
+        if len(retrieved) >= 3:
+            issues.append(
+                "Zero missed topics were drafted despite retrieving at least three "
+                "textbook sections. Re-examine retrieved_evidence for specific "
+                "mechanisms omitted from the video."
+            )
+        else:
+            issues.append(
+                "No missed topics were drafted. Re-examine retrieved_evidence and "
+                "add only concepts that the video skipped or did not explain."
+            )
+
+    for item in drafted:
+        if match_citation(item, evidence) is None:
+            topic_title = str(item.get("topic_title") or "Untitled topic")
+            invalid_topics.append(topic_title)
+            issues.append(
+                f"Topic '{topic_title}' must cite an exact retrieved chunk_id, "
+                "section_title, and page_number; supplied citation was "
+                f"({item.get('chunk_id')!r}, {item.get('section_title')!r}, "
+                f"{item.get('page_number')!r})."
+            )
+
+    step_timings = dict(state.get("step_timings") or {})
+    step_timings["evaluator_sec"] = 0.0
+    if not issues:
+        set_job_stage(session_id, "4/4 Verified missed-topic citations.")
         return {
-            "evaluator_verdict": "FAIL",
-            "evaluator_confidence": 0.40,
-            "evaluation_notes": f"FAIL [RULE_02_GROUNDEDNESS]: Ungrounded chunk_ids for topics: {ungrounded}. Remove or remap to valid retrieved chunk IDs.",
-            "flagged_topics": ungrounded,
+            "draft_missed_topics": drafted,
+            "drafted_gaps": drafted,
+            "missed_topics": drafted,
+            "evaluator_passed": True,
+            "evaluator_verdict": "PASS",
+            "evaluator_confidence": 1.0,
+            "evaluation_notes": (
+                f"All {len(drafted)} missed topics exactly match retrieved evidence."
+            ),
+            "flagged_topics": [],
+            "evaluator_mode": "grounding_fast_pass",
             "step_timings": step_timings,
         }
 
-    # 2. LLM Rubric Audit governed by `skills.md`
-    all_slide_ocr = "\n".join(
-        f"[{s['timestamp']}] {s['text']}" for s in state.get("ocr_slides", [])[:50]
-    )
-    all_speech = "\n".join(
-        f"[{w['timestamp']}] {w['speech_text']}"
-        for w in state.get("video_windows", [])[:40]
-    )
-
-    llm = get_auditor_llm().with_structured_output(EvaluatorVerdict)
-    sys_prompt = (
-        f"{load_agents_contract()}\n\n"
-        "=== LOADED EVALUATION RUBRIC (skills.md) ===\n"
-        f"{load_skills_rubric()}\n\n"
-        "Audit the Worker's drafted Missed Topics list strictly against every rule in skills.md.\n"
-        "Return verdict='PASS' only if all rules pass. Otherwise return verdict='FAIL' with specific, actionable remediation instructions in evaluation_notes."
-    )
-
-    user_prompt = (
-        f"Drafted Missed Topics:\n{json.dumps(draft, indent=2)}\n\n"
-        f"Raw Video Slide OCR:\n{all_slide_ocr[:4000]}\n\n"
-        f"Spoken Video Transcript:\n{all_speech[:4000]}"
-    )
-
-    verdict_obj: EvaluatorVerdict = llm.invoke(
-        [SystemMessage(content=sys_prompt), HumanMessage(content=user_prompt)]
-    )
-    step_timings["evaluator_sec"] = round(time.perf_counter() - t0, 2)
-
+    flagged_topics = list(dict.fromkeys(invalid_topics))
+    if not flagged_topics:
+        flagged_topics = list(
+            dict.fromkeys(
+                str(record.get("section_title") or "")
+                for record in retrieved
+                if record.get("section_title")
+            )
+        )[:5]
     return {
-        "evaluator_verdict": verdict_obj.verdict.upper(),
-        "evaluator_confidence": verdict_obj.confidence_score,
-        "evaluation_notes": verdict_obj.evaluation_notes,
-        "flagged_topics": verdict_obj.flagged_topics,
+        "draft_missed_topics": drafted,
+        "drafted_gaps": drafted,
+        "missed_topics": drafted,
+        "evaluator_passed": False,
+        "evaluator_verdict": "FAIL",
+        "evaluator_confidence": 0.0,
+        "evaluation_notes": " ".join(issues),
+        "flagged_topics": flagged_topics,
+        "evaluator_mode": "grounding_repair_required",
         "step_timings": step_timings,
     }

@@ -1,0 +1,756 @@
+{
+  "doc_id": "harness-engineering-e81b5a4855ad",
+  "doc_name": "harness engineering.pdf",
+  "page_count": 83,
+  "sections": [
+    {
+      "section_idx": 1,
+      "section_title": "Introduction",
+      "start_page": 2,
+      "end_page": 3,
+      "summary": "Keywords: harness engineering, coding agents, LLM agents, agent architecture, platformization,\ntool use, multi-agent systems, MCP, agent skills\n1\nIntroduction\nAn agent is a model plus a harness. The model supplies the intelligence; the harness turns that\nintelligence into work through a loop, tools, context management, safety controls, orchestration, and\nextension surfaces. In the span of five months, harness engineering went from a phrase coined in\na vendor blog post to a discipline with practitioner guides, formal definitions, automated-evolution\nsystems, and its own arXiv genealogy (Section 2.1). What the discipline does not yet have is a\nreference: an account, grounded in production source code, of what a harness actually is, what it\nis made of, and how the field\u2019s leading implementations differ. This paper is that reference, and it\narrives with a thesis: the harness has stopped bein"
+    },
+    {
+      "section_idx": 2,
+      "section_title": "What Is a Harness?",
+      "start_page": 3,
+      "end_page": 3,
+      "summary": "marketplaces with supply-chain security, cross-vendor session importers, mobile-device-management\n(MDM) governance, the agent-as-a-model gateway, and a source-level analysis of the first meta-\nharness. The analysis condenses, finally, into a practitioner\u2019s guide of 18 design recommendations,\neach anchored in a cited observation and a system that implements it, plus a 90-line minimum-\nviable-harness scaffold that realizes ten of them directly and is compatible with the rest.\nThe rest of the paper proceeds as follows. Section 2 defines the harness and its seven subsys-\ntems. Section 3 surveys related work and the 2026 landscape. Section 4 sets out the methodology;\nSection 5 gives the system overview. Sections 6\u201312 dissect the seven subsystems across the cor-\npus. Section 13 ties the cross-cutting observations together. Section 14 develops the platform-turn\nthesis, including the meta-harnes"
+    },
+    {
+      "section_idx": 3,
+      "section_title": "Definition and Genealogy",
+      "start_page": 3,
+      "end_page": 3,
+      "summary": "marketplaces with supply-chain security, cross-vendor session importers, mobile-device-management\n(MDM) governance, the agent-as-a-model gateway, and a source-level analysis of the first meta-\nharness. The analysis condenses, finally, into a practitioner\u2019s guide of 18 design recommendations,\neach anchored in a cited observation and a system that implements it, plus a 90-line minimum-\nviable-harness scaffold that realizes ten of them directly and is compatible with the rest.\nThe rest of the paper proceeds as follows. Section 2 defines the harness and its seven subsys-\ntems. Section 3 surveys related work and the 2026 landscape. Section 4 sets out the methodology;\nSection 5 gives the system overview. Sections 6\u201312 dissect the seven subsystems across the cor-\npus. Section 13 ties the cross-cutting observations together. Section 14 develops the platform-turn\nthesis, including the meta-harnes"
+    },
+    {
+      "section_idx": 4,
+      "section_title": "What a Harness Is Not",
+      "start_page": 3,
+      "end_page": 4,
+      "summary": "marketplaces with supply-chain security, cross-vendor session importers, mobile-device-management\n(MDM) governance, the agent-as-a-model gateway, and a source-level analysis of the first meta-\nharness. The analysis condenses, finally, into a practitioner\u2019s guide of 18 design recommendations,\neach anchored in a cited observation and a system that implements it, plus a 90-line minimum-\nviable-harness scaffold that realizes ten of them directly and is compatible with the rest.\nThe rest of the paper proceeds as follows. Section 2 defines the harness and its seven subsys-\ntems. Section 3 surveys related work and the 2026 landscape. Section 4 sets out the methodology;\nSection 5 gives the system overview. Sections 6\u201312 dissect the seven subsystems across the cor-\npus. Section 13 ties the cross-cutting observations together. Section 14 develops the platform-turn\nthesis, including the meta-harnes"
+    },
+    {
+      "section_idx": 5,
+      "section_title": "The Seven Subsystems",
+      "start_page": 4,
+      "end_page": 5,
+      "summary": "\u2022 A harness is not a scaffold\u2014quite. The two words are near-synonyms in practice, and this\npaper inherits \u201cscaffold\u201d from its own earlier vocabulary. Where a distinction is useful, scaffold\nnames the structural code (the loop, the registries) and harness names the shipped runtime\nartifact that embeds it: Mini-SWE-Agent\u2019s scaffold is 100 lines of Python; Claude Code\u2019s\nharness is a product with a terminal UI, a permission system, and a plugin ecosystem.\n\u2022 A harness is not an agentic framework. A framework (LangChain, AutoGen, CrewAI)\nis a library the developer imports to build an agent; a harness is a runtime the developer\nworks inside of.\nThe distinction was clean in 2025 and is dissolving in 2026\u2014from both\ndirections\u2014which is the subject of Section 14.2.\n\u2022 A harness is not an evaluation harness. The SWE-bench \u201charness\u201d wraps an agent to\nrun it against tasks; an agent harness wraps a mode"
+    },
+    {
+      "section_idx": 6,
+      "section_title": "The Minimal Harness",
+      "start_page": 5,
+      "end_page": 6,
+      "summary": "Table 1: The component map of a coding-agent harness: the seven subsystems, with the minimal\nand maximal implementations observed in the corpus.\nSubsystem\nRole\nMinimal form\nMaximal form\n\u00a7\nAgent loop\nAlternates inference\nwith action execution;\nowns stop conditions\nand failure recovery\nMini-SWE-Agent:\na linear while over\none bash tool\nOpenHands: event-sourced\nconversation over a\npersistent event log, with\nparallel action batches\n6\nLLM\nintegration\nSpeaks provider\nprotocols; assembles\nthe prompt; manages\ncaching, thinking,\nrouting\nMini-SWE-Agent:\none LiteLLM call,\none Jinja template\nHermes: five owned\ntransports, 29 provider\nprofiles; Codex:\nserver-delivered model\ncatalog\n7\nTools & actions\nDefines and executes\nwhat the agent can do,\nfile editing above all\nMini-SWE-Agent:\nbash only\nClaude Code: 43 typed\ntools with deferred loading;\nCodex: tool calls as\nV8-executed code\n8\nMemory &\ncontext\nRati"
+    },
+    {
+      "section_idx": 7,
+      "section_title": "Background and Related Work",
+      "start_page": 6,
+      "end_page": 6,
+      "summary": "surfaces of Section 14.\n3\nBackground and Related Work\n3.1\nLLM-Powered Code Agents\nThe concept of using LLMs as autonomous coding agents gained traction with SWE-Bench [1], a\nbenchmark of real-world GitHub issues requiring end-to-end resolution. SWE-Agent [2] introduced\nthe Agent-Computer Interface (ACI), providing LLMs with specialized file viewing and editing tools.\nThe CodeAct paradigm [3] proposed unifying agent actions into executable code, arguing that this\nsubsumes discrete tool calling. ReAct [4] established the reasoning-action loop that underpins most\ncurrent agent architectures.\nA second wave of SWE-specific agents has appeared since. AutoCodeRover [44] replaces text-\nbased search with AST-aware retrieval and spectrum-based fault localization.\nMASAI [48] de-\ncomposes the issue-resolution pipeline into modular sub-agents and reports cost-aware results on\nSWE-Bench Lite. MAGIS [4"
+    },
+    {
+      "section_idx": 8,
+      "section_title": "LLM-Powered Code Agents",
+      "start_page": 6,
+      "end_page": 6,
+      "summary": "surfaces of Section 14.\n3\nBackground and Related Work\n3.1\nLLM-Powered Code Agents\nThe concept of using LLMs as autonomous coding agents gained traction with SWE-Bench [1], a\nbenchmark of real-world GitHub issues requiring end-to-end resolution. SWE-Agent [2] introduced\nthe Agent-Computer Interface (ACI), providing LLMs with specialized file viewing and editing tools.\nThe CodeAct paradigm [3] proposed unifying agent actions into executable code, arguing that this\nsubsumes discrete tool calling. ReAct [4] established the reasoning-action loop that underpins most\ncurrent agent architectures.\nA second wave of SWE-specific agents has appeared since. AutoCodeRover [44] replaces text-\nbased search with AST-aware retrieval and spectrum-based fault localization.\nMASAI [48] de-\ncomposes the issue-resolution pipeline into modular sub-agents and reports cost-aware results on\nSWE-Bench Lite. MAGIS [4"
+    },
+    {
+      "section_idx": 9,
+      "section_title": "Agent Architecture Surveys",
+      "start_page": 6,
+      "end_page": 6,
+      "summary": "surfaces of Section 14.\n3\nBackground and Related Work\n3.1\nLLM-Powered Code Agents\nThe concept of using LLMs as autonomous coding agents gained traction with SWE-Bench [1], a\nbenchmark of real-world GitHub issues requiring end-to-end resolution. SWE-Agent [2] introduced\nthe Agent-Computer Interface (ACI), providing LLMs with specialized file viewing and editing tools.\nThe CodeAct paradigm [3] proposed unifying agent actions into executable code, arguing that this\nsubsumes discrete tool calling. ReAct [4] established the reasoning-action loop that underpins most\ncurrent agent architectures.\nA second wave of SWE-specific agents has appeared since. AutoCodeRover [44] replaces text-\nbased search with AST-aware retrieval and spectrum-based fault localization.\nMASAI [48] de-\ncomposes the issue-resolution pipeline into modular sub-agents and reports cost-aware results on\nSWE-Bench Lite. MAGIS [4"
+    },
+    {
+      "section_idx": 10,
+      "section_title": "Concurrent Source-Code Taxonomies",
+      "start_page": 6,
+      "end_page": 7,
+      "summary": "surfaces of Section 14.\n3\nBackground and Related Work\n3.1\nLLM-Powered Code Agents\nThe concept of using LLMs as autonomous coding agents gained traction with SWE-Bench [1], a\nbenchmark of real-world GitHub issues requiring end-to-end resolution. SWE-Agent [2] introduced\nthe Agent-Computer Interface (ACI), providing LLMs with specialized file viewing and editing tools.\nThe CodeAct paradigm [3] proposed unifying agent actions into executable code, arguing that this\nsubsumes discrete tool calling. ReAct [4] established the reasoning-action loop that underpins most\ncurrent agent architectures.\nA second wave of SWE-specific agents has appeared since. AutoCodeRover [44] replaces text-\nbased search with AST-aware retrieval and spectrum-based fault localization.\nMASAI [48] de-\ncomposes the issue-resolution pipeline into modular sub-agents and reports cost-aware results on\nSWE-Bench Lite. MAGIS [4"
+    },
+    {
+      "section_idx": 11,
+      "section_title": "Multi-Agent Systems for Software Engineering",
+      "start_page": 7,
+      "end_page": 7,
+      "summary": "Moatless Tools, DARS, Prometheus, SWE-agent), and explicitly excludes Claude Code for lack\nof published source. Ours covers all four provider-native harnesses at source level (including the\ncirculated Claude Code snapshot), the gateway and meta-harness contrast points, and the newest\nmass-adoption systems (Hermes, Pi), and it extends the analysis to dimensions his taxonomy does\nnot reach: permission and safety architecture beyond execution isolation, multi-agent orchestra-\ntion, extensibility surfaces (hooks, skills, plugins, MCP), prompt content, inter-agent protocols,\nand the longitudinal and platform analyses of Sections 14.5 and 14. His twelve dimensions map\nonto our seven subsystems as follows: control-loop strategies, loop driver, and control-flow imple-\nmentation refine our D1; tool-set design, edit/patch format, and tool-discovery strategy refine D3;\ncontext-retrieval paradigm, s"
+    },
+    {
+      "section_idx": 12,
+      "section_title": "Tool Use in Language Models",
+      "start_page": 7,
+      "end_page": 7,
+      "summary": "Moatless Tools, DARS, Prometheus, SWE-agent), and explicitly excludes Claude Code for lack\nof published source. Ours covers all four provider-native harnesses at source level (including the\ncirculated Claude Code snapshot), the gateway and meta-harness contrast points, and the newest\nmass-adoption systems (Hermes, Pi), and it extends the analysis to dimensions his taxonomy does\nnot reach: permission and safety architecture beyond execution isolation, multi-agent orchestra-\ntion, extensibility surfaces (hooks, skills, plugins, MCP), prompt content, inter-agent protocols,\nand the longitudinal and platform analyses of Sections 14.5 and 14. His twelve dimensions map\nonto our seven subsystems as follows: control-loop strategies, loop driver, and control-flow imple-\nmentation refine our D1; tool-set design, edit/patch format, and tool-discovery strategy refine D3;\ncontext-retrieval paradigm, s"
+    },
+    {
+      "section_idx": 13,
+      "section_title": "Vendor-Authored Engineering Guidance",
+      "start_page": 7,
+      "end_page": 8,
+      "summary": "Moatless Tools, DARS, Prometheus, SWE-agent), and explicitly excludes Claude Code for lack\nof published source. Ours covers all four provider-native harnesses at source level (including the\ncirculated Claude Code snapshot), the gateway and meta-harness contrast points, and the newest\nmass-adoption systems (Hermes, Pi), and it extends the analysis to dimensions his taxonomy does\nnot reach: permission and safety architecture beyond execution isolation, multi-agent orchestra-\ntion, extensibility surfaces (hooks, skills, plugins, MCP), prompt content, inter-agent protocols,\nand the longitudinal and platform analyses of Sections 14.5 and 14. His twelve dimensions map\nonto our seven subsystems as follows: control-loop strategies, loop driver, and control-flow imple-\nmentation refine our D1; tool-set design, edit/patch format, and tool-discovery strategy refine D3;\ncontext-retrieval paradigm, s"
+    },
+    {
+      "section_idx": 14,
+      "section_title": "The 2026 Harness Landscape",
+      "start_page": 8,
+      "end_page": 9,
+      "summary": "The four articles, read as a set, sketch a prescriptive framework that anticipates many of the\npatterns we later observe across vendors. We use them as a reference baseline against which to\nevaluate the source-code-level decisions of the studied systems (see especially Section 15.1).\n3.7\nThe 2026 Harness Landscape\nThe corpus studied in this paper is a deliberate sample from a field that has grown considerably\nfaster than the literature tracking it.\nA market sweep conducted for this revision (July 2026)\nidentified over two dozen actively maintained coding-agent harnesses beyond the systems analyzed\nhere; Table 2 lists the most significant. Three developments since the first version of this study\n(April 2026) reshape the context in which the corpus sits.3\nEvery vendor now ships a harness, and the market is consolidating.\nBeyond the four\nprovider-native systems we analyze in depth, GitHub\u2019s"
+    },
+    {
+      "section_idx": 15,
+      "section_title": "Methodology",
+      "start_page": 9,
+      "end_page": 9,
+      "summary": "Table 2: The broader coding-agent harness landscape, July 2026 (systems not in the study corpus).\nStar counts are approximate GitHub stars as of 2026-07-10; closed-source systems marked \u201c\u2014\u201d.\nHarness\nVendor\nOSS\nStars\nNote\nAntigravity CLI\nGoogle\n\u2717\n\u2014\nAnnounced May 2026 as Gemini CLI\u2019s\nsuccessor; closed-source Go binary; consumer\nservice cut over June 18\nCopilot CLI\nGitHub/Microsoft\n\u2717\n\u2014\nGA Feb. 2026; autopilot + fleet modes; deep\nGitHub integration\nGrok Build\nxAI (SpaceX)\n\u2717\n\u2014\nMay 2026; Rust; plan-first loop; ACP server;\nAGENTS.md/MCP/skills\nCursor CLI\nAnysphere\n\u2717\n\u2014\nIDE-harness parity in the terminal; $60B\nSpaceX acquisition pending\nKiro CLI\nAmazon/AWS\n\u2717\n\u2014\nex-Q Developer; spec-driven development\nidentity\nCline\nCline Bot Inc.\n\u2713\n\u223c64k\n5M+ IDE installs; plan/act workflow;\nRoo/Kilo fork family\nGoose\nBlock / Linux Found.\n\u2713\n\u223c29k\nRust; native MCP; donated to Agentic AI\nFoundation Apr. 2026\nClaw Code\n"
+    },
+    {
+      "section_idx": 16,
+      "section_title": "System Selection",
+      "start_page": 9,
+      "end_page": 11,
+      "summary": "Table 2: The broader coding-agent harness landscape, July 2026 (systems not in the study corpus).\nStar counts are approximate GitHub stars as of 2026-07-10; closed-source systems marked \u201c\u2014\u201d.\nHarness\nVendor\nOSS\nStars\nNote\nAntigravity CLI\nGoogle\n\u2717\n\u2014\nAnnounced May 2026 as Gemini CLI\u2019s\nsuccessor; closed-source Go binary; consumer\nservice cut over June 18\nCopilot CLI\nGitHub/Microsoft\n\u2717\n\u2014\nGA Feb. 2026; autopilot + fleet modes; deep\nGitHub integration\nGrok Build\nxAI (SpaceX)\n\u2717\n\u2014\nMay 2026; Rust; plan-first loop; ACP server;\nAGENTS.md/MCP/skills\nCursor CLI\nAnysphere\n\u2717\n\u2014\nIDE-harness parity in the terminal; $60B\nSpaceX acquisition pending\nKiro CLI\nAmazon/AWS\n\u2717\n\u2014\nex-Q Developer; spec-driven development\nidentity\nCline\nCline Bot Inc.\n\u2713\n\u223c64k\n5M+ IDE installs; plan/act workflow;\nRoo/Kilo fork family\nGoose\nBlock / Linux Found.\n\u2713\n\u223c29k\nRust; native MCP; donated to Agentic AI\nFoundation Apr. 2026\nClaw Code\n"
+    },
+    {
+      "section_idx": 17,
+      "section_title": "Dimensions of Analysis",
+      "start_page": 11,
+      "end_page": 11,
+      "summary": "Claude Code, Codex, Cursor, OpenCode, Hermes, Pi, and custom YAML-defined agents\nbehind a common API, adding cross-harness policies, a uniform OS sandbox, and shareable multi-\ndevice sessions.\nBecause it does not implement its own editing loop, scoring it on the seven\ndimensions alongside the corpus would be a category error; instead, Section 14.4 analyzes it as\nevidence about which harness capabilities are migrating up into a meta-layer.\n4.2\nDimensions of Analysis\nEach system is analyzed along seven dimensions: (D1) Agent loop design; (D2) LLM integration\nand model\u2013agent co-design; (D3) Tool and action systems; (D4) Memory and context manage-\nment; (D5) Safety and permission models; (D6) Multi-agent orchestration; (D7) Extensibility\nmechanisms. All versions are as of July 2026 (exact pins in Table 3); for the eight systems car-\nried over from the April 2026 edition of this study, the Ap"
+    },
+    {
+      "section_idx": 18,
+      "section_title": "System Overview",
+      "start_page": 11,
+      "end_page": 12,
+      "summary": "Claude Code, Codex, Cursor, OpenCode, Hermes, Pi, and custom YAML-defined agents\nbehind a common API, adding cross-harness policies, a uniform OS sandbox, and shareable multi-\ndevice sessions.\nBecause it does not implement its own editing loop, scoring it on the seven\ndimensions alongside the corpus would be a category error; instead, Section 14.4 analyzes it as\nevidence about which harness capabilities are migrating up into a meta-layer.\n4.2\nDimensions of Analysis\nEach system is analyzed along seven dimensions: (D1) Agent loop design; (D2) LLM integration\nand model\u2013agent co-design; (D3) Tool and action systems; (D4) Memory and context manage-\nment; (D5) Safety and permission models; (D6) Multi-agent orchestration; (D7) Extensibility\nmechanisms. All versions are as of July 2026 (exact pins in Table 3); for the eight systems car-\nried over from the April 2026 edition of this study, the Ap"
+    },
+    {
+      "section_idx": 19,
+      "section_title": "Agent Loop Design",
+      "start_page": 12,
+      "end_page": 13,
+      "summary": "Table 4: High-level comparison of the eleven systems, with each system\u2019s signature capability.\nClaude Code cells here and in the other July-dated tables reflect the March-2026 source snapshot,\nthe newest source available to us; the shipping binary (2.1.206, July 2026) may differ.\nSystem\nLang.\nScale\nProvider\nTools Multi-\nag.\nSandbox\nUI\nSignature\nOpenHands\nPython\nMedium\nMulti\n25+\nYes\nDocker/\nApptainer/\nremote\nWeb+CLI\n+SDK\nResource-locked\nparallel\ntools;\nhosts\nrival\nhar-\nnesses as ACP backends\nAider\nPython\nSmall\nMulti\n13 fmt\nNo\nNone\nCLI\n13 polymorphic edit for-\nmats;\nthe corpus\u2019s only\nranked repo map\nClaude Code\nTS\nLarge\nAnthropic\n43\nYes\nOpt-in\nruntime +\nworktree\nCLI\nDeferred\ntool\nloading;\nprompt-cache-sharing\nforks; the reference oth-\ners copy\nCodex\nRust\nVery lg.\nOpenAI\n25\u201330\nYes\nNative\n(3 OS)\nCLI/TUI\nAgent-maintained\ncross-\nsession memory; tool calls\nas V8-executed code\nGemini CLI\nTS\nVery"
+    },
+    {
+      "section_idx": 20,
+      "section_title": "Taxonomy of Agent Loop Paradigms",
+      "start_page": 13,
+      "end_page": 13,
+      "summary": "6.1\nTaxonomy of Agent Loop Paradigms\nAll eleven systems implement variations of the ReAct [4] pattern, but the implementations differ\nradically in complexity, concurrency, and state management. We identify three paradigms: iterative\naction-observation (nine systems), reflection-augmented (Aider, with Hermes relocating the same\nfunction into the loop\u2019s stop condition), and coordinator-worker (an overlay on the iterative loop,\nprescriptive in Claude Code and Codex, configuration-gated in Hermes). Rombaut\u2019s concurrent\ntaxonomy [34] makes the useful finer-grained point that most production loops compose primitives\n(ReAct, generate-test-repair, plan-execute, retry) rather than implementing one; the plan modes\nthat all four provider-native systems now ship (Section 10) are plan-execute grafted onto ReAct.\nThe field\u2019s vocabulary is still being minted around this subsystem. Loop engineering ente"
+    },
+    {
+      "section_idx": 21,
+      "section_title": "Iterative Action-Observation Loop",
+      "start_page": 13,
+      "end_page": 16,
+      "summary": "6.1\nTaxonomy of Agent Loop Paradigms\nAll eleven systems implement variations of the ReAct [4] pattern, but the implementations differ\nradically in complexity, concurrency, and state management. We identify three paradigms: iterative\naction-observation (nine systems), reflection-augmented (Aider, with Hermes relocating the same\nfunction into the loop\u2019s stop condition), and coordinator-worker (an overlay on the iterative loop,\nprescriptive in Claude Code and Codex, configuration-gated in Hermes). Rombaut\u2019s concurrent\ntaxonomy [34] makes the useful finer-grained point that most production loops compose primitives\n(ReAct, generate-test-repair, plan-execute, retry) rather than implementing one; the plan modes\nthat all four provider-native systems now ship (Section 10) are plan-execute grafted onto ReAct.\nThe field\u2019s vocabulary is still being minted around this subsystem. Loop engineering ente"
+    },
+    {
+      "section_idx": 22,
+      "section_title": "Reflection-Augmented Loop",
+      "start_page": 16,
+      "end_page": 16,
+      "summary": "not control-flow branches but persisted message parts that the loop dequeues one per iteration\u2014\nwhich makes the loop trivially resumable across process restarts, since the queue is the transcript.\nThere is no default step cap (maxSteps defaults to infinity); when a configured cap is reached,\nthe harness appends an assistant message declaring tools disabled rather than raising an error.\nStuck detection is a single heuristic routed, characteristically, through the permission system: three\nconsecutive byte-identical tool calls raise a doom_loop permission ask rather than an automated\nabort\u2014the user, not the harness, decides whether the repetition is a bug. Parallel tool calls execute\nconcurrently with no harness cap, and retry is harness-level with retry-after-aware exponential\nbackoff; context overflow is never retried\u2014it flips to compaction.\n6.3\nReflection-Augmented Loop\nAider extends the"
+    },
+    {
+      "section_idx": 23,
+      "section_title": "Coordinator-Worker Pattern",
+      "start_page": 16,
+      "end_page": 16,
+      "summary": "not control-flow branches but persisted message parts that the loop dequeues one per iteration\u2014\nwhich makes the loop trivially resumable across process restarts, since the queue is the transcript.\nThere is no default step cap (maxSteps defaults to infinity); when a configured cap is reached,\nthe harness appends an assistant message declaring tools disabled rather than raising an error.\nStuck detection is a single heuristic routed, characteristically, through the permission system: three\nconsecutive byte-identical tool calls raise a doom_loop permission ask rather than an automated\nabort\u2014the user, not the harness, decides whether the repetition is a bug. Parallel tool calls execute\nconcurrently with no harness cap, and retry is harness-level with retry-after-aware exponential\nbackoff; context overflow is never retried\u2014it flips to compaction.\n6.3\nReflection-Augmented Loop\nAider extends the"
+    },
+    {
+      "section_idx": 24,
+      "section_title": "Comparative Analysis",
+      "start_page": 16,
+      "end_page": 18,
+      "summary": "not control-flow branches but persisted message parts that the loop dequeues one per iteration\u2014\nwhich makes the loop trivially resumable across process restarts, since the queue is the transcript.\nThere is no default step cap (maxSteps defaults to infinity); when a configured cap is reached,\nthe harness appends an assistant message declaring tools disabled rather than raising an error.\nStuck detection is a single heuristic routed, characteristically, through the permission system: three\nconsecutive byte-identical tool calls raise a doom_loop permission ask rather than an automated\nabort\u2014the user, not the harness, decides whether the repetition is a bug. Parallel tool calls execute\nconcurrently with no harness cap, and retry is harness-level with retry-after-aware exponential\nbackoff; context overflow is never retried\u2014it flips to compaction.\n6.3\nReflection-Augmented Loop\nAider extends the"
+    },
+    {
+      "section_idx": 25,
+      "section_title": "LLM Integration and Model\u2013Agent Co-design",
+      "start_page": 18,
+      "end_page": 18,
+      "summary": "7\nLLM Integration and Model\u2013Agent Co-design\nHow an agent scaffold relates to its underlying LLM is one of the most consequential design decisions\nin the system. The corpus spans the full range from tight single-provider coupling to complete\nprovider agnosticism, and the position on that spectrum has direct implications for the optimizations\navailable to the scaffold.\n7.1\nProvider Abstraction Spectrum\nThe eleven systems adopt five distinct strategies:\nSingle-provider tight coupling (Anthropic, OpenAI, Google).\nClaude Code exclusively\nuses the Anthropic SDK (@anthropic-ai/sdk); Codex uses the OpenAI Responses API with Web-\nSocket streaming; Gemini CLI uses the @google/genai SDK and additionally couples to Vertex AI\nfor enterprise deployments. These systems cannot easily switch providers: Claude Code depends\non Claude-specific features (extended thinking, prompt caching with static/dynamic "
+    },
+    {
+      "section_idx": 26,
+      "section_title": "Provider Abstraction Spectrum",
+      "start_page": 18,
+      "end_page": 19,
+      "summary": "7\nLLM Integration and Model\u2013Agent Co-design\nHow an agent scaffold relates to its underlying LLM is one of the most consequential design decisions\nin the system. The corpus spans the full range from tight single-provider coupling to complete\nprovider agnosticism, and the position on that spectrum has direct implications for the optimizations\navailable to the scaffold.\n7.1\nProvider Abstraction Spectrum\nThe eleven systems adopt five distinct strategies:\nSingle-provider tight coupling (Anthropic, OpenAI, Google).\nClaude Code exclusively\nuses the Anthropic SDK (@anthropic-ai/sdk); Codex uses the OpenAI Responses API with Web-\nSocket streaming; Gemini CLI uses the @google/genai SDK and additionally couples to Vertex AI\nfor enterprise deployments. These systems cannot easily switch providers: Claude Code depends\non Claude-specific features (extended thinking, prompt caching with static/dynamic "
+    },
+    {
+      "section_idx": 27,
+      "section_title": "Prompt Engineering Architectures",
+      "start_page": 19,
+      "end_page": 22,
+      "summary": "Pi hand-rolls nine wire-protocol implementations across 35 built-in providers, with \u223c20 per-model\ncompat quirk flags (including ten thinkingFormat dialects for OpenAI-compatible hosts) paying\nthe per-provider conditional cost once, centrally\u2014and it exercises the corpus\u2019s boldest coupling\ntrick, harness mimicry: on a Claude Pro/Max OAuth token it presents Claude Code\u2019s identity\nwholesale (the \u201cYou are Claude Code\u201d system-prompt opening, the beta headers, even the canon-\nical tool-name casing, re-cased on the wire) to ride the consumer subscription, and it speaks the\nChatGPT-plan Codex backend the same way. OpenCode delegates streaming and tool dispatch to\nVercel\u2019s AI SDK and the models.dev registry\u2014the only corpus system whose inner LLM plumbing\nis a third-party SDK\u2014then concentrates its co-design in a \u223c1,400-line per-vendor transform matrix\n(release-date-gated reasoning tiers, per-model "
+    },
+    {
+      "section_idx": 28,
+      "section_title": "Prompt Content and Rhetorical Style",
+      "start_page": 22,
+      "end_page": 25,
+      "summary": "caps the system prompt at two messages (one by default; plugin-expanded prompts are collapsed\nback), matching the two leading cache-breakpoint slots it emits in six provider dialects simultane-\nously.\nAider: Polymorphic Prompts.\nAider\u2019s prompt system is unique: each of its 13 registered\nedit formats (architect, ask, context, diff, diff-fenced, editor-diff, editor-diff-fenced,\neditor-whole, help, patch, udiff, udiff-simple, whole) has a dedicated CoderPrompts sub-\nclass defining system prompts, examples, and reminders tailored to that format.5 A factory pattern\n(Coder.create()) selects the format based on the model\u2019s metadata. The prompt dynamically\nincludes: file contents, a token-constrained repository map (generated via tree-sitter symbol extrac-\ntion), chat history, and format-specific editing instructions.\nMini-SWE-Agent: One-Shot Templates.\nMini-SWE-Agent uses Jinja2 templates embed"
+    },
+    {
+      "section_idx": 29,
+      "section_title": "Streaming and Response Processing",
+      "start_page": 25,
+      "end_page": 26,
+      "summary": "new subshell.\nWhat is conspicuously absent.\nNone of the eleven prompts contains explicit harmful-request\nrefusal language. There are no instructions of the form \u201cif the user asks you to do X, refuse and\nexplain why\u201d\u2014the only refusal-shaped text concerns operational risks (destructive git operations,\nsecrets hygiene, dangerous shell patterns), not policy-level harms. The nearest thing in the corpus\nis refusal etiquette: OpenCode\u2019s default prompt inherits early Claude Code phrasing instructing\nthe model, if it refuses, not to preach about why (\u201ckeep your response to 1-2 sentences\u201d)\u2014style\nguidance for a refusal whose grounds are never stated. Safety against misuse is fully delegated\nto the underlying model\u2019s pretraining and any provider-side policy layer. This is a notable design\nchoice: production scaffolds, even those bundled with their own provider, do not duplicate alignment\nwork in the"
+    },
+    {
+      "section_idx": 30,
+      "section_title": "Advanced API Features",
+      "start_page": 26,
+      "end_page": 27,
+      "summary": "\u2022 OpenHands: SSE via LiteLLM wrapper, now with first-class streaming (an LLM.stream\nfield and token deltas forwarded through on_token callbacks) plus an OpenAI Responses\npath. Supports prompt caching markers for Anthropic models.\n\u2022 Hermes: five owned transport implementations; a \u223c23-value FailoverReason enum drives\nclassified recovery (compress vs. rotate credential vs. fallback chain vs. abort).\n\u2022 Pi: nine wire-protocol implementations with a partial-json salvage parser for streamed\ntool arguments\u2014paired with the truncation guard of Section 6, since salvaged arguments can\nvalidate while incomplete.\n\u2022 OpenCode: Vercel AI SDK streamText owns dispatch; token-granular part deltas are per-\nsisted and re-served over SSE by the embedded server, so every client (TUI, web, IDE) replays\nthe same stream.\n\u2022 OpenClaw: ACP delta events for text, thought, and tool calls; provider-specific transport\nst"
+    },
+    {
+      "section_idx": 31,
+      "section_title": "Tool and Action Systems",
+      "start_page": 27,
+      "end_page": 27,
+      "summary": "8\nTool and Action Systems\nThe tool system defines what the agent can actually do: which actions it can invoke and how they\nare executed. This subsystem absorbs a large share of the engineering effort in every mature agent\nwe studied.\n8.1\nTool Count Spectrum\nFigure 3 illustrates the spectrum from minimalist to maximal tool designs. The systems span from\na single bash tool to 109+ tools including media processing and channel integrations\u2014with Pi\nmaking the sparse end a philosophy (seven tools built, four exposed by default, everything else an\nextension) and Hermes pushing the general-purpose end to 69 built-ins behind a toolset layer that\nscopes what each platform\u2019s model actually sees.\nMinimal\nMaximal\n1\nMini-SWE-Agent\n7\nPi\n12\nMistral Vibe\n13\nAider\n17\nOpenCode\n25\nOpenHands\n27\nCodex\n35\nGemini CLI\n43\nClaude Code\n69\nHermes\n109\nOpenClaw\nbash only4 by default\nedit formats\nmodel presets\n+ code m"
+    },
+    {
+      "section_idx": 32,
+      "section_title": "Tool Count Spectrum",
+      "start_page": 27,
+      "end_page": 27,
+      "summary": "8\nTool and Action Systems\nThe tool system defines what the agent can actually do: which actions it can invoke and how they\nare executed. This subsystem absorbs a large share of the engineering effort in every mature agent\nwe studied.\n8.1\nTool Count Spectrum\nFigure 3 illustrates the spectrum from minimalist to maximal tool designs. The systems span from\na single bash tool to 109+ tools including media processing and channel integrations\u2014with Pi\nmaking the sparse end a philosophy (seven tools built, four exposed by default, everything else an\nextension) and Hermes pushing the general-purpose end to 69 built-ins behind a toolset layer that\nscopes what each platform\u2019s model actually sees.\nMinimal\nMaximal\n1\nMini-SWE-Agent\n7\nPi\n12\nMistral Vibe\n13\nAider\n17\nOpenCode\n25\nOpenHands\n27\nCodex\n35\nGemini CLI\n43\nClaude Code\n69\nHermes\n109\nOpenClaw\nbash only4 by default\nedit formats\nmodel presets\n+ code m"
+    },
+    {
+      "section_idx": 33,
+      "section_title": "Tool Interface Architectures",
+      "start_page": 27,
+      "end_page": 27,
+      "summary": "8\nTool and Action Systems\nThe tool system defines what the agent can actually do: which actions it can invoke and how they\nare executed. This subsystem absorbs a large share of the engineering effort in every mature agent\nwe studied.\n8.1\nTool Count Spectrum\nFigure 3 illustrates the spectrum from minimalist to maximal tool designs. The systems span from\na single bash tool to 109+ tools including media processing and channel integrations\u2014with Pi\nmaking the sparse end a philosophy (seven tools built, four exposed by default, everything else an\nextension) and Hermes pushing the general-purpose end to 69 built-ins behind a toolset layer that\nscopes what each platform\u2019s model actually sees.\nMinimal\nMaximal\n1\nMini-SWE-Agent\n7\nPi\n12\nMistral Vibe\n13\nAider\n17\nOpenCode\n25\nOpenHands\n27\nCodex\n35\nGemini CLI\n43\nClaude Code\n69\nHermes\n109\nOpenClaw\nbash only4 by default\nedit formats\nmodel presets\n+ code m"
+    },
+    {
+      "section_idx": 34,
+      "section_title": "Deferred Tool Loading",
+      "start_page": 27,
+      "end_page": 28,
+      "summary": "8\nTool and Action Systems\nThe tool system defines what the agent can actually do: which actions it can invoke and how they\nare executed. This subsystem absorbs a large share of the engineering effort in every mature agent\nwe studied.\n8.1\nTool Count Spectrum\nFigure 3 illustrates the spectrum from minimalist to maximal tool designs. The systems span from\na single bash tool to 109+ tools including media processing and channel integrations\u2014with Pi\nmaking the sparse end a philosophy (seven tools built, four exposed by default, everything else an\nextension) and Hermes pushing the general-purpose end to 69 built-ins behind a toolset layer that\nscopes what each platform\u2019s model actually sees.\nMinimal\nMaximal\n1\nMini-SWE-Agent\n7\nPi\n12\nMistral Vibe\n13\nAider\n17\nOpenCode\n25\nOpenHands\n27\nCodex\n35\nGemini CLI\n43\nClaude Code\n69\nHermes\n109\nOpenClaw\nbash only4 by default\nedit formats\nmodel presets\n+ code m"
+    },
+    {
+      "section_idx": 35,
+      "section_title": "File Editing Strategies",
+      "start_page": 28,
+      "end_page": 29,
+      "summary": "which supports keyword search and direct selection (select:<tool_name>). This reduces prompt\nsize significantly: of 43 tools, only a core subset is loaded initially. The deferred tool set is cached\nvia getDeferredToolsCacheKey(), invalidated when the set changes.\nThe April edition presented this as a Claude Code exclusive; by July it is a spreading pat-\ntern with independent implementations.\nCodex marks tools (by default, MCP tools) with a\ndefer_loading flag and exposes a tool_search tool backed by a BM25 lexical index over tool\nspecs\u2014the same prompt economics with ranked search instead of substring matching. Hermes\ngeneralizes the idea with a threshold: when MCP and plugin schemas would exceed 10% of the\ncontext window, they collapse into three bridge tools (tool_search/tool_describe/tool_call)\nsearched by an inlined BM25 engine. OpenCode defers skills (catalog lists name and descriptio"
+    },
+    {
+      "section_idx": 36,
+      "section_title": "Execution and Sandboxing",
+      "start_page": 29,
+      "end_page": 31,
+      "summary": "The editing landscape reorganized between snapshots.\nThe April edition described Mis-\ntral Vibe and Gemini CLI as a \u201cpolymorphic-by-degree\u201d pair\u2014coarse whole-file tool plus fuzzy\nfine-grained patch tool. Neither half survived the quarter. Mistral Vibe deleted its SEARCH/RE-\nPLACE tool outright and converged on Claude Code\u2019s exact unique-substring contract (with a\nreplace_all escape hatch and a now create-only write_file): a rare observable case of a produc-\ntion harness migrating between editing-strategy clusters, and evidence that stronger models shift\nthe optimum from tool-side drift tolerance toward strict contracts.6 Gemini CLI\u2019s edit, on closer\ninspection, is an old/new-string tool with a cascading matcher (exact \u2192whitespace-flexible \u2192regex\n\u2192fuzzy) that ends in something no other system had: an LLM edit-fixer subcall that repairs the\nfailed old/new pair against a model-supplied inst"
+    },
+    {
+      "section_idx": 37,
+      "section_title": "Memory and Context Management",
+      "start_page": 31,
+      "end_page": 31,
+      "summary": "it drives Seatbelt profiles through /usr/bin/sandbox-exec. On Windows it uses restricted-token\nprocesses. Protected paths (.git, .agents, .codex) are re-marked read-only even when they sit\ninside a writable root. The result is OS-level isolation without the overhead of a container runtime.\nGemini CLI joins Codex as the second cross-platform sandboxer.\nGemini CLI\u2019s\nSandboxManager implements the same three-platform stack as Codex: Docker or Bubblewrap on\nLinux, Seatbelt via /usr/bin/sandbox-exec on macOS, restricted-token processes on Windows.\nWhere Codex bakes its policy into Starlark execpolicy rules (Section 10), Gemini CLI layers a\nTOML-based per-mode sandbox policy (plan / default / accepting_edits) plus environment\nscrubbing of provider credentials (name-pattern regexes over TOKEN/SECRET/KEY/AUTH/CREDENTIAL,\na denylist, and GitHub-token value regexes) before each command runs. Gemini"
+    },
+    {
+      "section_idx": 38,
+      "section_title": "Strategy Taxonomy",
+      "start_page": 31,
+      "end_page": 31,
+      "summary": "it drives Seatbelt profiles through /usr/bin/sandbox-exec. On Windows it uses restricted-token\nprocesses. Protected paths (.git, .agents, .codex) are re-marked read-only even when they sit\ninside a writable root. The result is OS-level isolation without the overhead of a container runtime.\nGemini CLI joins Codex as the second cross-platform sandboxer.\nGemini CLI\u2019s\nSandboxManager implements the same three-platform stack as Codex: Docker or Bubblewrap on\nLinux, Seatbelt via /usr/bin/sandbox-exec on macOS, restricted-token processes on Windows.\nWhere Codex bakes its policy into Starlark execpolicy rules (Section 10), Gemini CLI layers a\nTOML-based per-mode sandbox policy (plan / default / accepting_edits) plus environment\nscrubbing of provider credentials (name-pattern regexes over TOKEN/SECRET/KEY/AUTH/CREDENTIAL,\na denylist, and GitHub-token value regexes) before each command runs. Gemini"
+    },
+    {
+      "section_idx": 39,
+      "section_title": "Linear History (Mini-SWE-Agent)",
+      "start_page": 31,
+      "end_page": 32,
+      "summary": "it drives Seatbelt profiles through /usr/bin/sandbox-exec. On Windows it uses restricted-token\nprocesses. Protected paths (.git, .agents, .codex) are re-marked read-only even when they sit\ninside a writable root. The result is OS-level isolation without the overhead of a container runtime.\nGemini CLI joins Codex as the second cross-platform sandboxer.\nGemini CLI\u2019s\nSandboxManager implements the same three-platform stack as Codex: Docker or Bubblewrap on\nLinux, Seatbelt via /usr/bin/sandbox-exec on macOS, restricted-token processes on Windows.\nWhere Codex bakes its policy into Starlark execpolicy rules (Section 10), Gemini CLI layers a\nTOML-based per-mode sandbox policy (plan / default / accepting_edits) plus environment\nscrubbing of provider credentials (name-pattern regexes over TOKEN/SECRET/KEY/AUTH/CREDENTIAL,\na denylist, and GitHub-token value regexes) before each command runs. Gemini"
+    },
+    {
+      "section_idx": 40,
+      "section_title": "Recursive Summarization (Aider)",
+      "start_page": 32,
+      "end_page": 32,
+      "summary": "9.3\nRecursive Summarization (Aider)\nAider\u2019s ChatSummary class implements a recursive halving algorithm. When the message history\nexceeds max_tokens (default: 1024), it splits messages into two halves by token count, keeping the\ntail (most recent 50%) intact. The head is summarized via an LLM call (summarize_all()). If the\ncombined summary + tail still exceeds the limit, the process recurses up to 3 levels. A separate\n\u201cweak model\u201d (e.g., GPT-3.5-turbo) can be configured for cost-efficient summarization.\n9.4\nPluggable Condensation (OpenHands)\nOpenHands pioneered pluggable memory management through an abstract Condenser base class.\nThe V0 application shipped ten implementations; the V1 SDK consolidated the zoo to three\n(NoOpCondenser, LLMSummarizingCondenser, PipelineCondenser) over a RollingCondenser\nbase\u2014a telling simplification, most of the specialized variants having proven unnecessary."
+    },
+    {
+      "section_idx": 41,
+      "section_title": "Pluggable Condensation (OpenHands)",
+      "start_page": 32,
+      "end_page": 32,
+      "summary": "9.3\nRecursive Summarization (Aider)\nAider\u2019s ChatSummary class implements a recursive halving algorithm. When the message history\nexceeds max_tokens (default: 1024), it splits messages into two halves by token count, keeping the\ntail (most recent 50%) intact. The head is summarized via an LLM call (summarize_all()). If the\ncombined summary + tail still exceeds the limit, the process recurses up to 3 levels. A separate\n\u201cweak model\u201d (e.g., GPT-3.5-turbo) can be configured for cost-efficient summarization.\n9.4\nPluggable Condensation (OpenHands)\nOpenHands pioneered pluggable memory management through an abstract Condenser base class.\nThe V0 application shipped ten implementations; the V1 SDK consolidated the zoo to three\n(NoOpCondenser, LLMSummarizingCondenser, PipelineCondenser) over a RollingCondenser\nbase\u2014a telling simplification, most of the specialized variants having proven unnecessary."
+    },
+    {
+      "section_idx": 42,
+      "section_title": "Threshold Compaction (Seven Systems)",
+      "start_page": 32,
+      "end_page": 33,
+      "summary": "9.3\nRecursive Summarization (Aider)\nAider\u2019s ChatSummary class implements a recursive halving algorithm. When the message history\nexceeds max_tokens (default: 1024), it splits messages into two halves by token count, keeping the\ntail (most recent 50%) intact. The head is summarized via an LLM call (summarize_all()). If the\ncombined summary + tail still exceeds the limit, the process recurses up to 3 levels. A separate\n\u201cweak model\u201d (e.g., GPT-3.5-turbo) can be configured for cost-efficient summarization.\n9.4\nPluggable Condensation (OpenHands)\nOpenHands pioneered pluggable memory management through an abstract Condenser base class.\nThe V0 application shipped ten implementations; the V1 SDK consolidated the zoo to three\n(NoOpCondenser, LLMSummarizingCondenser, PipelineCondenser) over a RollingCondenser\nbase\u2014a telling simplification, most of the specialized variants having proven unnecessary."
+    },
+    {
+      "section_idx": 43,
+      "section_title": "Persistent Memory Pipelines",
+      "start_page": 33,
+      "end_page": 34,
+      "summary": "alongside the summary (so original task goals survive resets), a cache-friendly primary summariza-\ntion falls back to a dedicated tool-less summarizer, and the same routine fires reactively when a\nturn overflows the context window mid-flight. The integration through the middleware pipeline\nremains architecturally cleaner than in-loop checks: compaction is just another turn policy. Mis-\ntral Vibe\u2019s complementary RewindManager creates filesystem-level checkpoints per user message\nand supports rewinding with optional file restoration\u2014now forkable to a new session and exposed\nover ACP so IDE clients can drive the rewind. Once unique, checkpointing now has a finer-grained\nsibling: OpenCode maintains a shadow git repository per project (separate \u2013git-dir over the real\nworktree) snapshotting at pre-stream, step start, and step finish, yielding per-step patch parts and\nfull conversation-plus-fil"
+    },
+    {
+      "section_idx": 44,
+      "section_title": "Repository Context",
+      "start_page": 34,
+      "end_page": 35,
+      "summary": "Memories are injected into new sessions with citation tracking and usage-based ranking. Codex is\nthus the first system in the corpus whose long-term memory is maintained by an agent rather than\nby code; an experimental \u201cchronicle\u201d sidecar extends the same machinery toward passive screen\ncontext.\nGemini CLI moved in the opposite governance direction. Its April-era callable save_memory\ntool is gone\u2014the system prompt now states flatly that no such tool exists\u2014replaced by (a) the model\nediting GEMINI.md or a private per-project MEMORY.md index directly with ordinary edit tools, and\n(b) an asynchronous skill-extraction sub-agent that mines completed session transcripts and emits\ncanonical patch files into a per-project .inbox/, which the user reviews and applies via /memory.\nWhere Codex lets an agent consolidate memory autonomously, Gemini CLI inserts a human-gated\nreview inbox between extrac"
+    },
+    {
+      "section_idx": 45,
+      "section_title": "Safety and Permission Models",
+      "start_page": 35,
+      "end_page": 35,
+      "summary": "gated by folder trust, plus JIT injection of subdirectory context files through tool output and\nthe private MEMORY.md project index.\n\u2022 Mistral Vibe JIT Discovery: Top-level AGENTS.md in the prompt (user and project scopes),\nand\u2014since v2.19\u2014nested AGENTS.md files surfaced just-in-time when read_file touches files\nbeneath them.\n\u2022 Hermes Hierarchy with Threat Scanning: First-found-wins walk (.hermes.md/HERMES.md\nto the git root, then AGENTS.md, CLAUDE.md, .cursorrules); every context file is scanned\nfor prompt-injection patterns and blocked wholesale on a match; a subdirectory hint tracker\nappends per-directory context files to tool results, keeping the cached prompt untouched.\n\u2022 Pi Ancestor Walk: AGENTS.md/CLAUDE.md collected from cwd to root into <project_context>\ntags; loading of repo-controlled configuration (extensions, skills) is trust-gated, but context\nfiles load regardless\u2014a docume"
+    },
+    {
+      "section_idx": 46,
+      "section_title": "Claude Code: Three-Layered Permission System",
+      "start_page": 35,
+      "end_page": 36,
+      "summary": "gated by folder trust, plus JIT injection of subdirectory context files through tool output and\nthe private MEMORY.md project index.\n\u2022 Mistral Vibe JIT Discovery: Top-level AGENTS.md in the prompt (user and project scopes),\nand\u2014since v2.19\u2014nested AGENTS.md files surfaced just-in-time when read_file touches files\nbeneath them.\n\u2022 Hermes Hierarchy with Threat Scanning: First-found-wins walk (.hermes.md/HERMES.md\nto the git root, then AGENTS.md, CLAUDE.md, .cursorrules); every context file is scanned\nfor prompt-injection patterns and blocked wholesale on a match; a subdirectory hint tracker\nappends per-directory context files to tool results, keeping the cached prompt untouched.\n\u2022 Pi Ancestor Walk: AGENTS.md/CLAUDE.md collected from cwd to root into <project_context>\ntags; loading of repo-controlled configuration (extensions, skills) is trust-gated, but context\nfiles load regardless\u2014a docume"
+    },
+    {
+      "section_idx": 47,
+      "section_title": "Codex: A Four-Layer Permission Stack with Native Sandboxing",
+      "start_page": 36,
+      "end_page": 37,
+      "summary": "10.2\nCodex: A Four-Layer Permission Stack with Native Sandboxing\nThe April edition described Codex\u2019s safety as two mechanisms\u2014policy rules plus OS sandbox\u2014\nand characterized its approval gate as \u201cnear-invisible.\u201d The July snapshot shows four layers, two of\nthem converging on Claude Code\u2019s design:\nLayer 1:\nExecution Policy (Starlark,\nnot TOML).\nExecutable rules (execpolicy/)\nare written in Starlark: prefix_rule(pattern=[...], decision=\"allow|prompt|forbidden\",\nmatch=[...], not_match=[...]) and network_rule(...) functions, loaded from CODEX_HOME/rules/\nand per-config-layer rules directories.7 A distinctive detail: rules may carry inline match/not_match\nexamples that are validated at parse time\u2014executable test cases inside the policy file.\n1 prefix_rule(\n2\npattern = [\" git\", \"status \"],\n3\ndecision = \"allow\",\n4\nmatch = [[\" git\", \"status \"], [\" git\", \"status\", \"--short \"]],\n5\nnot_match = [[\" "
+    },
+    {
+      "section_idx": 48,
+      "section_title": "OpenHands: Ensemble Defense-in-Depth",
+      "start_page": 37,
+      "end_page": 37,
+      "summary": "Observation 6.\nOS-level sandboxing is one of the most code-expensive capabilities in the\ncorpus, and it is a choice rather than a consequence of scale. The April corpus suggested a\nsize correlation (its two largest systems were its two cross-platform sandboxers); the expanded\ncorpus breaks it. Hermes, among the largest systems here, ships zero OS-level isolation primi-\ntives: it delegates containment to six pluggable execution backends and spends its safety budget\non content-borne threats instead (promptware scanning\u2014pattern-matching for prompt-injection\npayloads\u2014a skills supply chain, a command-policy floor that survives \u2013yolo).\nOpenCode,\ncomparably large, is policy-only, investing in syntax-aware command permissioning rather than\nisolation. Pi documents the refusal as a security argument: a partial in-process sandbox \u201cwould\nbe easy to misunderstand as a security boundary.\u201d What remains"
+    },
+    {
+      "section_idx": 49,
+      "section_title": "OpenClaw: Scope-Based Authorization",
+      "start_page": 37,
+      "end_page": 37,
+      "summary": "Observation 6.\nOS-level sandboxing is one of the most code-expensive capabilities in the\ncorpus, and it is a choice rather than a consequence of scale. The April corpus suggested a\nsize correlation (its two largest systems were its two cross-platform sandboxers); the expanded\ncorpus breaks it. Hermes, among the largest systems here, ships zero OS-level isolation primi-\ntives: it delegates containment to six pluggable execution backends and spends its safety budget\non content-borne threats instead (promptware scanning\u2014pattern-matching for prompt-injection\npayloads\u2014a skills supply chain, a command-policy floor that survives \u2013yolo).\nOpenCode,\ncomparably large, is policy-only, investing in syntax-aware command permissioning rather than\nisolation. Pi documents the refusal as a security argument: a partial in-process sandbox \u201cwould\nbe easy to misunderstand as a security boundary.\u201d What remains"
+    },
+    {
+      "section_idx": 50,
+      "section_title": "Gemini CLI: Four Approval Modes Plus Cross-Platform Sandbox",
+      "start_page": 37,
+      "end_page": 38,
+      "summary": "Observation 6.\nOS-level sandboxing is one of the most code-expensive capabilities in the\ncorpus, and it is a choice rather than a consequence of scale. The April corpus suggested a\nsize correlation (its two largest systems were its two cross-platform sandboxers); the expanded\ncorpus breaks it. Hermes, among the largest systems here, ships zero OS-level isolation primi-\ntives: it delegates containment to six pluggable execution backends and spends its safety budget\non content-borne threats instead (promptware scanning\u2014pattern-matching for prompt-injection\npayloads\u2014a skills supply chain, a command-policy floor that survives \u2013yolo).\nOpenCode,\ncomparably large, is policy-only, investing in syntax-aware command permissioning rather than\nisolation. Pi documents the refusal as a security argument: a partial in-process sandbox \u201cwould\nbe easy to misunderstand as a security boundary.\u201d What remains"
+    },
+    {
+      "section_idx": 51,
+      "section_title": "Mistral Vibe: Permission-Scope Patterns Plus Agent-Profile Gates",
+      "start_page": 38,
+      "end_page": 38,
+      "summary": "combination is structurally similar to Codex\u2019s policy-as-code + sandbox stack but layers an ex-\nplicit user-facing mode selector on top\u2014an ergonomic that Codex itself has since adopted with\nits collaboration-mode presets. A separate isTrustedFolder() check further widens or narrows\ncontext-discovery scope based on whether the directory is in the user\u2019s trust list, providing a fourth\nlayer of opt-in granularity. The release cadence between our snapshots was dominated by policy-\nengine and supply-chain hardening\u2014trust-gated .env loading in headless mode, shell-command\nvalidation with a core-tools allowlist, skill-install path-traversal checks\u2014supporting Observation 6\u2019s\nclaim that safety absorbs a disproportionate share of engineering in the largest systems.\n10.6\nMistral Vibe: Permission-Scope Patterns Plus Agent-Profile Gates\nMistral Vibe has no OS sandbox (an opt-in \u2013worktree flag now pro"
+    },
+    {
+      "section_idx": 52,
+      "section_title": "Hermes: A Policy Floor That Survives YOLO",
+      "start_page": 38,
+      "end_page": 38,
+      "summary": "combination is structurally similar to Codex\u2019s policy-as-code + sandbox stack but layers an ex-\nplicit user-facing mode selector on top\u2014an ergonomic that Codex itself has since adopted with\nits collaboration-mode presets. A separate isTrustedFolder() check further widens or narrows\ncontext-discovery scope based on whether the directory is in the user\u2019s trust list, providing a fourth\nlayer of opt-in granularity. The release cadence between our snapshots was dominated by policy-\nengine and supply-chain hardening\u2014trust-gated .env loading in headless mode, shell-command\nvalidation with a core-tools allowlist, skill-install path-traversal checks\u2014supporting Observation 6\u2019s\nclaim that safety absorbs a disproportionate share of engineering in the largest systems.\n10.6\nMistral Vibe: Permission-Scope Patterns Plus Agent-Profile Gates\nMistral Vibe has no OS sandbox (an opt-in \u2013worktree flag now pro"
+    },
+    {
+      "section_idx": 53,
+      "section_title": "Pi: Documented Absence as a Security Argument",
+      "start_page": 38,
+      "end_page": 39,
+      "summary": "combination is structurally similar to Codex\u2019s policy-as-code + sandbox stack but layers an ex-\nplicit user-facing mode selector on top\u2014an ergonomic that Codex itself has since adopted with\nits collaboration-mode presets. A separate isTrustedFolder() check further widens or narrows\ncontext-discovery scope based on whether the directory is in the user\u2019s trust list, providing a fourth\nlayer of opt-in granularity. The release cadence between our snapshots was dominated by policy-\nengine and supply-chain hardening\u2014trust-gated .env loading in headless mode, shell-command\nvalidation with a core-tools allowlist, skill-install path-traversal checks\u2014supporting Observation 6\u2019s\nclaim that safety absorbs a disproportionate share of engineering in the largest systems.\n10.6\nMistral Vibe: Permission-Scope Patterns Plus Agent-Profile Gates\nMistral Vibe has no OS sandbox (an opt-in \u2013worktree flag now pro"
+    },
+    {
+      "section_idx": 54,
+      "section_title": "OpenCode: Syntax-Aware Permissioning, Permissive by Default",
+      "start_page": 39,
+      "end_page": 39,
+      "summary": "misunderstand as a security boundary,\u201d declares prompt injection via context files unprotectable,\nand lets built-in tools execute unconditionally with the invoking user\u2019s permissions. The one built-\nin gate is project trust: repo-controlled configuration (extensions, skills, prompts, themes) loads\nonly from trusted paths, decided per canonical path with nearest-ancestor lookup\u2014explicitly \u201cnot\na sandbox,\u201d and context files load regardless. Permissioning is policy-as-code taken literally: the\ntool_call extension event exposes mutable tool arguments and a {block, reason} veto, and the\nreference permission-gate example implements the familiar regex-plus-confirm flow (rm -rf, sudo,\nchmod 777) in \u223c80 lines of user space; isolation, when wanted, arrives as extensions (Anthropic\u2019s\nsandbox-runtime, a QEMU micro-VM) through the per-tool Operations seam. The append-only\nsession tree doubles as a co"
+    },
+    {
+      "section_idx": 55,
+      "section_title": "Minimal Safety (Aider, Mini-SWE-Agent)",
+      "start_page": 39,
+      "end_page": 39,
+      "summary": "misunderstand as a security boundary,\u201d declares prompt injection via context files unprotectable,\nand lets built-in tools execute unconditionally with the invoking user\u2019s permissions. The one built-\nin gate is project trust: repo-controlled configuration (extensions, skills, prompts, themes) loads\nonly from trusted paths, decided per canonical path with nearest-ancestor lookup\u2014explicitly \u201cnot\na sandbox,\u201d and context files load regardless. Permissioning is policy-as-code taken literally: the\ntool_call extension event exposes mutable tool arguments and a {block, reason} veto, and the\nreference permission-gate example implements the familiar regex-plus-confirm flow (rm -rf, sudo,\nchmod 777) in \u223c80 lines of user space; isolation, when wanted, arrives as extensions (Anthropic\u2019s\nsandbox-runtime, a QEMU micro-VM) through the per-tool Operations seam. The append-only\nsession tree doubles as a co"
+    },
+    {
+      "section_idx": 56,
+      "section_title": "Multi-Agent Orchestration",
+      "start_page": 39,
+      "end_page": 39,
+      "summary": "misunderstand as a security boundary,\u201d declares prompt injection via context files unprotectable,\nand lets built-in tools execute unconditionally with the invoking user\u2019s permissions. The one built-\nin gate is project trust: repo-controlled configuration (extensions, skills, prompts, themes) loads\nonly from trusted paths, decided per canonical path with nearest-ancestor lookup\u2014explicitly \u201cnot\na sandbox,\u201d and context files load regardless. Permissioning is policy-as-code taken literally: the\ntool_call extension event exposes mutable tool arguments and a {block, reason} veto, and the\nreference permission-gate example implements the familiar regex-plus-confirm flow (rm -rf, sudo,\nchmod 777) in \u223c80 lines of user space; isolation, when wanted, arrives as extensions (Anthropic\u2019s\nsandbox-runtime, a QEMU micro-VM) through the per-tool Operations seam. The append-only\nsession tree doubles as a co"
+    },
+    {
+      "section_idx": 57,
+      "section_title": "Multi-Agent Taxonomy",
+      "start_page": 39,
+      "end_page": 41,
+      "summary": "misunderstand as a security boundary,\u201d declares prompt injection via context files unprotectable,\nand lets built-in tools execute unconditionally with the invoking user\u2019s permissions. The one built-\nin gate is project trust: repo-controlled configuration (extensions, skills, prompts, themes) loads\nonly from trusted paths, decided per canonical path with nearest-ancestor lookup\u2014explicitly \u201cnot\na sandbox,\u201d and context files load regardless. Permissioning is policy-as-code taken literally: the\ntool_call extension event exposes mutable tool arguments and a {block, reason} veto, and the\nreference permission-gate example implements the familiar regex-plus-confirm flow (rm -rf, sudo,\nchmod 777) in \u223c80 lines of user space; isolation, when wanted, arrives as extensions (Anthropic\u2019s\nsandbox-runtime, a QEMU micro-VM) through the per-tool Operations seam. The append-only\nsession tree doubles as a co"
+    },
+    {
+      "section_idx": 58,
+      "section_title": "Deep Dive: Claude Code Recursive Composition",
+      "start_page": 41,
+      "end_page": 42,
+      "summary": "(1) Single-agent\nMini-SWE-Agent, Aider, Pi core\nAgent\nact\u2013\nobserve\nno spawn tool\n(2) Sequential delegation\nMistral Vibe\nParent\nSub-agent\ntask\nsummary\nparent blocks;\none child at a time\n(3) Parallel child sessions\nOpenHands, OpenCode\nParent\nSession A\nSession B\nconcurrent; separate histories\n(4) Hierarchical thread tree\nCodex\nRoot thread\nThread\nThread\n. . .\n. . .\nfork mode\ndepth-tracked; CSV fan-out\n(5) Recursive composition\nClaude Code\nAgent\nSub-agent\nSub-sub-agent\nfork context\nfork context\n...\nany agent spawns agents;\nshared prompt cache\n(6) Registry + protocol\nGemini CLI, OpenClaw, Hermes swarm\nParent\nRegistry\n(agent defs)\nRemote\nagent\ninvoke by name\nprocess\nboundary\nA2A / ACP /\nSQLite blackboard\nFigure 6: The six multi-agent orchestration patterns of the taxonomy above, schematically. Red\nnodes spawn, blue nodes are spawned, green is the definition registry; solid arrows spawn or invok"
+    },
+    {
+      "section_idx": 59,
+      "section_title": "Deep Dive: Codex Thread Tree Model",
+      "start_page": 42,
+      "end_page": 43,
+      "summary": "6. Tool Decisions: Fresh Map per agent (no cross-agent pollution).\nA critical optimization is prompt cache sharing: the parent\u2019s renderedSystemPrompt is\nfrozen at fork time and passed verbatim to the child. This ensures prompt cache hits are maintained\nacross fork/resume boundaries, preventing GrowthBook feature gate divergence from invalidating\ncaches.\n11.2.3\nCoordinator Mode\nWhen activated (via environment variable or feature gate), a Lead agent orchestrates Workers\n(Figure 7):\nCoordinator\n(Lead Agent)\nWorker 1\n(Research)\nWorker 2\n(Implement)\nWorker 3\n(Verify)\n16 tools\n(whitelist)\n16 tools\n(whitelist)\n16 tools\n(whitelist)\nspawn\nspawn\nspawn\nAgentTool, SendMessageTool\nBash, Read, Edit,\nGrep, Glob, . . .\nFigure 7: Claude Code coordinator mode architecture. Workers receive a whitelist of 16 tools\nand report via XML notifications.\nWorkers are restricted to a 16-tool whitelist (ASYNC_AGENT_A"
+    },
+    {
+      "section_idx": 60,
+      "section_title": "OpenHands: Parallel Delegation over Conversation Trees",
+      "start_page": 43,
+      "end_page": 43,
+      "summary": "Inter-Agent Communication.\nThe dedicated mailbox module of early versions has been folded\ninto the session\u2019s input queue: inter-agent messages flow through InputQueue activities with mailbox\ndelivery phases, carried as typed InterAgentCommunication records (Spawn/Message/Followup/Result).\nTwo tool generations coexist\u2014multi_agents (spawn/wait/send_message/interrupt/list) and\nmulti_agents_v2 (spawn/wait/send_input/resume_agent/close_agent)\u2014selected per model via\na multi_agent_version field in the model metadata, and parent/child topology is persisted by a\ndedicated agent-graph-store crate. The parent monitors child status via an AgentStatus enum.\nFan-Out and Declarative Roles.\nBeyond spawn and mailbox, Codex has grown map-reduce-\nstyle orchestration: spawn_agents_on_csv launches one sub-agent per CSV row under a shared\nJSON-schema result contract with concurrency normalization and runtime "
+    },
+    {
+      "section_idx": 61,
+      "section_title": "Mistral Vibe Sequential Subagent Delegation",
+      "start_page": 43,
+      "end_page": 43,
+      "summary": "Inter-Agent Communication.\nThe dedicated mailbox module of early versions has been folded\ninto the session\u2019s input queue: inter-agent messages flow through InputQueue activities with mailbox\ndelivery phases, carried as typed InterAgentCommunication records (Spawn/Message/Followup/Result).\nTwo tool generations coexist\u2014multi_agents (spawn/wait/send_message/interrupt/list) and\nmulti_agents_v2 (spawn/wait/send_input/resume_agent/close_agent)\u2014selected per model via\na multi_agent_version field in the model metadata, and parent/child topology is persisted by a\ndedicated agent-graph-store crate. The parent monitors child status via an AgentStatus enum.\nFan-Out and Declarative Roles.\nBeyond spawn and mailbox, Codex has grown map-reduce-\nstyle orchestration: spawn_agents_on_csv launches one sub-agent per CSV row under a shared\nJSON-schema result contract with concurrency normalization and runtime "
+    },
+    {
+      "section_idx": 62,
+      "section_title": "Gemini CLI: Registry, Symmetric Session Protocol, and A2A",
+      "start_page": 43,
+      "end_page": 44,
+      "summary": "Inter-Agent Communication.\nThe dedicated mailbox module of early versions has been folded\ninto the session\u2019s input queue: inter-agent messages flow through InputQueue activities with mailbox\ndelivery phases, carried as typed InterAgentCommunication records (Spawn/Message/Followup/Result).\nTwo tool generations coexist\u2014multi_agents (spawn/wait/send_message/interrupt/list) and\nmulti_agents_v2 (spawn/wait/send_input/resume_agent/close_agent)\u2014selected per model via\na multi_agent_version field in the model metadata, and parent/child topology is persisted by a\ndedicated agent-graph-store crate. The parent monitors child status via an AgentStatus enum.\nFan-Out and Declarative Roles.\nBeyond spawn and mailbox, Codex has grown map-reduce-\nstyle orchestration: spawn_agents_on_csv launches one sub-agent per CSV row under a shared\nJSON-schema result contract with concurrency normalization and runtime "
+    },
+    {
+      "section_idx": 63,
+      "section_title": "Hermes: Guarded Delegation, Swarms, and Mixture-of-Agents",
+      "start_page": 44,
+      "end_page": 44,
+      "summary": "abstracted behind an agent session protocol with symmetric local and remote implementations, so\na registry entry backed by an in-process executor and one backed by a remote A2A agent are driven\nthrough the same interface.\nWhere Gemini CLI diverges from every other system in our corpus is the packages/a2a-server\nmodule, an experimental implementation of Google\u2019s Agent-to-Agent (A2A) protocol. A2A is to\ninter-agent communication what MCP is to tool integration: a JSON-RPC standard for one agent\nprocess to discover, authenticate to, and exchange messages with another, possibly on a different\nmachine and built by a different vendor. Gemini CLI\u2019s A2A server lets a remote orchestrator drive a\nlocal Gemini CLI instance as if it were a registered local agent\u2014now with usage metadata reported\nover the protocol for cross-vendor resource accounting\u2014opening the door to cross-vendor multi-\nagent topol"
+    },
+    {
+      "section_idx": 64,
+      "section_title": "Pi: Sub-Agents as an Extension, Fleets as a Package",
+      "start_page": 44,
+      "end_page": 44,
+      "summary": "abstracted behind an agent session protocol with symmetric local and remote implementations, so\na registry entry backed by an in-process executor and one backed by a remote A2A agent are driven\nthrough the same interface.\nWhere Gemini CLI diverges from every other system in our corpus is the packages/a2a-server\nmodule, an experimental implementation of Google\u2019s Agent-to-Agent (A2A) protocol. A2A is to\ninter-agent communication what MCP is to tool integration: a JSON-RPC standard for one agent\nprocess to discover, authenticate to, and exchange messages with another, possibly on a different\nmachine and built by a different vendor. Gemini CLI\u2019s A2A server lets a remote orchestrator drive a\nlocal Gemini CLI instance as if it were a registered local agent\u2014now with usage metadata reported\nover the protocol for cross-vendor resource accounting\u2014opening the door to cross-vendor multi-\nagent topol"
+    },
+    {
+      "section_idx": 65,
+      "section_title": "OpenCode: Child Sessions with Permission-Derived Capabilities",
+      "start_page": 44,
+      "end_page": 45,
+      "summary": "abstracted behind an agent session protocol with symmetric local and remote implementations, so\na registry entry backed by an in-process executor and one backed by a remote A2A agent are driven\nthrough the same interface.\nWhere Gemini CLI diverges from every other system in our corpus is the packages/a2a-server\nmodule, an experimental implementation of Google\u2019s Agent-to-Agent (A2A) protocol. A2A is to\ninter-agent communication what MCP is to tool integration: a JSON-RPC standard for one agent\nprocess to discover, authenticate to, and exchange messages with another, possibly on a different\nmachine and built by a different vendor. Gemini CLI\u2019s A2A server lets a remote orchestrator drive a\nlocal Gemini CLI instance as if it were a registered local agent\u2014now with usage metadata reported\nover the protocol for cross-vendor resource accounting\u2014opening the door to cross-vendor multi-\nagent topol"
+    },
+    {
+      "section_idx": 66,
+      "section_title": "OpenClaw Session-Based Orchestration",
+      "start_page": 45,
+      "end_page": 45,
+      "summary": "is asymmetric: children inherit only the parent\u2019s deny rules.\nRecursion is off by default (task\nauto-denied to children) but opt-in per agent with no numeric depth cap; custom agents come\nfrom config, Markdown files, or\u2014uniquely\u2014LLM generation (generateObject over {identifier,\nwhenToUse, systemPrompt}).\n11.10\nOpenClaw Session-Based Orchestration\nOpenClaw\u2019s multi-agent model is fundamentally different: it operates through an ACP (Agent\nClient Protocol, Zed/Google\u2019s editor-oriented JSON-RPC standard at agentclientprotocol.com, not\nIBM\u2019s older homonymous Agent Communication Protocol) translator that bridges the Gateway wire\nprotocol to agent processes. Sub-agents are spawned as child processes with RPC binding. Each\nagent gets its own session with JSONL transcript persistence. Communication occurs via ACP delta\nevents (text, thought, tool calls) rather than shared memory. A rate limiter (MA"
+    },
+    {
+      "section_idx": 67,
+      "section_title": "Orchestration Pipelines: Claude Code vs. Codex",
+      "start_page": 45,
+      "end_page": 46,
+      "summary": "is asymmetric: children inherit only the parent\u2019s deny rules.\nRecursion is off by default (task\nauto-denied to children) but opt-in per agent with no numeric depth cap; custom agents come\nfrom config, Markdown files, or\u2014uniquely\u2014LLM generation (generateObject over {identifier,\nwhenToUse, systemPrompt}).\n11.10\nOpenClaw Session-Based Orchestration\nOpenClaw\u2019s multi-agent model is fundamentally different: it operates through an ACP (Agent\nClient Protocol, Zed/Google\u2019s editor-oriented JSON-RPC standard at agentclientprotocol.com, not\nIBM\u2019s older homonymous Agent Communication Protocol) translator that bridges the Gateway wire\nprotocol to agent processes. Sub-agents are spawned as child processes with RPC binding. Each\nagent gets its own session with JSONL transcript persistence. Communication occurs via ACP delta\nevents (text, thought, tool calls) rather than shared memory. A rate limiter (MA"
+    },
+    {
+      "section_idx": 68,
+      "section_title": "Extensibility Mechanisms",
+      "start_page": 46,
+      "end_page": 46,
+      "summary": "12\nExtensibility Mechanisms\nEvery system in the corpus provides extension points, though through quite different mechanisms.\n12.1\nPlugin Architectures\nOpenClaw provides the most mature plugin architecture in the corpus\u2014and since the spring 2026\nreleases, an externalized one: official provider and channel plugins were cut over to standalone first-\nclass npm packages with manifest-first metadata, moving model catalogs and routing tables out of\ncore. Plugins are manifest-driven (openclaw.plugin.json), discovered in the workspace directory,\nloaded dynamically via jiti, and registered through typed SDK contracts:\n\u2022 Channel plugins: Implement ChannelEntry (receive, send, status, configure).\n\u2022 Provider plugins: Implement ProviderEntry (inference stream).\n\u2022 Skill plugins: Register via capability system.\nStrict import boundaries are enforced: extension production code may only import the public\np"
+    },
+    {
+      "section_idx": 69,
+      "section_title": "Plugin Architectures",
+      "start_page": 46,
+      "end_page": 47,
+      "summary": "12\nExtensibility Mechanisms\nEvery system in the corpus provides extension points, though through quite different mechanisms.\n12.1\nPlugin Architectures\nOpenClaw provides the most mature plugin architecture in the corpus\u2014and since the spring 2026\nreleases, an externalized one: official provider and channel plugins were cut over to standalone first-\nclass npm packages with manifest-first metadata, moving model catalogs and routing tables out of\ncore. Plugins are manifest-driven (openclaw.plugin.json), discovered in the workspace directory,\nloaded dynamically via jiti, and registered through typed SDK contracts:\n\u2022 Channel plugins: Implement ChannelEntry (receive, send, status, configure).\n\u2022 Provider plugins: Implement ProviderEntry (inference stream).\n\u2022 Skill plugins: Register via capability system.\nStrict import boundaries are enforced: extension production code may only import the public\np"
+    },
+    {
+      "section_idx": 70,
+      "section_title": "Protocol-Based Interfaces",
+      "start_page": 47,
+      "end_page": 47,
+      "summary": "documents the harness to itself) and a remote registry client that installs versioned skills from\na hosted catalog. See Section 12.5 for full cross-system comparison. MCP servers are declared\nas [[mcp_servers]] blocks supporting http, streamable-http, and stdio transports, with\ntools namespaced as {server_name}_{tool_name} and permissioned identically to built-ins; the\nlayer matured between snapshots into a managed integration surface\u2014OAuth login flows driven\nfrom the TUI (/mcp add|login|logout|status), a curated registry of hosted Mistral \u201cconnec-\ntors,\u201d and an MCP sampling handler that lets connected servers borrow Mistral Vibe\u2019s LLM\nbackend for their own completions, a reverse dependency no other corpus system implements.\nCustom tools can be added via path-based discovery (tool_paths); custom system prompts as\n~/.vibe/prompts/{prompt_id}.md; and custom agents as ~/.vibe/agents/{agent_"
+    },
+    {
+      "section_idx": 71,
+      "section_title": "Configuration-Driven Extensibility",
+      "start_page": 47,
+      "end_page": 47,
+      "summary": "documents the harness to itself) and a remote registry client that installs versioned skills from\na hosted catalog. See Section 12.5 for full cross-system comparison. MCP servers are declared\nas [[mcp_servers]] blocks supporting http, streamable-http, and stdio transports, with\ntools namespaced as {server_name}_{tool_name} and permissioned identically to built-ins; the\nlayer matured between snapshots into a managed integration surface\u2014OAuth login flows driven\nfrom the TUI (/mcp add|login|logout|status), a curated registry of hosted Mistral \u201cconnec-\ntors,\u201d and an MCP sampling handler that lets connected servers borrow Mistral Vibe\u2019s LLM\nbackend for their own completions, a reverse dependency no other corpus system implements.\nCustom tools can be added via path-based discovery (tool_paths); custom system prompts as\n~/.vibe/prompts/{prompt_id}.md; and custom agents as ~/.vibe/agents/{agent_"
+    },
+    {
+      "section_idx": 72,
+      "section_title": "Model Context Protocol (MCP)",
+      "start_page": 47,
+      "end_page": 48,
+      "summary": "documents the harness to itself) and a remote registry client that installs versioned skills from\na hosted catalog. See Section 12.5 for full cross-system comparison. MCP servers are declared\nas [[mcp_servers]] blocks supporting http, streamable-http, and stdio transports, with\ntools namespaced as {server_name}_{tool_name} and permissioned identically to built-ins; the\nlayer matured between snapshots into a managed integration surface\u2014OAuth login flows driven\nfrom the TUI (/mcp add|login|logout|status), a curated registry of hosted Mistral \u201cconnec-\ntors,\u201d and an MCP sampling handler that lets connected servers borrow Mistral Vibe\u2019s LLM\nbackend for their own completions, a reverse dependency no other corpus system implements.\nCustom tools can be added via path-based discovery (tool_paths); custom system prompts as\n~/.vibe/prompts/{prompt_id}.md; and custom agents as ~/.vibe/agents/{agent_"
+    },
+    {
+      "section_idx": 73,
+      "section_title": "Skills as an Emerging Capability-Bundle Standard",
+      "start_page": 48,
+      "end_page": 51,
+      "summary": "outright\u2014\u201cbuild CLI tools with READMEs\u201d\u2014making skills-plus-shell its articulated alternative to\na wire protocol.\n12.5\nSkills as an Emerging Capability-Bundle Standard\nAlongside MCP, a second cross-cutting extensibility mechanism has shown up in the corpus: skills.\nMCP standardizes how an agent talks to an external tool process; skills standardize how an agent\npackages a unit of expertise into a discoverable directory (instructions, optional scripts, optional\ntool whitelists, metadata) that can be dropped into a project or user home and picked up by the\nagent at discovery time. Mitra et al. [80] frame the same idea from the training side: skills as\nteachable units in agentic flows. Nine of the eleven systems implement some form of skills system;\nonly Aider and Mini-SWE-Agent omit it (Table 10).\n48 Table 10:\nSkills support across the eleven systems.\n\u201cSpec\u201d indicates conformance with the\nag"
+    },
+    {
+      "section_idx": 74,
+      "section_title": "Cross-Cutting Observations and Implications",
+      "start_page": 51,
+      "end_page": 51,
+      "summary": "Observation 8. Skills have overtaken MCP as the corpus\u2019s most-adopted extensibility stan-\ndard: 9/11 systems implement SKILL.md bundles (only Aider and Mini-SWE-Agent ab-\nstain) versus 8/11 for MCP, the tie of April broken by Pi\u2019s explicit skills-yes-MCP-no position.\nThree second-order developments mark the layer\u2019s maturation: deferred loading is now the near-\nuniversal strategy (8 of 9 adopters); conditional activation (Claude Code paths, OpenHands\nPathTrigger, OpenClaw requires) pushes JIT context engineering into the extensibility layer;\nand a supply chain has emerged\u2014hosted registries in four systems, trust tiers and quarantine\nin Hermes, provenance verification in OpenClaw\u2014together with the first agent-authored skills\n(Hermes\u2019s self-improving loop, Gemini CLI\u2019s extraction inbox).\n13\nCross-Cutting Observations and Implications\n13.1\nArchitectural Pattern Catalog\nTables 11 and 12 catal"
+    },
+    {
+      "section_idx": 75,
+      "section_title": "Architectural Pattern Catalog",
+      "start_page": 51,
+      "end_page": 53,
+      "summary": "Observation 8. Skills have overtaken MCP as the corpus\u2019s most-adopted extensibility stan-\ndard: 9/11 systems implement SKILL.md bundles (only Aider and Mini-SWE-Agent ab-\nstain) versus 8/11 for MCP, the tie of April broken by Pi\u2019s explicit skills-yes-MCP-no position.\nThree second-order developments mark the layer\u2019s maturation: deferred loading is now the near-\nuniversal strategy (8 of 9 adopters); conditional activation (Claude Code paths, OpenHands\nPathTrigger, OpenClaw requires) pushes JIT context engineering into the extensibility layer;\nand a supply chain has emerged\u2014hosted registries in four systems, trust tiers and quarantine\nin Hermes, provenance verification in OpenClaw\u2014together with the first agent-authored skills\n(Hermes\u2019s self-improving loop, Gemini CLI\u2019s extraction inbox).\n13\nCross-Cutting Observations and Implications\n13.1\nArchitectural Pattern Catalog\nTables 11 and 12 catal"
+    },
+    {
+      "section_idx": 76,
+      "section_title": "The Twin Absences: No Agentic Frameworks, No Code RAG",
+      "start_page": 53,
+      "end_page": 56,
+      "summary": "Table 12: Catalog of 29 recurring architectural patterns (2/2): the twelve patterns new to the July\ncorpus.\nPattern\nDescription\nUsed By\nAgent-Maintained\nMemory\nBackground sub-agent extracts and\nconsolidates cross-session memory\nCodex (two-phase, git-baselined);\nhuman-gated variant in Gemini CLI\n(patch inbox)\nOuter Verification\nLoop\nScaffold-level judge/guard\nvalidating completion, outside the\nturn loop\nOpenHands (/goal judge + critics),\nHermes (verify-on-stop)\nSelf-Improving Skill\nLoop\nAgent authors, patches, and\ncurates its own capability bundles\nHermes; partial: Gemini CLI\n(skill-extraction inbox)\nLineage Compaction\nCompaction as session rotation\nwith searchable ancestry chain\nHermes\nSession-Tree Version\nControl\nAppend-only entry tree with\nmovable head; fork/rewind/branch\nsummaries\nPi; OpenHands (conversation tree)\nMinimal-Core /\nExtension-Host\nSafety, sandbox, sub-agents, plan\nmode re"
+    },
+    {
+      "section_idx": 77,
+      "section_title": "Inter-Agent Protocols: Outward Adoption, Inward In-Process",
+      "start_page": 56,
+      "end_page": 58,
+      "summary": "The second absence is consistent with recent guidance from Rajasekaran et al. [19] (Septem-\nber 2025), who favor \u201cjust-in-time\u201d (JIT) retrieval while recommending a hybrid approach: \u201cWe\ndon\u2019t memorize entire corpuses of information, but rather introduce external organization and index-\ning systems like file systems, inboxes, and bookmarks to retrieve relevant information on demand.\u201d\nThe blog post does not flatly reject pre-indexed retrieval, but its practical recommendations all point\ntoward JIT methods. Every system in the corpus follows this approach, even though repository-level\nretrieval over code is a well-studied area: RepoCoder [60], RepoBench [61], and CrossCodeEval [62]\nall build retrieval pipelines for code, and Long Code Arena [64] provides matching long-context eval-\nuation. Wang et al.\u2019s CodeRAG-Bench [63] asks the very question this section raises, \u201ccan retrieval\naugment co"
+    },
+    {
+      "section_idx": 78,
+      "section_title": "Trade-off Framework",
+      "start_page": 58,
+      "end_page": 59,
+      "summary": "Observation 11. Inter-agent protocol placement has evolved from a two-role story (outward:\neditor integration and mesh; inward: nothing) to a three-role story. ACP ships in six of eleven\nsystems and now serves (1) its designed editor\u2194agent boundary, (2) a role outside the proto-\ncol\u2019s design brief\u2014harness hosting, where OpenHands runs Claude Code, Codex, or Gem-\nini CLI as interchangeable step-backends and Hermes consumes an ACP agent as a model\ntransport\u2014and (3) via A2A, still only in Gemini CLI, the cross-vendor mesh. For a harness\u2019s\nown sub-agents, eight of nine multi-agent systems still use in-process primitives or, where they\ncross processes, something other than the standard protocols (Pi\u2019s JSONL extension, Hermes\u2019s\nSQLite-blackboard swarm); OpenClaw\u2019s ACP spawn is the lone case that routes sub-agent\ncoordination over a standard protocol. The practitioner guidance sharpens accordin"
+    },
+    {
+      "section_idx": 79,
+      "section_title": "The Platform Turn",
+      "start_page": 59,
+      "end_page": 59,
+      "summary": "14\nThe Platform Turn\nThe preceding sections dissected the harness as an artifact. This section argues that the artifact has\nchanged category: between 2025 and mid-2026, the coding-agent harness completed a turn from tool\nto platform\u2014a runtime with its own extension ecosystem, package economics, governance layers,\nswitching costs, and, since June 2026, its own meta-layer. The April edition of this study advanced\na cautious version of this claim as the \u201cCLI-as-framework hypothesis.\u201d The evidence accumulated\nsince\u2014in the corpus\u2019s own source trees, in the vendor SDKs, and in the market\u2014lets us state it as\na thesis.\n14.1\nFrom Hypothesis to Thesis: The CLI as Framework\nThe standard reading of the absence of LangChain, AutoGen, and the rest (Observation 9) is that\nproduction harnesses do not need frameworks. But there is a second reading: they do not need\nframeworks because the harness is itsel"
+    },
+    {
+      "section_idx": 80,
+      "section_title": "From Hypothesis to Thesis: The CLI as Framework",
+      "start_page": 59,
+      "end_page": 60,
+      "summary": "14\nThe Platform Turn\nThe preceding sections dissected the harness as an artifact. This section argues that the artifact has\nchanged category: between 2025 and mid-2026, the coding-agent harness completed a turn from tool\nto platform\u2014a runtime with its own extension ecosystem, package economics, governance layers,\nswitching costs, and, since June 2026, its own meta-layer. The April edition of this study advanced\na cautious version of this claim as the \u201cCLI-as-framework hypothesis.\u201d The evidence accumulated\nsince\u2014in the corpus\u2019s own source trees, in the vendor SDKs, and in the market\u2014lets us state it as\na thesis.\n14.1\nFrom Hypothesis to Thesis: The CLI as Framework\nThe standard reading of the absence of LangChain, AutoGen, and the rest (Observation 9) is that\nproduction harnesses do not need frameworks. But there is a second reading: they do not need\nframeworks because the harness is itsel"
+    },
+    {
+      "section_idx": 81,
+      "section_title": "The Harness\u2013Framework Merger",
+      "start_page": 60,
+      "end_page": 61,
+      "summary": "instructions and executed through the agent\u2019s tool system. The agent loop is the workflow engine:\nClaude Code\u2019s coordinator phases, Codex\u2019s update_plan tool and /goal workflows, Open-\nHands\u2019s judge-audited goal loop. When the developer types a task and the agent spawns sub-\nagents, dispatches tools, manages context, and produces the result, the CLI has subsumed the role\nof the build system, the task runner, and the IDE.\nSignal 4: The harness as a service surface.\nThe clearest post-April signal: harnesses now\nship the interfaces of platforms.\nOpenCode embeds an HTTP server publishing an OpenAPI\nspec and a generated SDK, with every UI\u2014TUI, desktop, web, IDE plugin, CI action\u2014as a client.\nOpenHands exposes conversations through an OpenAI-compatible gateway, so any tooling that\ncan call a chat-completions endpoint can drive an agent: the agent as a model. Mistral Vibe\nteleports local session"
+    },
+    {
+      "section_idx": 82,
+      "section_title": "Platform Economics: Marketplaces, Switching Costs, Governance",
+      "start_page": 61,
+      "end_page": 61,
+      "summary": "corpus\u2019s conventions (SKILL.md progressive disclosure, AGENTS.md memory, sub-agent spawning,\ntodo planning). And the meta-harness of the next subsection completes the picture from above: its\nbaseline installation imports claude-agent-sdk and openai-agents as production dependencies\u2014\nthe \u201cframeworks\u201d a 2026 orchestration layer builds on are the harness SDKs. The twin absence of\n2025-era frameworks thus gets its historical resolution: harnesses did not adopt the frameworks; they\nreplaced them, became importable themselves, and turned the question \u201cwhich agentic framework\nshould I use?\u201d into \u201cwhich harness do you already run?\u201d\n14.3\nPlatform Economics: Marketplaces, Switching Costs, Governance\nThree developments from the ninety-day window are textbook platform economics.\nMarketplaces.\nCodex grew a plugin marketplace (GitHub/git/URL sources, in-conversation\ninstall approval, workspace sharing"
+    },
+    {
+      "section_idx": 83,
+      "section_title": "The Meta-Harness Layer",
+      "start_page": 61,
+      "end_page": 62,
+      "summary": "corpus\u2019s conventions (SKILL.md progressive disclosure, AGENTS.md memory, sub-agent spawning,\ntodo planning). And the meta-harness of the next subsection completes the picture from above: its\nbaseline installation imports claude-agent-sdk and openai-agents as production dependencies\u2014\nthe \u201cframeworks\u201d a 2026 orchestration layer builds on are the harness SDKs. The twin absence of\n2025-era frameworks thus gets its historical resolution: harnesses did not adopt the frameworks; they\nreplaced them, became importable themselves, and turned the question \u201cwhich agentic framework\nshould I use?\u201d into \u201cwhich harness do you already run?\u201d\n14.3\nPlatform Economics: Marketplaces, Switching Costs, Governance\nThree developments from the ninety-day window are textbook platform economics.\nMarketplaces.\nCodex grew a plugin marketplace (GitHub/git/URL sources, in-conversation\ninstall approval, workspace sharing"
+    },
+    {
+      "section_idx": 84,
+      "section_title": "Ninety Days of Harness Evolution",
+      "start_page": 62,
+      "end_page": 63,
+      "summary": "policy plane (session \u2192agent \u2192admin; six phases; CEL (Common Expression Language), Python,\nor LLM-classifier evaluators; cross-session per-user budgets) enforced on foreign harnesses through\neach vendor\u2019s own extension mechanism\u2014Claude Code hooks, Cursor hooks, Hermes hooks,\nACP permission requests\u2014with fail-closed semantics. The lock-in mechanisms of Observation 2\nbecome, from one layer up, an adapter surface. A uniform sandbox and egress stack: bubblewrap-\nplus-seccomp on Linux, generated Seatbelt profiles on macOS, Job Objects on Windows\u2014the same\narchitecture the corpus documents inside Codex, re-implemented at the meta-layer, plus an L7\nMITM egress proxy (own CA, per-host rules, default-deny) hosting a secretless credential proxy,\nwhere real tokens never enter the sandbox and synthetic placeholders are swapped for credentials\nin flight\u2014a design Codex also ships (its network-proxy cra"
+    },
+    {
+      "section_idx": 85,
+      "section_title": "Discussion",
+      "start_page": 63,
+      "end_page": 63,
+      "summary": "The trees themselves moved at platform speed.\nCodex\u2019s workspace nearly doubled (621K\n\u2192\u223c1.12M lines of Rust, 89 \u2192126 crates) in one quarter\u2014memories, Guardian, marketplace plu-\ngins, code mode, realtime voice; Mistral Vibe grew 77% (35.6K \u219263K lines); OpenHands\nre-architected into an SDK while its application repo became an automation control center; Gem-\nini CLI announced its brand pivot and gated its free tier; Aider, the field\u2019s pioneer, settled into\ncommunity maintenance with 18 commits in the window. Three of the April edition\u2019s observations\nrequired substantive revision in place\u2014the coupling dichotomy (Observation 2), the size-implies-\nsandbox correlation (Observation 6), and the protocol placement story (Observation 11)\u2014each\ncorrected by evidence that did not exist, or that we could not see, ninety days earlier. The method-\nological lesson generalizes: in this field, inventory clai"
+    },
+    {
+      "section_idx": 86,
+      "section_title": "The Anthropic Effective-Agents Series as Empirical Validation",
+      "start_page": 63,
+      "end_page": 64,
+      "summary": "The trees themselves moved at platform speed.\nCodex\u2019s workspace nearly doubled (621K\n\u2192\u223c1.12M lines of Rust, 89 \u2192126 crates) in one quarter\u2014memories, Guardian, marketplace plu-\ngins, code mode, realtime voice; Mistral Vibe grew 77% (35.6K \u219263K lines); OpenHands\nre-architected into an SDK while its application repo became an automation control center; Gem-\nini CLI announced its brand pivot and gated its free tier; Aider, the field\u2019s pioneer, settled into\ncommunity maintenance with 18 commits in the window. Three of the April edition\u2019s observations\nrequired substantive revision in place\u2014the coupling dichotomy (Observation 2), the size-implies-\nsandbox correlation (Observation 6), and the protocol placement story (Observation 11)\u2014each\ncorrected by evidence that did not exist, or that we could not see, ninety days earlier. The method-\nological lesson generalizes: in this field, inventory clai"
+    },
+    {
+      "section_idx": 87,
+      "section_title": "The Minimalism Argument",
+      "start_page": 64,
+      "end_page": 64,
+      "summary": "\u2022 \u201cOrchestrator-workers for parallelizable, context-spanning tasks\u201d [17]: emerges in Claude Code\n(recursive composition), Codex (thread tree with fan-out), Gemini CLI (registry + ses-\nsion protocol), Mistral Vibe (task tool), OpenHands (parallel delegation), Hermes\n(orchestrator role + swarm), and OpenCode (concurrent child sessions) (Observation 7).\n\u2022 \u201cSave plans to external memory before subagent spawn\u201d [17]: Claude Code\u2019s CLAUDE.md,\nGemini CLI\u2019s plan files and MEMORY.md project index, Codex\u2019s AGENTS.md hierarchy and\nits agent-maintained memories root.\n\u2022 \u201cCompaction + structured note-taking + sub-agents\u201d for long-horizon tasks [19]: all four\nprovider-native systems\u2014and all three newcomers\u2014implement all three.\n\u2022 \u201cMulti-agent systems use \u223c15\u00d7 more tokens than chat\u201d [17] (vs. a single chat baseline, not\na single-agent pipeline): this is what motivates Claude Code\u2019s prompt-cache-sharing fo"
+    },
+    {
+      "section_idx": 88,
+      "section_title": "Safety as Architecture",
+      "start_page": 64,
+      "end_page": 65,
+      "summary": "\u2022 \u201cOrchestrator-workers for parallelizable, context-spanning tasks\u201d [17]: emerges in Claude Code\n(recursive composition), Codex (thread tree with fan-out), Gemini CLI (registry + ses-\nsion protocol), Mistral Vibe (task tool), OpenHands (parallel delegation), Hermes\n(orchestrator role + swarm), and OpenCode (concurrent child sessions) (Observation 7).\n\u2022 \u201cSave plans to external memory before subagent spawn\u201d [17]: Claude Code\u2019s CLAUDE.md,\nGemini CLI\u2019s plan files and MEMORY.md project index, Codex\u2019s AGENTS.md hierarchy and\nits agent-maintained memories root.\n\u2022 \u201cCompaction + structured note-taking + sub-agents\u201d for long-horizon tasks [19]: all four\nprovider-native systems\u2014and all three newcomers\u2014implement all three.\n\u2022 \u201cMulti-agent systems use \u223c15\u00d7 more tokens than chat\u201d [17] (vs. a single chat baseline, not\na single-agent pipeline): this is what motivates Claude Code\u2019s prompt-cache-sharing fo"
+    },
+    {
+      "section_idx": 89,
+      "section_title": "The Model\u2013Agent Co-design Thesis",
+      "start_page": 65,
+      "end_page": 66,
+      "summary": "Claude Code\u2019s three-layered system (hooks \u2192classifier \u2192dialog) sits between pure automation\nand human oversight. Mistral Vibe\u2019s permission-scope hierarchy (command/file/URL patterns\nplus agent-profile gates) is more granular than Aider\u2019s binary confirmation but has no OS-level\nenforcement.\nOpenHands\u2019s pluggable SecurityAnalyzer framework lets rule-based and LLM-\nbased analysis be combined.\nThe April edition observed that the corpus\u2019s two largest systems (Codex, then at 621 K lines,\nand Gemini CLI at 568 K) were also its two cross-platform sandboxers, and read the correlation\nas structural. The expanded corpus falsifies the structural reading while preserving the cost claim:\nHermes and OpenCode are comparably large with zero OS-level isolation, spending their safety\nbudgets on content-borne threats and permission granularity respectively (Observation 6). What\nremains true is that a native"
+    },
+    {
+      "section_idx": 90,
+      "section_title": "The Scaffold\u2013Capability Frontier (a Guiding Intuition)",
+      "start_page": 66,
+      "end_page": 66,
+      "summary": "(Observation 2)\u2014per-model quirk metadata, provider-profile plugins, transform matrices. What\nthe multi-provider systems cannot replicate is the update loop: only the vendor can re-tune scaffold\nbehavior server-side on model-release day. Mistral Vibe\u2019s provider-first-with-generic-fallback de-\nsign and the owned-transports position both remain viable middle paths, differing in who carries\nthe maintenance burden.\n15.5\nThe Scaffold\u2013Capability Frontier (a Guiding Intuition)\nWe close with a guiding intuition rather than a formal hypothesis: across a fixed task distribution\nand a fixed model, scaffold complexity and observed task success appear to trace a roughly concave\ncurve.\nA floor below which the agent cannot operate at all (no loop, no tool, no memory, no\nresult), a steep early-gain region where adding a small set of structural elements (a bash tool, a\nread/write tool, a Markdown context "
+    },
+    {
+      "section_idx": 91,
+      "section_title": "Threats to Validity",
+      "start_page": 66,
+      "end_page": 67,
+      "summary": "(Observation 2)\u2014per-model quirk metadata, provider-profile plugins, transform matrices. What\nthe multi-provider systems cannot replicate is the update loop: only the vendor can re-tune scaffold\nbehavior server-side on model-release day. Mistral Vibe\u2019s provider-first-with-generic-fallback de-\nsign and the owned-transports position both remain viable middle paths, differing in who carries\nthe maintenance burden.\n15.5\nThe Scaffold\u2013Capability Frontier (a Guiding Intuition)\nWe close with a guiding intuition rather than a formal hypothesis: across a fixed task distribution\nand a fixed model, scaffold complexity and observed task success appear to trace a roughly concave\ncurve.\nA floor below which the agent cannot operate at all (no loop, no tool, no memory, no\nresult), a steep early-gain region where adding a small set of structural elements (a bash tool, a\nread/write tool, a Markdown context "
+    },
+    {
+      "section_idx": 92,
+      "section_title": "Design Recommendations: A Practitioner's Guide",
+      "start_page": 67,
+      "end_page": 67,
+      "summary": "anyone who reads the same codebases and scores them differently.\nWe deliberately avoid line-\nnumber citations, and we date all code-size figures to the July-2026 pins: every system in the\ncorpus is actively developed, and finer precision would be obsolete by the time the paper is read.\nAll versions are pinned to exact release tags and commits (Table 3), the April-2026 snapshots\nare retained for the longitudinal comparison of Section 14.5, and\u2014a lesson that quarter taught us\ndirectly\u2014we now distinguish inventory claims, which we date, from structural claims, which we\nexpect to endure. Three observations of the April edition were substantively revised in this one on\nnew evidence; the revisions are integrated in place and flagged where they occur.\nThe Claude Code analysis is the weakest link on reproducibility.\nIt draws on a publicly\ncirculated source snapshot from March 2026 rather than an"
+    },
+    {
+      "section_idx": 93,
+      "section_title": "Loop Architecture",
+      "start_page": 67,
+      "end_page": 68,
+      "summary": "anyone who reads the same codebases and scores them differently.\nWe deliberately avoid line-\nnumber citations, and we date all code-size figures to the July-2026 pins: every system in the\ncorpus is actively developed, and finer precision would be obsolete by the time the paper is read.\nAll versions are pinned to exact release tags and commits (Table 3), the April-2026 snapshots\nare retained for the longitudinal comparison of Section 14.5, and\u2014a lesson that quarter taught us\ndirectly\u2014we now distinguish inventory claims, which we date, from structural claims, which we\nexpect to endure. Three observations of the April edition were substantively revised in this one on\nnew evidence; the revisions are integrated in place and flagged where they occur.\nThe Claude Code analysis is the weakest link on reproducibility.\nIt draws on a publicly\ncirculated source snapshot from March 2026 rather than an"
+    },
+    {
+      "section_idx": 94,
+      "section_title": "Provider Coupling",
+      "start_page": 68,
+      "end_page": 68,
+      "summary": "16.2\nProvider Coupling\nRecommendation 2. If you ship a foundation model, couple tightly to your home provider\nand expose a generic fallback adapter for portability; if you don\u2019t, provider-native optimiza-\ntions are still on the table\u2014budget for per-model metadata instead. Evidence: Observation 2.\nMistral Vibe\u2019s \u201cprovider-first with generic fallback\u201d remains the vendor pattern. For multi-\nprovider harnesses, Pi\u2019s per-model compat quirk flags, Hermes\u2019s declarative provider profiles,\nand OpenCode\u2019s transform matrix show that cache breakpoints, thinking tiers, and reasoning\neffort are reachable from an abstraction\u2014the cost is a maintained per-provider conditioning\nlayer, paid once and centrally.\n16.3\nTool Design\nRecommendation 3. Begin with just a bash tool. Add more tools only in response to observed\nfailure modes. Evidence: Mini-SWE-Agent\u2019s single-tool design reports 74%+ on SWE-Bench\nwith"
+    },
+    {
+      "section_idx": 95,
+      "section_title": "Tool Design",
+      "start_page": 68,
+      "end_page": 68,
+      "summary": "16.2\nProvider Coupling\nRecommendation 2. If you ship a foundation model, couple tightly to your home provider\nand expose a generic fallback adapter for portability; if you don\u2019t, provider-native optimiza-\ntions are still on the table\u2014budget for per-model metadata instead. Evidence: Observation 2.\nMistral Vibe\u2019s \u201cprovider-first with generic fallback\u201d remains the vendor pattern. For multi-\nprovider harnesses, Pi\u2019s per-model compat quirk flags, Hermes\u2019s declarative provider profiles,\nand OpenCode\u2019s transform matrix show that cache breakpoints, thinking tiers, and reasoning\neffort are reachable from an abstraction\u2014the cost is a maintained per-provider conditioning\nlayer, paid once and centrally.\n16.3\nTool Design\nRecommendation 3. Begin with just a bash tool. Add more tools only in response to observed\nfailure modes. Evidence: Mini-SWE-Agent\u2019s single-tool design reports 74%+ on SWE-Bench\nwith"
+    },
+    {
+      "section_idx": 96,
+      "section_title": "File Editing",
+      "start_page": 68,
+      "end_page": 68,
+      "summary": "16.2\nProvider Coupling\nRecommendation 2. If you ship a foundation model, couple tightly to your home provider\nand expose a generic fallback adapter for portability; if you don\u2019t, provider-native optimiza-\ntions are still on the table\u2014budget for per-model metadata instead. Evidence: Observation 2.\nMistral Vibe\u2019s \u201cprovider-first with generic fallback\u201d remains the vendor pattern. For multi-\nprovider harnesses, Pi\u2019s per-model compat quirk flags, Hermes\u2019s declarative provider profiles,\nand OpenCode\u2019s transform matrix show that cache breakpoints, thinking tiers, and reasoning\neffort are reachable from an abstraction\u2014the cost is a maintained per-provider conditioning\nlayer, paid once and centrally.\n16.3\nTool Design\nRecommendation 3. Begin with just a bash tool. Add more tools only in response to observed\nfailure modes. Evidence: Mini-SWE-Agent\u2019s single-tool design reports 74%+ on SWE-Bench\nwith"
+    },
+    {
+      "section_idx": 97,
+      "section_title": "Memory and Context",
+      "start_page": 68,
+      "end_page": 69,
+      "summary": "16.2\nProvider Coupling\nRecommendation 2. If you ship a foundation model, couple tightly to your home provider\nand expose a generic fallback adapter for portability; if you don\u2019t, provider-native optimiza-\ntions are still on the table\u2014budget for per-model metadata instead. Evidence: Observation 2.\nMistral Vibe\u2019s \u201cprovider-first with generic fallback\u201d remains the vendor pattern. For multi-\nprovider harnesses, Pi\u2019s per-model compat quirk flags, Hermes\u2019s declarative provider profiles,\nand OpenCode\u2019s transform matrix show that cache breakpoints, thinking tiers, and reasoning\neffort are reachable from an abstraction\u2014the cost is a maintained per-provider conditioning\nlayer, paid once and centrally.\n16.3\nTool Design\nRecommendation 3. Begin with just a bash tool. Add more tools only in response to observed\nfailure modes. Evidence: Mini-SWE-Agent\u2019s single-tool design reports 74%+ on SWE-Bench\nwith"
+    },
+    {
+      "section_idx": 98,
+      "section_title": "Safety Architecture by Deployment Context",
+      "start_page": 69,
+      "end_page": 69,
+      "summary": "Recommendation 7. Implement threshold compaction at a fixed buffer below the model\u2019s\ncontext window; preserve a verbatim recent tail; merge summaries incrementally rather than re-\nsummarizing; and wire the same routine to fire reactively on overflow. Evidence: Claude Code\nfires below a 13 K-token buffer and post-restores files; Gemini CLI compacts at 50% preserving\nthe last 30%; Pi and OpenCode pass the previous summary back for merging (anchored/it-\nerative summaries), which preserves early decisions that from-scratch re-summarization loses;\nMistral Vibe re-injects prior user messages into the compacted envelope and reuses the rou-\ntine on mid-turn ContextTooLong errors; OpenHands routes overflow errors into condensation.\nAggressive compaction protects against context rot [19]; conservative preservation keeps recent\nreasoning coherent.\nRecommendation 8. Do not build RAG over code. Use r"
+    },
+    {
+      "section_idx": 99,
+      "section_title": "Multi-Agent Orchestration",
+      "start_page": 69,
+      "end_page": 70,
+      "summary": "Recommendation 7. Implement threshold compaction at a fixed buffer below the model\u2019s\ncontext window; preserve a verbatim recent tail; merge summaries incrementally rather than re-\nsummarizing; and wire the same routine to fire reactively on overflow. Evidence: Claude Code\nfires below a 13 K-token buffer and post-restores files; Gemini CLI compacts at 50% preserving\nthe last 30%; Pi and OpenCode pass the previous summary back for merging (anchored/it-\nerative summaries), which preserves early decisions that from-scratch re-summarization loses;\nMistral Vibe re-injects prior user messages into the compacted envelope and reuses the rou-\ntine on mid-turn ContextTooLong errors; OpenHands routes overflow errors into condensation.\nAggressive compaction protects against context rot [19]; conservative preservation keeps recent\nreasoning coherent.\nRecommendation 8. Do not build RAG over code. Use r"
+    },
+    {
+      "section_idx": 100,
+      "section_title": "Extensibility",
+      "start_page": 70,
+      "end_page": 70,
+      "summary": "Recommendation 13.\nShip an ACP server: it is no longer just an editor integration\u2014it\nmakes your harness consumable by hosts and meta-orchestrators. Keep your own sub-agents\nin-process. Evidence: Observation 11. An ACP server now buys three audiences at once: IDEs\n(Zed, JetBrains), hosting harnesses (OpenHands runs Claude Code/Codex/Gemini CLI as\ninterchangeable ACP backends), and meta-harnesses (Omnigent drives Goose and Qwen over\nACP). Six of eleven corpus systems ship it. For agent \u2194agent mesh topologies, A2A remains\nGemini CLI\u2019s bet alone\u2014defensible, unproven. For main-agent \u2194sub-agent coordination\nwithin your own runtime, do not adopt either (see Recommendation 12): in-process primitives\nare what production systems use, and even the cross-process exceptions (Pi\u2019s JSONL extension,\nHermes\u2019s SQLite-blackboard swarm) avoid the standard protocols for that role.\n16.8\nExtensibility\nRecommen"
+    },
+    {
+      "section_idx": 101,
+      "section_title": "What Not to Build (Anti-Patterns)",
+      "start_page": 70,
+      "end_page": 71,
+      "summary": "Recommendation 13.\nShip an ACP server: it is no longer just an editor integration\u2014it\nmakes your harness consumable by hosts and meta-orchestrators. Keep your own sub-agents\nin-process. Evidence: Observation 11. An ACP server now buys three audiences at once: IDEs\n(Zed, JetBrains), hosting harnesses (OpenHands runs Claude Code/Codex/Gemini CLI as\ninterchangeable ACP backends), and meta-harnesses (Omnigent drives Goose and Qwen over\nACP). Six of eleven corpus systems ship it. For agent \u2194agent mesh topologies, A2A remains\nGemini CLI\u2019s bet alone\u2014defensible, unproven. For main-agent \u2194sub-agent coordination\nwithin your own runtime, do not adopt either (see Recommendation 12): in-process primitives\nare what production systems use, and even the cross-process exceptions (Pi\u2019s JSONL extension,\nHermes\u2019s SQLite-blackboard swarm) avoid the standard protocols for that role.\n16.8\nExtensibility\nRecommen"
+    },
+    {
+      "section_idx": 102,
+      "section_title": "A Minimum Viable Harness",
+      "start_page": 71,
+      "end_page": 72,
+      "summary": "16.10\nA Minimum Viable Harness\nAs a concrete starting point, Listing 3 sketches a minimum viable harness in \u223c90 lines of Python,\ncombining the patterns recommended above:\nlinear loop (Mini-SWE-Agent), middleware-\nstyle policies (Mistral Vibe), four-tool surface (bash, read, write, search_replace), hierarchical\nMarkdown context auto-discovery (all four provider-native systems), and threshold compaction\n(Claude Code/Gemini CLI/Mistral Vibe). It is not a drop-in library; it is a scaffold to be\ncopied and specialized.\n1 from\n__future__\nimport\nannotations\n2 import\nasyncio , json , pathlib , subprocess\n3 from\ndataclasses\nimport\ndataclass , field\n4 from\ntyping\nimport Any , Protocol\n5\n6 # ---- Provider\nabstraction ( Recommendation\n2): provider - first\nfallback\n---------\n7 class\nModel(Protocol):\n8\nasync\ndef\ncomplete(self , messages: list[dict], tools: list[dict ]) -> dict: ...\n9\n10 # ---- Tools ("
+    },
+    {
+      "section_idx": 103,
+      "section_title": "Conclusion and Future Work",
+      "start_page": 72,
+      "end_page": 72,
+      "summary": "60\nsummary = await\nself.model.complete(\n61\nself.messages + [{\" role \": \"user\",\n62\n\"content \": \"Summarize\nthe\nconversation . Preserve\ndecisions\nand\nunresolved\nissues .\"}] ,\ntools =[])\n63\n# Preserve\nsystem + last\n30% of\nturns\nverbatim , drop\nthe\nmiddle ( Gemini\npattern )\n64\nkeep = max(4, int(len(self.messages) * 0.30))\n65\nself.messages = [self.messages [0], {\" role \":\" assistant \",\" content \": summary [\" content\n\"]}] + self.messages[-keep :]\n66\n67\nasync\ndef\nrun(self , task: str) -> str:\n68\nself.messages = [\n69\n{\" role \": \"system\", \"content \": f\"You are a SWE\nagent .\\n\\n{ discover_context ()\n}\"},\n70\n{\" role \": \"user\",\n\"content \": task},\n71\n]\n72\ntool_schemas = [{\" name \": n, \" description \": f.__doc__\nor n} for n, f in\nTOOLS.items\n()]\n73\nwhile\nTrue:\n74\nawait\nself. _check_limits (); await\nself. _maybe_compact ()\n75\nresp = await\nself.model.complete(self.messages , tools= tool_schemas )\n76\nself"
+    },
+    {
+      "section_idx": 104,
+      "section_title": "Key Takeaways",
+      "start_page": 72,
+      "end_page": 74,
+      "summary": "60\nsummary = await\nself.model.complete(\n61\nself.messages + [{\" role \": \"user\",\n62\n\"content \": \"Summarize\nthe\nconversation . Preserve\ndecisions\nand\nunresolved\nissues .\"}] ,\ntools =[])\n63\n# Preserve\nsystem + last\n30% of\nturns\nverbatim , drop\nthe\nmiddle ( Gemini\npattern )\n64\nkeep = max(4, int(len(self.messages) * 0.30))\n65\nself.messages = [self.messages [0], {\" role \":\" assistant \",\" content \": summary [\" content\n\"]}] + self.messages[-keep :]\n66\n67\nasync\ndef\nrun(self , task: str) -> str:\n68\nself.messages = [\n69\n{\" role \": \"system\", \"content \": f\"You are a SWE\nagent .\\n\\n{ discover_context ()\n}\"},\n70\n{\" role \": \"user\",\n\"content \": task},\n71\n]\n72\ntool_schemas = [{\" name \": n, \" description \": f.__doc__\nor n} for n, f in\nTOOLS.items\n()]\n73\nwhile\nTrue:\n74\nawait\nself. _check_limits (); await\nself. _maybe_compact ()\n75\nresp = await\nself.model.complete(self.messages , tools= tool_schemas )\n76\nself"
+    },
+    {
+      "section_idx": 105,
+      "section_title": "Future Work",
+      "start_page": 74,
+      "end_page": 75,
+      "summary": "inside it, and the vendor lock-in of Observation 2 is becoming the structural lock-in that oper-\nating systems and IDEs have always produced [90]\u2014with the meta-layer already arbitraging\nit. Whether harnesses consolidate into a few dominant platforms, fragment into interoper-\nable runtimes, or commoditize from above is the competitive question of the next year; the\narchitectural preconditions for all three outcomes are in the source code today.\n17.2\nFuture Work\nSeveral directions emerge from our analysis:\n\u2022 Unified evaluation frameworks that assess safety, user experience, cost efficiency, and\nextensibility alongside correctness, addressing the gap between benchmark performance and\nproduction readiness.\n\u2022 Reference architecture specification that formalizes the patterns we identified (event\nsourcing, policy-as-code, context forking, deferred tool loading, middleware pipelines, hash-\nbased"
+    },
+    {
+      "section_idx": 106,
+      "section_title": "Detailed Comparison Tables",
+      "start_page": 75,
+      "end_page": 83,
+      "summary": "We thank the maintainers and contributors of the twelve studied systems for working in the\nopen. This paper would not have been possible without their decision to make their source code\navailable for inspection.\nA\nDetailed Comparison Tables\nThis appendix collects the densest per-system comparison tables, referenced from the body: the\nrhetorical content of the eleven system prompts (Table 16), the advanced API-feature matrix (Ta-\nble 17), and the head-to-head Claude Code-versus-Codex pipeline comparison (Table 18).\nTable 16: Rhetorical content of the eleven system prompts (July 2026).\nSystem\nVerbosity rule\nAnti-gold-\nplate\nCommit policy\nEmoji rule\nEmphasis style\nClaude Code\nquantified\n(\u226425/100 w;\ninternal A/B)\nexplicit\nno-commit unless\nasked\nconditional\nIMPORTANT:/NEVER\ntags\nCodex\nqualitative (5.2);\npersona-driven\n(5.6)\nexplicit (5.2);\ndropped (5.6)\nno-commit (5.2);\nfeature-flag (5.6)\nnon"
+    }
+  ],
+  "chunk_count": 968,
+  "suggested_questions": [
+    "Audit a YouTube lecture against harness engineering",
+    "Which key concepts in harness engineering are often skipped?",
+    "Check video coverage of Introduction",
+    "Summarize evaluation rules from harness engineering"
+  ]
+}

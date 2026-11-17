@@ -1,6 +1,6 @@
 import re
 from functools import lru_cache
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from flashrank import Ranker, RerankRequest
 from rank_bm25 import BM25Okapi
 from app.config import get_settings
@@ -14,6 +14,32 @@ def _tokenize(text: str) -> List[str]:
 def get_flashranker() -> Ranker:
     settings = get_settings()
     return Ranker(model_name=settings.RERANKER_MODEL, cache_dir="cache/flashrank")
+
+
+def rerank_pairs(pairs: List[Tuple[str, str]]) -> List[float]:
+    """Rerank query/passage pairs, batching passages that share a query."""
+    if not pairs:
+        return []
+
+    groups: Dict[str, List[Tuple[int, str]]] = {}
+    for pair_idx, (query, passage) in enumerate(pairs):
+        groups.setdefault(query, []).append((pair_idx, passage))
+
+    scores = [0.0] * len(pairs)
+    ranker = get_flashranker()
+    for query, indexed_passages in groups.items():
+        response = ranker.rerank(
+            RerankRequest(
+                query=query,
+                passages=[
+                    {"id": pair_idx, "text": passage}
+                    for pair_idx, passage in indexed_passages
+                ],
+            )
+        )
+        for result in response:
+            scores[int(result["id"])] = float(result["score"])
+    return scores
 
 
 def hybrid_rerank_candidates(

@@ -24,8 +24,7 @@ class Settings(BaseSettings):
     DATABASE_URL_POOLED: Optional[str] = None
 
     # LLM Models (used by app/gateway/client.py)
-    EXTRACTION_MODEL: str = "gemini-2.5-flash"
-    AUDITOR_MODEL: str = "gemini-2.5-flash"
+    EXTRACTION_MODEL: str = "gemini-3.5-flash-lite"
 
     # --- Pinecone Serverless (768d) ---
     PINECONE_API_KEY: str
@@ -46,8 +45,9 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
 
     # Model Routing
-    FAST_MODEL: str = "llama-3.1-8b-instant"  # Groq: scope routing & fast checks
-    AUDITOR_MODEL: str = "gemini-2.5-flash"  # Gemini: Worker, Evaluator & Repair
+    FAST_MODEL: str = "llama-3.3-70b-versatile"  # Groq: scope routing & fast checks
+    AUDITOR_MODEL: str = "gemini-3.8-flash"  # Gemini: Worker, Evaluator & Repair
+    FALLBACK_MODEL: str = "llama-3.3-70b-versatile"
     GROQ_WHISPER_MODEL: str = (
         "whisper-large-v3-turbo"  # Groq: 216x real-time English ASR
     )
@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     MIN_OCR_CONFIDENCE: float = 0.65
     AMBIGUITY_LOW: float = 0.42
     AMBIGUITY_HIGH: float = 0.55
-    MAX_CRITIC_RETRIES: int = 2
+    MAX_CRITIC_RETRIES: int = 1
 
 
 @lru_cache(maxsize=1)

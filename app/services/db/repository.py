@@ -22,6 +22,8 @@ def save_document_record(
     sections: Optional[List[Dict[str, Any]]] = None,
     uploaded_by: str = "default_user",
     status: str = "ready",
+    suggested_questions: Optional[List[str]] = None,
+    index_version: int = 1,
 ) -> DocumentRecord:
     with get_db_session() as db:
         existing = db.get(DocumentRecord, doc_id)
@@ -30,7 +32,10 @@ def save_document_record(
             existing.file_path = file_path
             existing.page_count = page_count
             existing.chunk_count = chunk_count
+            existing.index_version = index_version
             existing.sections_json = sections or []
+            if suggested_questions is not None:
+                existing.suggested_questions_json = suggested_questions
             existing.status = status
             db.flush()
             return existing
@@ -41,7 +46,9 @@ def save_document_record(
             file_path=file_path,
             page_count=page_count,
             chunk_count=chunk_count,
+            index_version=index_version,
             sections_json=sections or [],
+            suggested_questions_json=suggested_questions or [],
             status=status,
             uploaded_by=uploaded_by,
         )
@@ -61,7 +68,9 @@ def list_documents() -> List[Dict[str, Any]]:
                 "doc_name": r.doc_name,
                 "page_count": r.page_count,
                 "chunk_count": r.chunk_count,
+                "index_version": r.index_version,
                 "sections": r.sections_json or [],
+                "suggested_questions": r.suggested_questions_json or [],
                 "status": r.status,
                 "uploaded_by": r.uploaded_by,
                 "created_at": r.created_at.isoformat() if r.created_at else "",
@@ -81,7 +90,9 @@ def get_document(doc_id: str) -> Optional[Dict[str, Any]]:
             "file_path": r.file_path,
             "page_count": r.page_count,
             "chunk_count": r.chunk_count,
+            "index_version": r.index_version,
             "sections": r.sections_json or [],
+            "suggested_questions": r.suggested_questions_json or [],
             "status": r.status,
         }
 

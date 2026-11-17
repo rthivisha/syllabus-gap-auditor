@@ -1,26 +1,35 @@
-import time
 import json
 import logging
+import re
 import sqlite3
+import time
 import threading
 import uuid
+from queue import Empty, Queue
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-import re
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.types import Command
 from pydantic import BaseModel
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.concurrency import run_in_threadpool
 
 from app.agents.graph import audit_graph
-from app.ingestion.processor import _compute_doc_id
-from app.services.db.repository import save_document_record
-from app.agents.nodes.scope_router import load_agents_contract, resolve_audit_scope
+from app.gateway.client import get_extraction_llm
+from app.ingestion.processor import (
+    PDF_INDEX_VERSION,
+    _compute_doc_id,
+    ingest_pdf_document,
+)
+from app.agents.nodes.scope_router import resolve_audit_scope
 from app.config import get_settings
-from app.gateway.client import get_auditor_llm
 from app.guardrails.rails import YOUTUBE_URL_RE, sanitize_transcript_text
-from app.ingestion.processor import ingest_pdf_document
+from app.services.retrieval.embedding import get_embedder
+from app.services.retrieval.ranking_service import get_flashranker
 from app.services.db.database import init_db
 from app.services.db.repository import (
     count_completed_audits,
@@ -30,20 +39,27 @@ from app.services.db.repository import (
     list_approvals,
     list_documents,
     list_recent_sessions,
-    log_audit_event,
     resolve_approval,
     save_chat_message,
     save_feedback,
 )
-from app.services.retrieval.pinecone_service import PineconeService
+from app.services.job_tracker import get_job_state, set_job_stage
 
 app = FastAPI(title="Syllabus & Book Gap Finder API", version="1.0.0")
-MAX_FREE_TURNS = 5
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+MAX_FREE_TURNS = 3
 ACTIVE_JOBS: Dict[str, str] = {}
 ACTIVE_JOB_IDS: Dict[str, str] = {}
 ACTIVE_JOB_RESULTS: Dict[str, Dict[str, Any]] = {}
 ACTIVE_JOB_USERS: Dict[str, str] = {}
 ACTIVE_SYNC_RESERVATIONS: Dict[str, str] = {}
+ACTIVE_STREAM_SESSIONS: set[str] = set()
 ACTIVE_JOBS_LOCK = threading.Lock()
 logger = logging.getLogger(__name__)
 
@@ -51,13 +67,15 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    get_embedder()
+    get_flashranker()
 
 
 # --- Request Schemas ---
 class ChatTurnRequest(BaseModel):
     session_id: str
     user_id: str = "default_user"
-    doc_id: str
+    doc_id: Optional[str] = None
     message: str
     video_url: Optional[str] = None
     prior_clarification_asked: bool = False
@@ -86,6 +104,44 @@ def _extract_url_from_text(text: str) -> Optional[str]:
         if YOUTUBE_URL_RE.match(cleaned):
             return cleaned
     return None
+
+
+def _strip_mode_tag(text: str) -> str:
+    return re.sub(r"\[Mode:[^\]]+\]\s*", "", text).strip()
+
+
+def _is_greeting(text: str) -> bool:
+    return bool(
+        re.match(
+            r"^(hi+|hello+|hey+|yo+|good\s+(morning|afternoon|evening)|help|start)[\s!?.]*$",
+            text,
+            re.I,
+        )
+    )
+
+
+def _is_video_audit_turn(req: ChatTurnRequest) -> bool:
+    clean_msg = _strip_mode_tag(req.message)
+    if _is_greeting(clean_msg) and not _extract_url_from_text(clean_msg):
+        return False
+    if _extract_url_from_text(clean_msg):
+        return bool(req.doc_id)
+    return bool(req.doc_id and req.prior_clarification_asked and req.video_url)
+
+
+def _update_session_turn_context(session_id: str, result: Dict[str, Any]) -> None:
+    with ACTIVE_JOBS_LOCK:
+        job_result = ACTIVE_JOB_RESULTS.setdefault(session_id, {})
+        awaiting_scope = bool(result.get("awaiting_scope", False))
+        job_result["awaiting_scope"] = awaiting_scope
+        if result.get("video_url"):
+            job_result["video_url"] = result["video_url"]
+        elif not awaiting_scope:
+            job_result.pop("video_url", None)
+        if result.get("video_id"):
+            job_result["video_id"] = result["video_id"]
+        elif not awaiting_scope:
+            job_result.pop("video_id", None)
 
 
 def _format_audit_markdown(state: Dict[str, Any]) -> str:
@@ -143,19 +199,67 @@ def _format_audit_markdown(state: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _extract_llm_text(content: Any) -> str:
-    """Unwrap Gemini text content blocks into Markdown text."""
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts = []
-        for block in content:
-            if isinstance(block, dict) and block.get("type") == "text":
-                parts.append(str(block.get("text") or ""))
-            elif isinstance(block, str):
-                parts.append(block)
-        return "\n".join(parts).strip()
-    return str(content)
+def _generate_suggested_prompts(
+    filename: str, chunks: List[Dict[str, Any]]
+) -> List[str]:
+    """Create four concise starter prompts grounded in the uploaded PDF."""
+    doc_label = Path(filename).stem.replace("_", " ").replace("-", " ").strip()
+    section_title = str(
+        chunks[0].get("section_title") if chunks else "Chapter 1"
+    ).strip() or "Chapter 1"
+    fallback_prompts = [
+        f"Audit a YouTube lecture against {doc_label}",
+        f"Which key concepts in {doc_label} are often skipped?",
+        f"Check video coverage of {section_title}",
+        f"Summarize evaluation rules from {doc_label}",
+    ]
+    fallback_prompts = [prompt[:84].rstrip() for prompt in fallback_prompts]
+    sample_sections = "\n".join(
+        (
+            f"- [Page {c.get('page_number', 1)} | {c.get('section_title', '')}]: "
+            f"{(c.get('child_text') or c.get('text') or c.get('parent_text') or '')[:220]}"
+        )
+        for c in chunks[:10]
+    )
+
+    try:
+        response = get_extraction_llm().invoke(
+            [
+                SystemMessage(
+                    content=(
+                        "Generate exactly 4 concise, high-value questions or syllabus "
+                        "audit prompts derived ONLY from the PDF excerpts below. "
+                        "Return ONLY a JSON array of 4 strings, each under 85 characters."
+                    )
+                ),
+                HumanMessage(content=f"Document: {filename}\nExcerpts:\n{sample_sections}"),
+            ]
+        )
+        content = response.content
+        raw = content if isinstance(content, str) else str(content)
+        start, end = raw.find("["), raw.rfind("]")
+        if start >= 0 and end > start:
+            parsed = json.loads(raw[start : end + 1])
+            if (
+                isinstance(parsed, list)
+                and len(parsed) == 4
+                and all(isinstance(question, str) for question in parsed)
+            ):
+                questions = [
+                    re.sub(r"\s+", " ", question).strip() for question in parsed
+                ]
+                if all(question and len(question) < 85 for question in questions):
+                    return questions
+        logger.warning(
+            "Suggested prompt generation returned invalid output for %s; using grounded fallback prompts.",
+            filename,
+        )
+    except Exception:
+        logger.exception(
+            "Could not generate suggested prompts for %s; using grounded fallback prompts.",
+            filename,
+        )
+    return fallback_prompts
 
 
 @app.get("/health")
@@ -200,6 +304,20 @@ def _reserve_sync_quota(user_id: str) -> str:
         return reservation_id
 
 
+def _invoke_graph_turn(
+    turn_input: Dict[str, Any], session_id: str
+) -> Dict[str, Any]:
+    config = {"configurable": {"thread_id": session_id}}
+    snapshot = audit_graph.get_state(config)
+    is_paused_at_guide = bool(
+        snapshot and snapshot.next and "await_user_input" in snapshot.next
+    )
+
+    if is_paused_at_guide:
+        return audit_graph.invoke(Command(resume=turn_input), config=config)
+    return audit_graph.invoke(turn_input, config=config)
+
+
 @app.get("/quota/{user_id}")
 def api_get_quota(user_id: str) -> Dict[str, Any]:
     used = _get_user_turn_count(user_id)
@@ -231,31 +349,50 @@ def api_list_documents() -> List[Dict[str, Any]]:
 
 @app.post("/documents/upload")
 async def api_upload_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     uploaded_by: str = Form("default_user"),
 ) -> Dict[str, Any]:
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
-    settings = get_settings()
-    dest = settings.DATA_DIR / file.filename
-    dest.write_bytes(await file.read())
-    doc_id = _compute_doc_id(dest)
+    filename = Path(file.filename.replace("\\", "/")).name
+    raw_bytes = await file.read()
+    if not raw_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded PDF is empty.")
 
-    # Immediately create a 'processing' row in Neon PostgreSQL so UI shows it right away
-    save_document_record(
-        doc_id=doc_id,
-        doc_name=file.filename,
-        file_path=str(dest),
-        uploaded_by=uploaded_by,
-        status="processing",
-    )
-    background_tasks.add_task(ingest_pdf_document, dest, uploaded_by)
+    dest = get_settings().DATA_DIR / filename
+    started_at = time.perf_counter()
+    try:
+        dest.write_bytes(raw_bytes)
+        doc_id = _compute_doc_id(dest)
+        result = get_document(doc_id)
+        if (
+            not result
+            or result.get("status") != "ready"
+            or result.get("index_version") != PDF_INDEX_VERSION
+        ):
+            result = await run_in_threadpool(
+                ingest_pdf_document,
+                dest,
+                uploaded_by,
+                _generate_suggested_prompts,
+            )
+    except Exception as exc:
+        logger.exception("Synchronous PDF ingestion failed for %s.", filename)
+        raise HTTPException(
+            status_code=500,
+            detail=f"PDF indexing failed ({type(exc).__name__}): {exc}",
+        ) from exc
+
     return {
-        "status": "processing",
-        "doc_id": doc_id,
-        "doc_name": file.filename,
+        "status": "ready",
+        "doc_id": result["doc_id"],
+        "doc_name": result["doc_name"],
+        "page_count": result["page_count"],
+        "chunk_count": result["chunk_count"],
+        "sections": result["sections"],
+        "suggested_questions": result["suggested_questions"],
+        "elapsed_sec": round(time.perf_counter() - started_at, 2),
     }
 
 
@@ -424,6 +561,10 @@ def api_transcribe_video(req: TranscribeRequest) -> Dict[str, Any]:
 
 @app.post("/chat/turn")
 def api_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
+    if not _is_video_audit_turn(req):
+        result = _process_chat_turn(req)
+        _update_session_turn_context(req.session_id, result)
+        return result
     reservation_id = _reserve_sync_quota(req.user_id)
     try:
         return _process_chat_turn(req)
@@ -432,25 +573,104 @@ def api_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
             ACTIVE_SYNC_RESERVATIONS.pop(reservation_id, None)
 
 
-def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
-    doc = get_document(req.doc_id)
-    if not doc:
-        raise HTTPException(
-            status_code=404, detail="Selected reference document not found."
+@app.post("/chat/turn/stream")
+def api_chat_turn_stream(req: ChatTurnRequest) -> StreamingResponse:
+    with ACTIVE_JOBS_LOCK:
+        if (
+            req.session_id in ACTIVE_STREAM_SESSIONS
+            or ACTIVE_JOBS.get(req.session_id) == "running"
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="A chat turn is already running for this session.",
+            )
+        ACTIVE_STREAM_SESSIONS.add(req.session_id)
+
+    result_queue: Queue[Tuple[str, Any]] = Queue(maxsize=1)
+
+    def run_turn() -> None:
+        try:
+            result = api_chat_turn(req)
+            _update_session_turn_context(req.session_id, result)
+            result_queue.put(("done", result))
+        except HTTPException as exc:
+            result_queue.put(
+                ("http_error", {"status_code": exc.status_code, "detail": exc.detail})
+            )
+        except Exception as exc:
+            logger.exception(
+                "Unexpected error while streaming chat turn for session %s.",
+                req.session_id,
+            )
+            result_queue.put(("error", f"{type(exc).__name__}: {exc}"))
+        finally:
+            with ACTIVE_JOBS_LOCK:
+                ACTIVE_STREAM_SESSIONS.discard(req.session_id)
+
+    def encode_event(event_type: str, **payload: Any) -> str:
+        return (
+            f"data: {json.dumps({'type': event_type, **payload}, ensure_ascii=False)}"
+            "\n\n"
         )
 
-    clean_msg = sanitize_transcript_text(req.message)
-    detected_url = req.video_url or _extract_url_from_text(clean_msg)
-    url_from_history = False
-    if not detected_url:
-        for past in reversed(get_session_messages(req.session_id)):
-            found_url = _extract_url_from_text(past.get("content", ""))
-            if found_url:
-                detected_url = found_url
-                url_from_history = True
-                break
+    set_job_stage(req.session_id, "🚀 Starting chat turn...")
+    worker = threading.Thread(target=run_turn, daemon=True)
+    worker.start()
 
-    # Persist user message
+    def event_stream() -> Generator[str, None, None]:
+        yield encode_event(
+            "stage", text="🚀 Starting chat turn..."
+        )
+        last_stage = "🚀 Starting chat turn..."
+
+        while True:
+            stage = get_job_state(req.session_id).get("stage", "")
+            if stage and stage != last_stage:
+                yield encode_event("stage", text=stage)
+                last_stage = stage
+
+            try:
+                outcome, payload = result_queue.get(timeout=0.25)
+            except Empty:
+                continue
+
+            if outcome == "done":
+                set_job_stage(req.session_id, "✅ Chat turn complete", status="done")
+                yield encode_event("stage", text="✅ Chat turn complete")
+                yield encode_event("done", payload=payload)
+            elif outcome == "http_error":
+                detail = payload.get("detail", "Chat turn failed.")
+                set_job_stage(req.session_id, str(detail), status="error")
+                yield encode_event(
+                    "error",
+                    text=str(detail),
+                    status_code=payload.get("status_code", 500),
+                )
+            else:
+                set_job_stage(req.session_id, str(payload), status="error")
+                yield encode_event("error", text=str(payload))
+            return
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
+    doc = get_document(req.doc_id) if req.doc_id else None
+    sanitized_msg = sanitize_transcript_text(req.message)
+    clean_msg = _strip_mode_tag(sanitized_msg)
+    message_url = _extract_url_from_text(clean_msg)
+    is_greeting = _is_greeting(clean_msg) and not message_url
+    detected_url = (
+        None
+        if is_greeting
+        else message_url
+        or (req.video_url if req.prior_clarification_asked else None)
+    )
+
     save_chat_message(
         session_id=req.session_id,
         role="user",
@@ -459,8 +679,53 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
         video_url=detected_url or "",
     )
 
+    if is_greeting:
+        if doc:
+            reply = (
+                f"Hi! 👋 Your active reference document is **`{doc['doc_name']}`** "
+                f"({doc['page_count']} pages, indexed and ready).\n\n"
+                "Please paste the **YouTube lecture URL** you want me to audit "
+                "against this document (or upload a different PDF above first)."
+            )
+        else:
+            reply = (
+                "Hi! 👋 To get started with your Syllabus Gap Audit:\n"
+                "1. **Upload a reference PDF** (or pick one of the indexed sample books above).\n"
+                "2. **Paste the YouTube lecture URL** you want to check against that document."
+            )
+        msg_id = save_chat_message(
+            session_id=req.session_id,
+            role="assistant",
+            content=reply,
+            user_id=req.user_id,
+        )
+        return {
+            "type": "chat",
+            "message_id": msg_id,
+            "reply": reply,
+            "awaiting_scope": False,
+        }
+
     # Case A: Video URL present -> Scope Clarification or Full LangGraph Audit
     if detected_url:
+        if not doc:
+            reply = (
+                "Please **upload or select a reference PDF** first. Then paste the "
+                "YouTube lecture URL again so I can audit it against that document."
+            )
+            msg_id = save_chat_message(
+                session_id=req.session_id,
+                role="assistant",
+                content=reply,
+                user_id=req.user_id,
+            )
+            return {
+                "type": "chat",
+                "message_id": msg_id,
+                "reply": reply,
+                "awaiting_scope": False,
+            }
+
         # Fast deterministic check on Turn 1 (< 10ms, zero LLM wait!)
         has_scope_hint = bool(
             re.search(
@@ -472,7 +737,6 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
         if (
             not req.prior_clarification_asked
             and not has_scope_hint
-            and not url_from_history
         ):
             toc_examples = (
                 ", ".join(s["section_title"] for s in doc["sections"][:3])
@@ -501,9 +765,7 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
             user_message=clean_msg,
             doc_name=doc["doc_name"],
             doc_sections=doc["sections"],
-            prior_clarification_asked=(
-                req.prior_clarification_asked or has_scope_hint or url_from_history
-            ),
+            prior_clarification_asked=req.prior_clarification_asked or has_scope_hint,
         )
 
         if scope_res["needs_clarification"]:
@@ -524,20 +786,40 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
 
         # Execute full LangGraph Audit Pipeline
         t0 = time.perf_counter()
-        final_state = audit_graph.invoke(
+        final_state = _invoke_graph_turn(
             {
                 "session_id": req.session_id,
                 "user_id": req.user_id,
                 "doc_id": doc["doc_id"],
                 "doc_name": doc["doc_name"],
                 "video_url": detected_url,
-                "user_query": clean_msg,
+                "user_query": sanitized_msg,
+                "prior_clarification_asked": bool(
+                    req.prior_clarification_asked or has_scope_hint
+                ),
                 "target_scope": scope_res["target_scope"],
                 "scoped_section_titles": scope_res["scoped_section_titles"],
                 "attempt": 0,
-                "max_attempts": get_settings().MAX_CRITIC_RETRIES,
-            }
+                "max_attempts": 1,
+            },
+            req.session_id,
         )
+        if final_state.get("route_taken") == "project_guide" or "__interrupt__" in final_state:
+            reply_text = final_state.get("chat_response", "")
+            if not reply_text:
+                raise RuntimeError("The project guide graph returned an empty response.")
+            msg_id = save_chat_message(
+                session_id=req.session_id,
+                role="assistant",
+                content=reply_text,
+                user_id=req.user_id,
+            )
+            return {
+                "type": "chat",
+                "message_id": msg_id,
+                "reply": reply_text,
+                "awaiting_scope": False,
+            }
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
         final_state["latency_ms"] = elapsed_ms
 
@@ -575,61 +857,36 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
             "awaiting_scope": False,
         }
 
-    # Case B: Conversational Follow-Up Q&A grounded in the uploaded book
-    pc = PineconeService()
-    hits = pc.search_and_rerank(
-        doc_id=doc["doc_id"], query=clean_msg, top_k_dense=8, top_n_final=4
-    )
-    context_str = "\n\n".join(
-        f"[{h['doc_name']} — Page {h['page_number']} | {h['section_title']}]\n{h['parent_text']}"
-        for h in hits
-    )
-
-    history = get_session_messages(req.session_id)[-6:]
-    hist_text = "\n".join(f"{m['role'].upper()}: {m['content'][:600]}" for m in history)
-
-    llm = get_auditor_llm()
-    sys_prompt = (
-        f"{load_agents_contract()}\n\n"
-        "You are answering a follow-up question about a reference book and recent video gap audit. "
-        "Ground your explanation strictly in the provided Reference Book Context and cite page numbers."
-    )
-    user_prompt = (
-        f"Recent Conversation:\n{hist_text}\n\n"
-        f"Reference Book Context:\n{context_str}\n\n"
-        f"User Question: {clean_msg}"
-    )
-    ai_resp = llm.invoke(
-        [SystemMessage(content=sys_prompt), HumanMessage(content=user_prompt)]
-    )
-    reply_text = _extract_llm_text(ai_resp.content)
-
-    citations = [
+    # General and project questions are answered by project_guide, which pauses
+    # the graph so the next chat turn can resume it.
+    guide_state = _invoke_graph_turn(
         {
-            "chunk_id": h["chunk_id"],
-            "doc_name": h.get("doc_name", doc["doc_name"]),
-            "section_title": h["section_title"],
-            "page_number": h["page_number"],
-            "score": h.get("rerank_score", h.get("dense_score", 0.0)),
-            "snippet": h["parent_text"][:600],
-        }
-        for h in hits
-    ]
+            "session_id": req.session_id,
+            "user_id": req.user_id,
+            "doc_id": doc["doc_id"] if doc else None,
+            "doc_name": doc["doc_name"] if doc else "",
+            "user_query": sanitized_msg,
+            "video_url": "",
+            "prior_clarification_asked": False,
+        },
+        req.session_id,
+    )
+    if guide_state.get("route_taken") != "project_guide":
+        raise RuntimeError("The project guide graph did not produce a guide response.")
 
+    reply_text = guide_state.get("chat_response") or ""
+    if not reply_text:
+        raise RuntimeError("The project guide graph returned an empty response.")
     msg_id = save_chat_message(
         session_id=req.session_id,
         role="assistant",
         content=reply_text,
         user_id=req.user_id,
-        citations=citations,
     )
-    log_audit_event("followup_chat", {"doc_id": doc["doc_id"]}, user_id=req.user_id)
-
     return {
-        "type": "followup",
+        "type": "chat",
         "message_id": msg_id,
         "reply": reply_text,
-        "citations": citations,
         "awaiting_scope": False,
     }
 
@@ -640,6 +897,7 @@ def _run_audit_background(req: ChatTurnRequest, job_id: str) -> None:
         if ACTIVE_JOB_IDS.get(session_id) != job_id:
             return
         ACTIVE_JOBS[session_id] = "running"
+    set_job_stage(session_id, "🚀 Starting audit pipeline...")
     try:
         result = _process_chat_turn(req)
         with ACTIVE_JOBS_LOCK:
@@ -656,69 +914,120 @@ def _run_audit_background(req: ChatTurnRequest, job_id: str) -> None:
                     job_result[key] = result[key]
             ACTIVE_JOB_RESULTS[session_id] = job_result
             ACTIVE_JOBS[session_id] = "done"
+        if result.get("awaiting_scope"):
+            set_job_stage(
+                session_id,
+                "Waiting for the requested audit scope...",
+                status="done",
+            )
+        elif result.get("final_status") == "blocked":
+            set_job_stage(
+                session_id,
+                "⚠️ Video blocked by the media quality guard.",
+                status="done",
+            )
+        else:
+            set_job_stage(session_id, "✅ Audit complete", status="done")
     except Exception as exc:
-        logger.exception("Background chat turn failed for session %s.", session_id)
-        error_message = f"⚠️ **Audit Error:** {exc}"
+        import traceback
+
+        tb = traceback.format_exc()
+        print(f"\n[BACKGROUND AUDIT ERROR]\n{tb}")
+        err_msg = f"⚠️ **Audit Error (`{type(exc).__name__}`):** {exc}"
         try:
             save_chat_message(
                 session_id=session_id,
                 role="assistant",
-                content=error_message,
+                content=err_msg,
                 user_id=req.user_id,
             )
         except Exception:
             logger.exception(
                 "Could not save background audit error for session %s.", session_id
             )
+        update_stage = False
         with ACTIVE_JOBS_LOCK:
             if ACTIVE_JOB_IDS.get(session_id) == job_id:
                 job_result = ACTIVE_JOB_RESULTS.get(session_id, {})
-                job_result.update({"error": error_message, "awaiting_scope": False})
+                job_result.update({"error": err_msg, "awaiting_scope": False})
                 ACTIVE_JOB_RESULTS[session_id] = job_result
                 ACTIVE_JOBS[session_id] = "error"
+                update_stage = True
+        if update_stage:
+            set_job_stage(session_id, err_msg, status="error")
 
 
 @app.post("/chat/turn/async")
 def api_chat_turn_async(
     req: ChatTurnRequest, background_tasks: BackgroundTasks
-) -> Dict[str, str]:
-    with ACTIVE_JOBS_LOCK:
-        if ACTIVE_JOBS.get(req.session_id) == "running":
-            raise HTTPException(
-                status_code=409,
-                detail="An audit is already running for this session.",
-            )
+) -> Dict[str, Any]:
+    try:
+        if not _is_video_audit_turn(req):
+            with ACTIVE_JOBS_LOCK:
+                if (
+                    ACTIVE_JOBS.get(req.session_id) == "running"
+                    or req.session_id in ACTIVE_STREAM_SESSIONS
+                ):
+                    raise HTTPException(
+                        status_code=409,
+                        detail="An audit is already running for this session.",
+                    )
+            result = _process_chat_turn(req)
+            _update_session_turn_context(req.session_id, result)
+            return result
 
-        used = _get_user_turn_count(req.user_id)
-        if used + _active_user_reservations(req.user_id) >= MAX_FREE_TURNS:
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    f"Free trial limit reached ({MAX_FREE_TURNS}/"
-                    f"{MAX_FREE_TURNS} audits used)."
-                ),
-            )
+        with ACTIVE_JOBS_LOCK:
+            if (
+                ACTIVE_JOBS.get(req.session_id) == "running"
+                or req.session_id in ACTIVE_STREAM_SESSIONS
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail="An audit is already running for this session.",
+                )
 
-        job_id = uuid.uuid4().hex
-        ACTIVE_JOB_IDS[req.session_id] = job_id
-        ACTIVE_JOB_USERS[req.session_id] = req.user_id
-        previous_result = ACTIVE_JOB_RESULTS.get(req.session_id, {})
-        job_result = {
-            key: previous_result[key]
-            for key in ("video_title", "video_url", "video_id")
-            if previous_result.get(key)
-        }
-        job_result["video_title"] = (
-            _extract_url_from_text(req.message)
-            or req.video_url
-            or job_result.get("video_title")
-            or "Video audit"
+            used = _get_user_turn_count(req.user_id)
+            if used + _active_user_reservations(req.user_id) >= MAX_FREE_TURNS:
+                raise HTTPException(
+                    status_code=429,
+                    detail=(
+                        f"Free trial limit reached ({MAX_FREE_TURNS}/"
+                        f"{MAX_FREE_TURNS} audits used)."
+                    ),
+                )
+
+            job_id = uuid.uuid4().hex
+            ACTIVE_JOB_IDS[req.session_id] = job_id
+            ACTIVE_JOB_USERS[req.session_id] = req.user_id
+            previous_result = ACTIVE_JOB_RESULTS.get(req.session_id, {})
+            job_result = {
+                key: previous_result[key]
+                for key in ("video_title", "video_url", "video_id")
+                if previous_result.get(key)
+            }
+            job_result["video_title"] = (
+                _extract_url_from_text(req.message)
+                or req.video_url
+                or job_result.get("video_title")
+                or "Video audit"
+            )
+            ACTIVE_JOB_RESULTS[req.session_id] = job_result
+            ACTIVE_JOBS[req.session_id] = "running"
+
+        set_job_stage(req.session_id, "🚀 Starting audit pipeline...")
+        background_tasks.add_task(_run_audit_background, req, job_id)
+        return {"status": "running", "session_id": req.session_id, "job_id": job_id}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception(
+            "Unexpected error while accepting chat turn for session %s.",
+            req.session_id,
         )
-        ACTIVE_JOB_RESULTS[req.session_id] = job_result
-        ACTIVE_JOBS[req.session_id] = "running"
-
-    background_tasks.add_task(_run_audit_background, req, job_id)
-    return {"status": "running", "session_id": req.session_id, "job_id": job_id}
+        raise HTTPException(
+            status_code=500,
+            detail=f"{type(exc).__name__}: {exc}",
+        ) from exc
 
 
 @app.get("/sessions/{session_id}/status")
@@ -732,6 +1041,7 @@ def api_session_status(session_id: str) -> Dict[str, Any]:
         if job_id:
             result["job_id"] = job_id
         result.update(ACTIVE_JOB_RESULTS.get(session_id, {}))
+        result["stage"] = get_job_state(session_id).get("stage", "")
         return result
 
 

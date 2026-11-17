@@ -13,6 +13,53 @@ def _split_sentences(text: str) -> List[str]:
     ]
 
 
+def _coalesce_child_chunks(
+    child_chunks: List[Dict[str, Any]], max_chars: int = 1500
+) -> List[Dict[str, Any]]:
+    if max_chars < 1:
+        raise ValueError("max_chars must be positive.")
+
+    merged: List[Dict[str, Any]] = []
+    for chunk in child_chunks:
+        text = str(chunk.get("child_text") or "").strip()
+        if not text:
+            continue
+
+        parts: List[str] = []
+        while len(text) > max_chars:
+            split_at = text.rfind(" ", 0, max_chars + 1)
+            if split_at <= 0:
+                split_at = max_chars
+            parts.append(text[:split_at].strip())
+            text = text[split_at:].strip()
+        if text:
+            parts.append(text)
+
+        for part_idx, part in enumerate(parts):
+            part_chunk = dict(chunk)
+            if part_idx:
+                part_chunk["chunk_id"] = f"{chunk['chunk_id']}-part{part_idx + 1}"
+            part_chunk["child_text"] = part
+
+            previous = merged[-1] if merged else None
+            combined = (
+                f"{previous['child_text']}\n{part}" if previous is not None else part
+            )
+            if (
+                previous is not None
+                and previous["section_title"] == part_chunk["section_title"]
+                and previous["page_number"] == part_chunk["page_number"]
+                and len(combined) <= max_chars
+            ):
+                previous["child_text"] = combined
+                if previous["parent_id"] != part_chunk["parent_id"]:
+                    previous["parent_text"] = combined
+            else:
+                merged.append(part_chunk)
+
+    return merged
+
+
 def build_hierarchical_chunks(
     doc_id: str,
     sections: List[Dict[str, Any]],
@@ -45,7 +92,7 @@ def build_hierarchical_chunks(
 
         # 1. Group sentence stream into Parent Chunks (~650 words)
         parents: List[Dict[str, Any]] = []
-        cur_sents: List[str] = []
+        cur_sents: List[tuple[int, str]] = []
         cur_words = 0
         start_page = sentence_stream[0][0]
 
@@ -59,15 +106,15 @@ def build_hierarchical_chunks(
                         "section_title": sec_title,
                         "page_number": start_page,
                         "parent_text": f"[{sec_title} | Page {start_page}]\n"
-                        + " ".join(cur_sents),
+                        + " ".join(sentence for _, sentence in cur_sents),
                         "sentences": list(cur_sents),
                     }
                 )
-                cur_sents = [sent]
+                cur_sents = [(page_num, sent)]
                 cur_words = w
                 start_page = page_num
             else:
-                cur_sents.append(sent)
+                cur_sents.append((page_num, sent))
                 cur_words += w
 
         if cur_sents:
@@ -78,7 +125,7 @@ def build_hierarchical_chunks(
                     "section_title": sec_title,
                     "page_number": start_page,
                     "parent_text": f"[{sec_title} | Page {start_page}]\n"
-                    + " ".join(cur_sents),
+                    + " ".join(sentence for _, sentence in cur_sents),
                     "sentences": list(cur_sents),
                 }
             )
@@ -89,11 +136,13 @@ def build_hierarchical_chunks(
             idx = 0
             c_idx = 0
             while idx < len(sents):
-                chunk_sents: List[str] = []
+                chunk_sents: List[tuple[int, str]] = []
                 w_count = 0
                 j = idx
                 while j < len(sents):
-                    sw = len(sents[j].split())
+                    if chunk_sents and sents[j][0] != chunk_sents[0][0]:
+                        break
+                    sw = len(sents[j][1].split())
                     if chunk_sents and (w_count + sw) > child_max_words:
                         break
                     chunk_sents.append(sents[j])
@@ -101,13 +150,15 @@ def build_hierarchical_chunks(
                     j += 1
 
                 c_idx += 1
-                child_text = f"{sec_title}: " + " ".join(chunk_sents)
+                child_text = f"{sec_title}: " + " ".join(
+                    sentence for _, sentence in chunk_sents
+                )
                 child_records.append(
                     {
                         "chunk_id": f"{p_obj['parent_id']}-c{c_idx:02d}",
                         "parent_id": p_obj["parent_id"],
                         "section_title": sec_title,
-                        "page_number": p_obj["page_number"],
+                        "page_number": chunk_sents[0][0],
                         "child_text": child_text,
                         "parent_text": p_obj["parent_text"],
                     }
@@ -117,7 +168,7 @@ def build_hierarchical_chunks(
                     break
                 idx = max(idx + 1, j - child_overlap_sentences)
 
-    return child_records
+    return _coalesce_child_chunks(child_records)
 
 
 def format_mmss(seconds: float) -> str:

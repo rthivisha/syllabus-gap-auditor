@@ -1,24 +1,22 @@
-# Evaluation Rubric (`skills.md`) — Gap Audit Quality Gate
+# Syllabus Gap Audit — Verification & Self-Correction Policy (`skills.md`)
 
-Evaluate the Worker's drafted Missed Topics list against every criterion below. Return `PASS` only if all 5 rules succeed; otherwise return `FAIL` with specific, actionable `evaluation_notes` naming the exact topic and fix required.
+## 1. Core Objective: Missing-Topic Detection
+- Identify concrete concepts, architectural rules, and mechanisms present in retrieved textbook chunks that the video skipped or only mentioned without explaining how they work.
+- Never invent topics outside `retrieved_evidence`. Every missed topic must cite the exact `chunk_id`, `section_title`, and `page_number` from retrieved evidence.
+- Treat explanations on slides and clear spoken synonyms as covered; a bare mention without an explanation does not establish coverage.
 
-## Rule 1: Synonym & Visual Slide OCR Verification (`RULE_01_MULTIMODAL_CHECK`)
-- Cross-check every candidate "Missed" topic against BOTH the 25-second spoken transcript windows AND the extracted Slide OCR text.
-- If a term, formula, or obvious synonym appears in Slide OCR or spoken audio with supporting context (cosine/rerank score >= 0.65), **FAIL** and instruct the Repair node to remove it from the Missed list.
+## 2. Evaluator Verification Gates (`evaluator_node`)
+1. **Citation grounding:** Every item in `drafted_gaps` must exactly match a `chunk_id`, `section_title`, and `page_number` in `retrieved_evidence`.
+2. **Completeness / anti-leniency:** If at least three evidence records were retrieved and `drafted_gaps` is empty, fail the audit and instruct `repair_node` to re-examine the retrieved sections for specific mechanisms omitted from the video. An empty draft is a failure even when fewer than three records were retrieved.
+3. **Fast pass:** When the draft is non-empty and every citation exactly matches retrieved evidence, pass without an evaluator LLM call.
 
-## Rule 2: Document Grounding & Zero Hallucination (`RULE_02_GROUNDEDNESS`)
-- Every listed missed topic must map to an actual retrieved chunk (`chunk_id`, `section_title`, `page_number`) from the target `doc_id` and user-requested scope.
-- If any topic cannot be traced to retrieved document text, **FAIL** and instruct the Repair node to drop the ungrounded item.
+## 3. Single Targeted Repair Pass (`repair_node`)
+- When `evaluator_passed = False`, run at most one repair pass.
+- Read the evaluator's `evaluation_notes`, the original retrieved evidence, and this policy. Fix only flagged citations and add only genuine missed concepts supported by retrieved evidence.
+- Preserve unflagged valid items, correct citations only when the evidence identifies the exact chunk, and discard any item that cannot be grounded. Never use a new retrieval result or outside knowledge as a substitute for the original evidence.
+- Write the same repaired list to `drafted_gaps` and `missed_topics` (and the pipeline's `draft_missed_topics` alias).
+- Do not re-enter repair after this pass. If a concern remains, leave it for the existing finalization/HITL path.
 
-## Rule 3: Borderline Ambiguity Escalation (`RULE_03_AMBIGUITY_BOUNDARY`)
-- If a topic has weak/partial evidence (`score` between `0.42` and `0.55`) where coverage is genuinely ambiguous:
-  - On `attempt < max_attempts`: **FAIL** and trigger a targeted keyword re-retrieval query against Pinecone + raw Slide OCR.
-  - On `attempt == max_attempts`: Flag the item as `needs_human_review` for the `Approvals` HITL queue rather than forcing a binary guess.
-
-## Rule 4: Output Focus & Conciseness (`RULE_04_FORMAT_FOCUS`)
-- Output must list **only missed topics** (do not pad with long summaries of covered topics), each with a clear 1–2 sentence description, `section_title`, and `page_number`.
-
-## Rule 5: Concept-Level Granularity (`RULE_05_CONCEPT_GRANULARITY`)
-- Never excuse missing textbook mechanisms because the lecture is introductory.
-- When a supplied book section teaches concrete implementation rules or architectural mechanisms, flag them if absent from both transcript and slide OCR; examples include Bash/Git safety constraints, concurrency-safe tool batching, and error/recovery invariants.
-- If candidate gaps contain clearly missing mechanisms but the Worker returns no missed topics, fail the audit and identify the omitted mechanisms.
+## 4. Output Evidence
+- Each missed topic must include `chunk_id`, `section_title`, `topic_title`, `page_number`, an explanation/description, and the closest checked video timestamp.
+- Keep each explanation concise and distinguish an unexplained mention from a fully covered concept.

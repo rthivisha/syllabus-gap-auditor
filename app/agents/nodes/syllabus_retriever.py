@@ -1,36 +1,35 @@
 import hashlib
 import json
 import logging
+import os
+import tempfile
 import time
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
-from flashrank import RerankRequest
+import numpy as np
 
 from app.agents.state import AuditGraphState
 from app.config import get_settings
 from app.services.db.repository import log_audit_event
-from app.services.retrieval.embedding import embed_texts
+from app.services.retrieval.embedding import batch_encode_texts
 from app.services.retrieval.pinecone_service import PineconeService
-from app.services.retrieval.ranking_service import get_flashranker
+from app.services.job_tracker import set_job_stage
+from app.services.retrieval.ranking_service import rerank_pairs
 
 logger = logging.getLogger(__name__)
 
 
-def _cosine_sim(v1: List[float], v2: List[float]) -> float:
-    return float(sum(a * b for a, b in zip(v1, v2)))
-
-
 def _load_or_compute_window_vecs(
     video_id: str, video_windows: List[Dict[str, Any]]
-) -> tuple[List[List[float]], float]:
-    """Load embeddings for unchanged video windows or compute and persist them."""
+) -> tuple[np.ndarray, float]:
+    """Load cached window embeddings or encode the complete video in one batch."""
     if not video_windows:
-        return [], 0.0
+        return np.empty((0, get_settings().EMBEDDING_DIM), dtype=np.float32), 0.0
 
     settings = get_settings()
     cache_file = settings.PROCESSED_VIDEOS_DIR / f"video_{video_id}.json"
-    window_texts = [window["combined_text"] for window in video_windows]
+    window_texts = [str(window.get("combined_text") or "") for window in video_windows]
     cache_key = hashlib.sha256(
         json.dumps(
             {
@@ -41,9 +40,27 @@ def _load_or_compute_window_vecs(
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()
+    video_key = hashlib.sha256(video_id.encode("utf-8")).hexdigest()[:16]
+    vector_cache = (
+        settings.PROCESSED_VIDEOS_DIR
+        / f"video_{video_key}_{cache_key[:20]}.npy"
+    )
+
+    if vector_cache.exists():
+        try:
+            vectors = np.load(vector_cache, allow_pickle=False)
+            if (
+                vectors.shape == (len(video_windows), settings.EMBEDDING_DIM)
+                and np.isfinite(vectors).all()
+            ):
+                return np.asarray(vectors, dtype=np.float32), 0.0
+            logger.warning("Ignoring invalid video embedding cache at %s", vector_cache)
+        except (OSError, ValueError, EOFError) as exc:
+            logger.warning(
+                "Unable to read video embedding cache %s: %s", vector_cache, exc
+            )
 
     cache_payload: Dict[str, Any] = {}
-    cache_writable = True
     if cache_file.exists():
         try:
             loaded = json.loads(cache_file.read_text(encoding="utf-8"))
@@ -51,12 +68,10 @@ def _load_or_compute_window_vecs(
                 cache_payload = loaded
             else:
                 logger.warning("Ignoring non-object video cache at %s", cache_file)
-                cache_writable = False
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             logger.warning(
                 "Unable to read video embedding cache %s: %s", cache_file, exc
             )
-            cache_writable = False
 
     cached_vecs = cache_payload.get("window_embeddings")
     if (
@@ -70,177 +85,237 @@ def _load_or_compute_window_vecs(
             for vector in cached_vecs
         )
     ):
-        return [[float(value) for value in vector] for vector in cached_vecs], 0.0
+        vectors = np.asarray(cached_vecs, dtype=np.float32)
+        if np.isfinite(vectors).all():
+            _save_window_vecs(vector_cache, vectors)
+            return vectors, 0.0
 
     t0 = time.perf_counter()
-    vecs = embed_texts(window_texts, is_query=False)
+    vectors = batch_encode_texts(window_texts, batch_size=64)
     elapsed = round(time.perf_counter() - t0, 2)
 
-    if cache_writable:
-        cache_payload["video_id"] = video_id
-        cache_payload["windows"] = video_windows
-        cache_payload["window_embeddings"] = vecs
-        cache_payload["window_embeddings_key"] = cache_key
-        try:
-            cache_file.write_text(
-                json.dumps(cache_payload, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-        except (OSError, TypeError, ValueError) as exc:
-            logger.warning(
-                "Unable to persist video embedding cache %s: %s", cache_file, exc
-            )
+    if vectors.shape != (len(video_windows), settings.EMBEDDING_DIM):
+        raise ValueError(
+            "Video-window embedding output has an unexpected shape: "
+            f"{vectors.shape}; expected {(len(video_windows), settings.EMBEDDING_DIM)}."
+        )
+    if not np.isfinite(vectors).all():
+        raise ValueError("Video-window embeddings contain non-finite values.")
 
-    return vecs, elapsed
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    vectors = vectors / np.maximum(norms, 1e-12)
+    _save_window_vecs(vector_cache, vectors)
+    return vectors, elapsed
 
 
-def _fetch_section_parent_chunk(
-    index: Any,
-    doc_id: str,
-    section: Dict[str, Any],
-    query_vector: List[float],
-    fallback_doc_name: str,
-) -> Dict[str, Any]:
-    """Fetch the best child chunk with a section-specific query vector."""
-    response = index.query(
-        vector=query_vector,
-        top_k=8,
-        include_metadata=True,
-        filter={
-            "doc_id": {"$eq": doc_id},
-            "record_type": {"$eq": "child"},
-            "section_title": {"$eq": section["section_title"]},
-        },
-    )
-    matches = response.get("matches", [])
-    for match in matches:
-        metadata = match.get("metadata") or {}
-        if metadata:
-            return {
-                "chunk_id": match.get("id", section["id"]),
-                "doc_name": metadata.get("doc_name") or fallback_doc_name,
-                "page_number": int(
-                    metadata.get("page_number") or section["page_number"]
-                ),
-                "parent_text": metadata.get("parent_text")
-                or metadata.get("child_text")
-                or section["summary"],
-            }
+def _save_window_vecs(cache_file: Path, vectors: np.ndarray) -> None:
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=cache_file.parent,
+            prefix=f"{cache_file.stem}_",
+            suffix=".npy",
+            delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            np.save(handle, vectors, allow_pickle=False)
+        os.replace(temporary_path, cache_file)
+    except OSError as exc:
+        logger.warning("Unable to persist video embedding cache %s: %s", cache_file, exc)
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                logger.warning(
+                    "Unable to clean up temporary embedding cache %s: %s",
+                    temporary_path,
+                    exc,
+                )
 
-    return {
-        "chunk_id": section["id"],
-        "doc_name": fallback_doc_name,
-        "page_number": section["page_number"],
-        "parent_text": section["summary"],
-    }
+
+def _select_gap_candidates(
+    candidates: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    return sorted(
+        (
+            candidate
+            for candidate in candidates
+            if candidate["best_video_similarity"] < 0.72
+        ),
+        key=lambda candidate: candidate["best_video_similarity"],
+    )[:8]
 
 
 def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
     """
-    Retrieve scoped sections, compare them to video windows, and verify alignment
-    with FlashRank. Section-specific Pinecone queries run concurrently.
+    Compare Pinecone-stored scoped chunk vectors against batched video vectors.
+    FlashRank only reranks the top two windows for borderline sections.
     """
+    set_job_stage(
+        state.get("session_id", ""),
+        "2/4 Retrieving and reranking scoped textbook sections...",
+    )
     t_step = time.perf_counter()
-    doc_id = state["doc_id"]
+    doc_id = state.get("doc_id")
+    if not doc_id:
+        raise ValueError("A reference document is required for syllabus retrieval.")
     video_id = state.get("video_id", "")
-    scoped_titles = state.get("scoped_section_titles") or None
+    scoped_titles = set(state.get("scoped_section_titles") or [])
     video_windows = state.get("video_windows", [])
 
     pc = PineconeService()
     t0 = time.perf_counter()
-    sections = pc.fetch_section_inventory(
-        doc_id=doc_id, section_titles=scoped_titles, top_k=60
+    chunks = pc.fetch_scoped_chunks_with_vectors(
+        doc_id=doc_id,
+        scoped_section_titles=scoped_titles or None,
+        top_k=120,
     )
-    t_inventory = round(time.perf_counter() - t0, 2)
+    t_chunk_fetch = round(time.perf_counter() - t0, 2)
 
-    if not sections:
-        return {"retrieved_sections": [], "candidate_gaps": [], "cited_chunks": []}
+    if not chunks:
+        return {
+            "retrieved_sections": [],
+            "retrieved_evidence": [],
+            "candidate_gaps": [],
+            "cited_chunks": [],
+            "retrieval_audit_trail": [],
+        }
 
     window_vecs, t_window_embedding = _load_or_compute_window_vecs(
         video_id, video_windows
     )
     t0 = time.perf_counter()
-    section_queries = [
-        f"{section['section_title']}: {section['summary'][:350]}"
-        for section in sections
-    ]
-    section_vecs = embed_texts(section_queries, is_query=True)
-    t_embedding = round(t_window_embedding + time.perf_counter() - t0, 2)
+    chunks_by_section: Dict[str, List[Dict[str, Any]]] = {}
+    for chunk in chunks:
+        section_title = str(chunk.get("section_title") or "")
+        if not section_title:
+            section_title = f"Page {chunk.get('page_number', 1)}"
+        chunks_by_section.setdefault(section_title, []).append(chunk)
 
-    t0 = time.perf_counter()
+    section_records: List[Dict[str, Any]] = []
+    section_vectors: List[np.ndarray] = []
     section_matches: List[Dict[str, Any]] = []
-    for section, section_vec in zip(sections, section_vecs):
-        scored_windows = [
-            (_cosine_sim(section_vec, window_vec), idx, window)
-            for idx, (window, window_vec) in enumerate(zip(video_windows, window_vecs))
-        ]
-        scored_windows.sort(key=lambda item: item[0], reverse=True)
-
-        best_sim = scored_windows[0][0] if scored_windows else 0.0
-        best_window = scored_windows[0][2] if scored_windows else None
-        top_windows = scored_windows[:3]
+    for section_title, section_chunks in chunks_by_section.items():
+        try:
+            chunk_vecs = np.asarray(
+                [chunk["values"] for chunk in section_chunks],
+                dtype=np.float32,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"Pinecone returned invalid stored chunk embeddings for {section_title}."
+            ) from exc
+        if (
+            chunk_vecs.ndim != 2
+            or chunk_vecs.shape[1] != get_settings().EMBEDDING_DIM
+            or not np.isfinite(chunk_vecs).all()
+        ):
+            raise RuntimeError(
+                f"Pinecone returned invalid stored chunk embeddings for {section_title}."
+            )
+        chunk_norms = np.linalg.norm(chunk_vecs, axis=1, keepdims=True)
+        chunk_vecs = chunk_vecs / np.maximum(chunk_norms, 1e-12)
+        section_vec = np.mean(chunk_vecs, axis=0)
+        section_vec /= max(float(np.linalg.norm(section_vec)), 1e-12)
+        representative_idx = int(np.argmax(chunk_vecs @ section_vec))
+        representative = section_chunks[representative_idx]
+        unique_texts = list(
+            dict.fromkeys(
+                str(chunk.get("text") or "").strip()
+                for chunk in section_chunks
+                if str(chunk.get("text") or "").strip()
+            )
+        )
+        section = {
+            "id": representative["chunk_id"],
+            "chunk_id": representative["chunk_id"],
+            "section_title": section_title,
+            "page_number": int(representative.get("page_number") or 1),
+            "summary": "\n".join(unique_texts)[:3500],
+            "score": float(representative.get("score") or 0.0),
+        }
+        parent_chunk = {
+            "chunk_id": representative["chunk_id"],
+            "doc_name": representative.get("doc_name", ""),
+            "page_number": section["page_number"],
+            "parent_text": str(representative.get("text") or ""),
+        }
+        section_records.append(section)
         section_matches.append(
             {
                 "section": section,
+                "parent_chunk": parent_chunk,
+            }
+        )
+        section_vectors.append(section_vec)
+
+    section_matrix = np.stack(section_vectors, axis=0)
+    sim_matrix = window_vecs @ section_matrix.T
+    borderline_pairs: List[Tuple[int, int]] = []
+    for section_idx, match in enumerate(section_matches):
+        if video_windows:
+            section_scores = sim_matrix[:, section_idx]
+            best_window_idx = int(np.argmax(section_scores))
+            best_sim = float(section_scores[best_window_idx])
+            best_window = video_windows[best_window_idx]
+            if 0.42 <= best_sim <= 0.68:
+                top_window_indices = np.argsort(section_scores)[-2:][::-1].tolist()
+                borderline_pairs.extend(
+                    (section_idx, window_idx) for window_idx in top_window_indices
+                )
+        else:
+            best_sim = 0.0
+            best_window = None
+        match.update(
+            {
                 "best_sim": best_sim,
                 "best_window": best_window,
-                "top_windows": top_windows,
-                "query_vector": section_vec,
+                "rerank_score": best_sim,
             }
         )
     t_biencoder = round(time.perf_counter() - t0, 2)
 
-    t0 = time.perf_counter()
-
-    def fetch_parent_chunk(match: Dict[str, Any]) -> Dict[str, Any]:
-        return _fetch_section_parent_chunk(
-            index=pc.index,
-            doc_id=doc_id,
-            section=match["section"],
-            query_vector=match["query_vector"],
-            fallback_doc_name=state.get("doc_name", ""),
-        )
-
-    with ThreadPoolExecutor(max_workers=min(8, len(section_matches))) as executor:
-        parent_chunks = list(executor.map(fetch_parent_chunk, section_matches))
-    t_pinecone_fetch = round(time.perf_counter() - t0, 2)
-
-    ranker = get_flashranker()
     candidate_gaps: List[Dict[str, Any]] = []
     cited_chunks: List[Dict[str, Any]] = []
     retrieval_audit_trail: List[Dict[str, Any]] = []
 
     t0 = time.perf_counter()
-    for match, parent_chunk in zip(section_matches, parent_chunks):
+    if borderline_pairs:
+        rerank_inputs = [
+            (
+                f"{section_matches[section_idx]['section']['section_title']}: "
+                f"{section_matches[section_idx]['section']['summary'][:180]}",
+                str(video_windows[window_idx].get("combined_text") or "")[:600],
+            )
+            for section_idx, window_idx in borderline_pairs
+        ]
+        rerank_scores = rerank_pairs(rerank_inputs)
+        if len(rerank_scores) != len(borderline_pairs):
+            raise RuntimeError("FlashRank returned an incomplete set of pair scores.")
+        best_scores: Dict[int, Tuple[float, int]] = {}
+        for (section_idx, window_idx), score in zip(
+            borderline_pairs, rerank_scores
+        ):
+            previous = best_scores.get(section_idx)
+            if previous is None or score > previous[0]:
+                best_scores[section_idx] = (score, window_idx)
+        for section_idx, (score, window_idx) in best_scores.items():
+            section_matches[section_idx].update(
+                {
+                    "rerank_score": round(float(score), 4),
+                    "best_window": video_windows[window_idx],
+                }
+            )
+
+    for match in section_matches:
         section = match["section"]
+        parent_chunk = match["parent_chunk"]
         best_sim = match["best_sim"]
         best_window = match["best_window"]
-        top_windows = match["top_windows"]
-        rerank_score = 0.0
-
-        if top_windows:
-            passages = [
-                {"id": idx, "text": window["combined_text"][:600]}
-                for _, idx, window in top_windows
-            ]
-            rerank_results = ranker.rerank(
-                RerankRequest(
-                    query=f"{section['section_title']}: {section['summary'][:180]}",
-                    passages=passages,
-                )
-            )
-            if rerank_results:
-                top_result = rerank_results[0]
-                rerank_score = round(float(top_result["score"]), 4)
-                matched_id = str(top_result.get("id", ""))
-                best_window = next(
-                    (
-                        window
-                        for _, idx, window in top_windows
-                        if str(idx) == matched_id
-                    ),
-                    best_window,
-                )
+        rerank_score = match["rerank_score"]
 
         retrieval_audit_trail.append(
             {
@@ -280,11 +355,12 @@ def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
                 }
             )
 
+    candidate_gaps = _select_gap_candidates(candidate_gaps)
+
     t_flashrank = round(time.perf_counter() - t0, 2)
     step_timings = dict(state.get("step_timings") or {})
-    step_timings["pinecone_inventory_sec"] = t_inventory
-    step_timings["bge_embedding_sec"] = t_embedding
-    step_timings["pinecone_child_fetch_sec"] = t_pinecone_fetch
+    step_timings["pinecone_chunk_fetch_sec"] = t_chunk_fetch
+    step_timings["bge_embedding_sec"] = t_window_embedding
     step_timings["bi_encoder_sec"] = t_biencoder
     step_timings["flashrank_sec"] = t_flashrank
     step_timings["bi_encoder_plus_flashrank_sec"] = round(
@@ -303,8 +379,10 @@ def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
     )
 
     return {
-        "retrieved_sections": sections,
+        "retrieved_sections": section_records,
+        "retrieved_evidence": section_records,
         "candidate_gaps": candidate_gaps,
         "cited_chunks": cited_chunks[:15],
+        "retrieval_audit_trail": retrieval_audit_trail,
         "step_timings": step_timings,
     }

@@ -1,5 +1,7 @@
 from functools import lru_cache
 from typing import List
+
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from app.config import get_settings
 
@@ -28,3 +30,18 @@ def embed_texts(
         show_progress_bar=False,
     )
     return vectors.tolist()
+
+
+def batch_encode_texts(texts: List[str], batch_size: int = 64) -> np.ndarray:
+    """Encode unprefixed video-window text in one normalized batch."""
+    settings = get_settings()
+    if not texts:
+        return np.zeros((0, settings.EMBEDDING_DIM), dtype=np.float32)
+
+    vectors = get_embedder().encode(
+        texts,
+        batch_size=batch_size,
+        show_progress_bar=False,
+        normalize_embeddings=True,
+    )
+    return np.asarray(vectors, dtype=np.float32)
