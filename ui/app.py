@@ -262,6 +262,8 @@ docs = _fetch_docs()
 quota = _fetch_quota()
 
 with st.sidebar:
+    if "_sync_sidebar_doc_id" in st.session_state:
+        st.session_state["sidebar_doc_select"] = st.session_state.pop("_sync_sidebar_doc_id")
     st.markdown("### 📁 Document Knowledge Base")
     ready_docs = [d for d in docs if d.get("status") == "ready"]
     if ready_docs:
@@ -492,6 +494,7 @@ with tab_audit:
                     st.session_state.freshly_ingested_doc_id = info["doc_id"]
                     st.session_state.suggested_questions = info.get("suggested_questions", [])
                     st.session_state.awaiting_scope = False
+                    st.session_state["_sync_sidebar_doc_id"] = info["doc_id"]
                     # Refresh document list once so sidebar & quick-switch buttons update immediately
                     d_res = requests.get(f"{API_BASE}/documents", timeout=5)
                     if d_res.ok:
@@ -521,9 +524,7 @@ with tab_audit:
                         st.session_state.selected_doc_pages = book.get("page_count", "?")
                         st.session_state.selected_doc_chunks = book.get("chunk_count", "?")
                         st.session_state.awaiting_scope = False
-                        # Keep sidebar selectbox synchronized with the clicked book!
-                        if "sidebar_doc_select" in st.session_state:
-                            st.session_state["sidebar_doc_select"] = book["doc_id"]
+                        st.session_state["_sync_sidebar_doc_id"] = book["doc_id"]
                         if st.session_state.get("uploaded_doc_id") != book["doc_id"]:
                             st.session_state.suggested_questions = []
                         st.rerun()
