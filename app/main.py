@@ -77,9 +77,15 @@ def on_startup() -> None:
 
 
 @app.on_event("startup")
-def _warmup_models() -> None:
-    from app.agents.nodes.intent_router import _get_anchor_vectors
-    _get_anchor_vectors()
+def _preload_local_models() -> None:
+    try:
+        from app.agents.nodes.intent_router import _get_anchor_vectors
+        from app.services.vector.reranker import get_flashrank_ranker
+        _get_anchor_vectors()
+        get_flashrank_ranker()
+        print("[Startup] Preloaded BGE embedding anchors & FlashRank ranker.")
+    except Exception as exc:
+        print(f"[Startup Warn] Model preload skipped: {exc}")
 
 
 # --- Request Schemas ---

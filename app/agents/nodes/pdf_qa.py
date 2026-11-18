@@ -1,113 +1,84 @@
-from typing import Any, Dict, List
-
+from typing import Any, Dict
 from langchain_core.messages import HumanMessage, SystemMessage
-
 from app.agents.state import AuditGraphState
 from app.gateway.client import get_fast_groq_llm
+from app.services.job_tracker import set_job_stage
 from app.services.vector.embeddings import batch_encode_texts
 from app.services.vector.pinecone_store import get_pinecone_index
 
 
 def pdf_qa_node(state: AuditGraphState) -> Dict[str, Any]:
-    doc_id = state.get("doc_id")
-    if not doc_id:
-        raise ValueError("A reference document is required for PDF Q&A.")
-
-    query = state.get("user_query", "").strip()
-    if not query:
-        raise ValueError("A question is required for PDF Q&A.")
-
-    doc_name = state.get("doc_name") or "Unknown PDF"
+    """Sub-2s grounded PDF Q&A: single Pinecone HNSW query (no FlashRank) + Groq synthesis."""
+    session_id = state.get("session_id", "")
+    doc_id = state.get("doc_id", "")
+    doc_name = state.get("doc_name") or "Active PDF"
     page_count = state.get("page_count") or "unknown"
+    query = state.get("user_query", "")
 
+    if not doc_id:
+        return {
+            "chat_response": "No reference PDF is active. Please select or upload a PDF in Step 1 first.",
+            "route_taken": "pdf_qa",
+        }
+
+    set_job_stage(session_id, f"⚡ Querying {doc_name}...")
     q_vec = batch_encode_texts([query])[0].tolist()
     res = get_pinecone_index().query(
         vector=q_vec,
         filter={"doc_id": {"$eq": doc_id}},
-        top_k=6,
+        top_k=5,
         include_metadata=True,
         include_values=False,
     )
 
-    raw_matches = getattr(res, "matches", None)
-    if raw_matches is None and isinstance(res, dict):
-        raw_matches = res.get("matches", [])
-    matches = raw_matches or []
-
-    evidence: List[Dict[str, Any]] = []
-    context: List[str] = []
-    for index, match in enumerate(matches, start=1):
-        md = getattr(match, "metadata", None)
-        if md is None and isinstance(match, dict):
-            md = match.get("metadata", {})
-        md = md or {}
-
-        section_title = str(md.get("section_title") or "Unlabeled section")
-        page_number = int(md.get("page_number") or 1)
-        text = str(
-            md.get("parent_text") or md.get("child_text") or md.get("text") or ""
-        ).strip()
-        match_id = str(
-            getattr(match, "id", None)
-            or (match.get("id") if isinstance(match, dict) else "")
-            or ""
-        )
-        score = getattr(match, "score", None)
-        if score is None and isinstance(match, dict):
-            score = match.get("score", 0.0)
-        score = round(float(score or 0.0), 4)
-
-        evidence.append(
+    matches = res.get("matches", []) if isinstance(res, dict) else getattr(res, "matches", [])
+    chunks = []
+    for m in matches:
+        meta = m.get("metadata", {}) if isinstance(m, dict) else (getattr(m, "metadata", None) or {})
+        chunks.append(
             {
-                "chunk_id": match_id,
-                "doc_name": str(md.get("doc_name") or md.get("filename") or doc_name),
-                "section_title": section_title,
-                "page_number": page_number,
-                "score": score,
-                "snippet": text[:700],
+                "chunk_id": m.get("id") if isinstance(m, dict) else getattr(m, "id", ""),
+                "page_number": meta.get("page_number", 1),
+                "section_title": meta.get("section_title", ""),
+                "text": meta.get("text", "") or meta.get("parent_text", "") or meta.get("child_text", ""),
+                "bi_encoder_score": round(float(m.get("score") if isinstance(m, dict) else getattr(m, "score", 0.0) or 0.0), 3),
             }
         )
-        context.append(
-            f"[Source {index}: {section_title}, p. {page_number}]\n{text[:1800]}"
-        )
 
-    context_block = "\n\n".join(context) if context else "No direct excerpts retrieved from Pinecone."
-    llm = get_fast_groq_llm()
+    if not chunks:
+        return {
+            "chat_response": f"No indexed chunks found for **{doc_name}**. Try re-ingesting the PDF in Step 1.",
+            "route_taken": "pdf_qa",
+        }
+
+    context_block = "\n".join(
+        f"- [Page {c['page_number']} | {c['section_title']}]: {c['text'][:280]}"
+        for c in chunks
+    )
+
+    llm = get_fast_groq_llm(
+        user_groq_key=state.get("user_groq_key"),
+        user_gemini_key=state.get("user_gemini_key"),
+    )
     resp = llm.invoke(
         [
             SystemMessage(
                 content=(
                     f"You are the Syllabus Gap Audit AI assistant.\n"
-                    f"CURRENTLY ACTIVE REFERENCE PDF: '{doc_name}' (Total Pages: {page_count}, Doc ID: {doc_id}).\n\n"
-                    "Answer the user's question using the active PDF metadata above and the retrieved document excerpts below. "
-                    "Cite exact page numbers (e.g., Page 4) when referencing content.\n\n"
-                    "MANDATORY FOLLOW-UP:\n"
-                    "End your response with a concise follow-up inviting the user to **paste a YouTube lecture URL** "
-                    f"to audit which topics from '{doc_name}' the video missed.\n\n"
-                    f"=== RETRIEVED EXCERPTS FROM {doc_name} ===\n{context_block}"
+                    f"ACTIVE PDF: '{doc_name}' ({page_count} pages).\n"
+                    "Answer concisely using ONLY the retrieved excerpts below and cite exact page numbers (e.g., Page 12).\n"
+                    "End with a 1-sentence follow-up inviting the user to paste a YouTube lecture URL to audit missed topics.\n\n"
+                    f"=== EXCERPTS ===\n{context_block}"
                 )
             ),
             HumanMessage(content=query),
         ]
     )
 
-    answer = resp.content
-    if isinstance(answer, list):
-        answer = "\n".join(
-            str(block.get("text") or "")
-            if isinstance(block, dict) and block.get("type") == "text"
-            else block
-            for block in answer
-            if isinstance(block, str)
-            or (isinstance(block, dict) and block.get("type") == "text")
-        )
-    answer = str(answer or "").strip()
-    if not answer:
-        raise RuntimeError("The PDF Q&A model returned an empty response.")
-
+    answer = resp.content if isinstance(resp.content, str) else str(resp.content)
     return {
         "chat_response": answer,
-        "retrieved_evidence": evidence,
+        "retrieved_evidence": chunks[:3],
+        "cited_chunks": chunks[:3],
         "route_taken": "pdf_qa",
-        "llm_used": True,
     }

@@ -139,14 +139,22 @@ def _save_window_vecs(cache_file: Path, vectors: np.ndarray) -> None:
 def _select_gap_candidates(
     candidates: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    return sorted(
-        (
-            candidate
-            for candidate in candidates
-            if candidate["best_video_similarity"] < 0.72
-        ),
-        key=lambda candidate: candidate["best_video_similarity"],
-    )[:8]
+    # Keep only the top 6 lowest-similarity sections (actual gap candidates) for the LLM auditor
+    low_sim_sections = [
+        s for s in candidates
+        if s.get("flashrank_score", s.get("rerank_score", s.get("best_video_similarity", 1.0))) < 0.68
+    ]
+    if not low_sim_sections:
+        low_sim_sections = sorted(
+            candidates,
+            key=lambda x: x.get("flashrank_score", x.get("rerank_score", x.get("best_video_similarity", 1.0))),
+        )[:6]
+    else:
+        low_sim_sections = sorted(
+            low_sim_sections,
+            key=lambda x: x.get("flashrank_score", x.get("rerank_score", x.get("best_video_similarity", 1.0))),
+        )[:6]
+    return low_sim_sections
 
 
 def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
@@ -266,7 +274,8 @@ def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
             best_window_idx = int(np.argmax(section_scores))
             best_sim = float(section_scores[best_window_idx])
             best_window = video_windows[best_window_idx]
-            if 0.42 <= best_sim <= 0.68:
+            # Only run FlashRank on truly ambiguous scores (0.48..0.64)
+            if 0.48 <= best_sim <= 0.64:
                 top_window_indices = np.argsort(section_scores)[-2:][::-1].tolist()
                 borderline_pairs.extend(
                     (section_idx, window_idx) for window_idx in top_window_indices
@@ -344,21 +353,25 @@ def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
             }
         )
 
-        if best_sim < 0.84 or rerank_score < 0.35:
-            candidate_gaps.append(
-                {
-                    "section_title": section["section_title"],
-                    "page_number": section["page_number"],
-                    "chunk_id": parent_chunk["chunk_id"],
-                    "parent_text": parent_chunk["parent_text"],
-                    "best_video_similarity": round(best_sim, 4),
-                    "flashrank_score": rerank_score,
-                    "closest_timestamp": best_window["timestamp"] if best_window else "",
-                    "closest_video_text": (
-                        best_window["combined_text"][:450] if best_window else ""
-                    ),
-                }
-            )
+        candidate_gaps.append(
+            {
+                "section_title": section["section_title"],
+                "page_number": section["page_number"],
+                "chunk_id": parent_chunk["chunk_id"],
+                "parent_text": parent_chunk["parent_text"],
+                "text": parent_chunk["parent_text"][:650],
+                "best_video_similarity": round(best_sim, 4),
+                "bi_encoder_score": round(best_sim, 4),
+                "flashrank_score": rerank_score,
+                "rerank_score": rerank_score,
+                "closest_timestamp": best_window["timestamp"] if best_window else "",
+                "closest_video_text": (
+                    best_window["combined_text"][:450] if best_window else ""
+                ),
+                "closest_video_window": best_window,
+                "matched_window": best_window,
+            }
+        )
 
     candidate_gaps = _select_gap_candidates(candidate_gaps)
 

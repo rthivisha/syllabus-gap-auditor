@@ -128,7 +128,10 @@ def project_guide_node(state: AuditGraphState) -> Dict[str, Any]:
 
     project_md = PROJECT_DOC_PATH.read_text(encoding="utf-8")
     relevant_md = _select_relevant_md_sections(project_md, clean_query)
-    llm = get_fast_groq_llm()
+    llm = get_fast_groq_llm(
+        user_groq_key=state.get("user_groq_key"),
+        user_gemini_key=state.get("user_gemini_key"),
+    )
     resp = llm.invoke(
         [
             SystemMessage(

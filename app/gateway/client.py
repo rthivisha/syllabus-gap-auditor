@@ -114,9 +114,10 @@ def _build_clean_gemini(
 
 
 def get_fast_groq_llm(
-    user_groq_key: Optional[str] = None, user_gemini_key: Optional[str] = None
+    user_groq_key: Optional[str] = None,
+    user_gemini_key: Optional[str] = None,
 ) -> Any:
-    """Sub-second Groq LLM primary for Project Q&A, PDF Q&A, and intent routing, with Gemini fallback."""
+    """Sub-second Groq primary LLM for PDF Q&A & Project Q&A, with automatic Gemini fallback."""
     groq = _build_groq_fallback(temperature=0.1, override_key=user_groq_key)
     gemini = _build_clean_gemini(override_key=user_gemini_key)
     if groq is None:
@@ -127,7 +128,8 @@ def get_fast_groq_llm(
     def _invoke(messages: Any) -> Any:
         try:
             return groq.invoke(messages)
-        except Exception:
+        except Exception as exc:
+            print(f"[LLM Failover - Fast] Groq failed ({type(exc).__name__}), switching to Gemini...")
             return gemini.invoke(messages)
 
     return RunnableLambda(_invoke)

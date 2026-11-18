@@ -65,13 +65,13 @@ def _audit_single_batch(
     books_payload = json.dumps(
         [
             {
-                "section_title": candidate["section_title"],
-                "page_number": candidate["page_number"],
-                "chunk_id": candidate["chunk_id"],
-                "best_video_similarity": candidate["best_video_similarity"],
-                "closest_timestamp": candidate["closest_timestamp"],
-                "closest_video_text": candidate["closest_video_text"],
-                "book_parent_text": candidate["parent_text"][:1400],
+                "section_title": candidate.get("section_title", ""),
+                "page_number": candidate.get("page_number", 1),
+                "chunk_id": candidate.get("chunk_id", ""),
+                "best_video_similarity": candidate.get("best_video_similarity") or candidate.get("bi_encoder_score", 0.0),
+                "closest_timestamp": candidate.get("closest_timestamp") or (candidate.get("closest_video_window") or {}).get("timestamp", ""),
+                "closest_video_text": candidate.get("closest_video_text") or (candidate.get("closest_video_window") or {}).get("combined_text", "") or (candidate.get("closest_video_window") or {}).get("text", ""),
+                "book_parent_text": (candidate.get("parent_text") or candidate.get("text") or "")[:1400],
             }
             for candidate in evidence_batch
         ],
@@ -117,8 +117,8 @@ def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
     t0 = time.perf_counter()
     step_timings = dict(state.get("step_timings") or {})
     session_id = state.get("session_id", "")
-    candidates = state.get("candidate_gaps", [])[:18]
-    batches = _chunk_list(candidates)
+    candidates = state.get("candidate_gaps", [])[:6]
+    batches = _chunk_list(candidates, batch_size=3)
     set_job_stage(
         session_id,
         f"3/4 Auditing {len(candidates)} candidate sections across "
@@ -140,7 +140,7 @@ def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
         for w in state.get("video_windows", [])[:40]
     )
     results: Dict[int, WorkerDraftOutput] = {}
-    with ThreadPoolExecutor(max_workers=2) as executor:
+    with ThreadPoolExecutor(max_workers=min(3, len(batches)) if batches else 1) as executor:
         futures = {
             executor.submit(
                 copy_context().run,
