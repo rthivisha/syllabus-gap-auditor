@@ -623,6 +623,20 @@ async def api_upload_document_stream(
 
             yield f"data: {json.dumps({'type': 'step', 'step': 5, 'text': 'Upserting vectors into Pinecone...'})}\n\n"
             section_titles = list(dict.fromkeys(c["section_title"] for c in raw_chunks if c.get("section_title")))
+            clean_sections = [
+                s for s in section_titles
+                if len(s) >= 5 and s.lower() not in {"figures and tables", "table of contents", "contents"}
+            ]
+            top_sec = clean_sections[0] if clean_sections else "the main sections"
+            second_sec = clean_sections[1] if len(clean_sections) > 1 else "key guidelines"
+
+            starter_prompts = [
+                f"Summarize the key topics covered in {filename}",
+                f"Explain '{top_sec}' from this PDF",
+                f"What are the main rules or takeaways in '{second_sec}'?",
+                "How does this Syllabus Gap Audit AI project work?",
+            ]
+
             from app.services.db.crud import register_document
             register_document(
                 doc_id=doc_id,
@@ -632,6 +646,7 @@ async def api_upload_document_stream(
                 section_titles=section_titles,
                 status="ready",
                 uploaded_by=user_id,
+                suggested_questions=starter_prompts,
             )
 
             try:
@@ -647,7 +662,8 @@ async def api_upload_document_stream(
                 "doc_name": filename,
                 "page_count": page_count,
                 "chunk_count": chunk_count,
-                "sections": section_titles[:12],
+                "sections": clean_sections[:12],
+                "suggested_questions": starter_prompts,
                 "elapsed_sec": round(time.perf_counter() - t0, 2),
             }
             yield f"data: {json.dumps({'type': 'done', 'payload': payload})}\n\n"

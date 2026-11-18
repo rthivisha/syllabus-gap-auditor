@@ -284,6 +284,20 @@ if not st.session_state.selected_doc_id:
             st.session_state.selected_doc_chunks = info.get("chunk_count", "?")
             st.session_state.last_ingest_sec = info.get("elapsed_sec")
             st.session_state.paired_sample_video = None
+            st.session_state.suggested_questions = info.get("suggested_questions", [])
+            st.session_state.messages = [
+                {
+                    "role": "assistant",
+                    "content": (
+                        f"✅ **`{info['filename']}`** is indexed into Pinecone ({info.get('page_count', '?')} pages, "
+                        f"{info.get('chunk_count', '?')} vectors).\n\n"
+                        "What would you like to do next?\n"
+                        "- 🎥 **Paste a YouTube lecture URL** below to audit which topics from this PDF the video missed\n"
+                        "- 📄 **Ask any question** about the contents of this PDF\n"
+                        "- ⚡ **Ask about this project** to explore its LangGraph & Inverse-RAG architecture"
+                    ),
+                }
+            ]
             render_live_ingestion_board(
                 active_step=6,
                 doc_name=info["filename"],
@@ -341,6 +355,15 @@ else:
         vector_count=st.session_state.selected_doc_chunks,
         elapsed_sec=st.session_state.get("last_ingest_sec"),
     )
+
+    if st.session_state.get("suggested_questions"):
+        st.caption("💡 **SUGGESTED QUESTIONS (DERIVED FROM YOUR INGESTED PDF & PROJECT):**")
+        q_cols = st.columns(4)
+        for q_idx, q_text in enumerate(st.session_state["suggested_questions"][:4]):
+            with q_cols[q_idx]:
+                if st.button(f"👉 {q_text}", key=f"post_ingest_q_{q_idx}", use_container_width=True):
+                    st.session_state.queued_pill_prompt = q_text
+                    st.rerun()
 
     # If a sample book was picked, offer its paired YouTube lecture URL as a 1-click audit trigger
     if st.session_state.paired_sample_video and not st.session_state.messages:
