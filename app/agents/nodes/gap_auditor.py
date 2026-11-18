@@ -1,5 +1,6 @@
 import json
 import time
+from contextvars import copy_context
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List
 
@@ -142,7 +143,12 @@ def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = {
             executor.submit(
-                _audit_single_batch, batch_idx, batch, video_digest, state
+                copy_context().run,
+                _audit_single_batch,
+                batch_idx,
+                batch,
+                video_digest,
+                state,
             ): batch_idx
             for batch_idx, batch in enumerate(batches)
         }

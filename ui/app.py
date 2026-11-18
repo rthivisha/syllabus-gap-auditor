@@ -1,5 +1,6 @@
 import html
 import json
+from typing import Any, Dict
 import uuid
 
 import requests
@@ -95,11 +96,13 @@ def _init_session_state() -> None:
         "selected_doc_pages": "—",
         "selected_doc_chunks": "—",
         "suggested_questions": [],
+        "freshly_ingested_doc_id": None,
         "queued_pill_prompt": None,
         "feedback_submitted_ids": [],
         "cached_docs": None,
         "last_uploaded_sig": None,
-        "upload_success_message": None,
+        "byok_gemini_key": "",
+        "byok_groq_key": "",
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -148,9 +151,9 @@ def _fetch_sessions() -> list:
 def _fetch_quota() -> dict:
     try:
         r = requests.get(f"{API_BASE}/quota/{st.session_state.visitor_id}", timeout=5)
-        return r.json() if r.ok else {"used": 0, "limit": 3, "remaining": 3}
+        return r.json() if r.ok else {"used": 0, "limit": 5, "remaining": 5}
     except Exception:
-        return {"used": 0, "limit": 3, "remaining": 3}
+        return {"used": 0, "limit": 5, "remaining": 5}
 
 
 def _render_verified_sources(sources: list) -> None:
@@ -262,35 +265,49 @@ with st.sidebar:
     st.markdown("### 📁 Document Knowledge Base")
     ready_docs = [d for d in docs if d.get("status") == "ready"]
     if ready_docs:
-        doc_options = {f"{d['doc_name']} ({d['page_count']}p)": d["doc_id"] for d in ready_docs}
-        labels = list(doc_options.keys())
+        # Deduplicate ready_docs by filename / doc_name
+        seen_names = set()
+        deduped_ready = []
+        for d in ready_docs:
+            d_name = d.get("filename") or d.get("doc_name")
+            if d_name and d_name not in seen_names:
+                seen_names.add(d_name)
+                deduped_ready.append(d)
+
+        doc_options = {d["doc_id"]: f"{d.get('filename') or d.get('doc_name')} ({d.get('page_count', '?')}p)" for d in deduped_ready}
+        doc_ids = list(doc_options.keys())
         default_idx = 0
-        if st.session_state.selected_doc_id in doc_options.values():
-            default_idx = list(doc_options.values()).index(st.session_state.selected_doc_id)
-        chosen_label = st.selectbox(
+        if st.session_state.selected_doc_id in doc_ids:
+            default_idx = doc_ids.index(st.session_state.selected_doc_id)
+
+        if "sidebar_doc_select" not in st.session_state or st.session_state["sidebar_doc_select"] not in doc_ids:
+            st.session_state["sidebar_doc_select"] = doc_ids[default_idx]
+
+        chosen_doc_id = st.selectbox(
             "Active Reference Book",
-            labels,
-            index=default_idx,
+            doc_ids,
+            index=doc_ids.index(st.session_state["sidebar_doc_select"]),
+            format_func=lambda did: doc_options.get(did, did),
             label_visibility="collapsed",
+            key="sidebar_doc_select",
         )
         previous_doc_id = st.session_state.selected_doc_id
-        st.session_state.selected_doc_id = doc_options[chosen_label]
-        active_doc = next((d for d in ready_docs if d["doc_id"] == st.session_state.selected_doc_id), None)
+        st.session_state.selected_doc_id = chosen_doc_id
+        active_doc = next((d for d in deduped_ready if d["doc_id"] == st.session_state.selected_doc_id), None)
         if active_doc:
-            st.session_state.selected_doc_name = active_doc["doc_name"]
+            st.session_state.selected_doc_name = active_doc.get("filename") or active_doc.get("doc_name")
             st.session_state.selected_doc_pages = active_doc.get("page_count", "—")
             st.session_state.selected_doc_chunks = active_doc.get("chunk_count", "—")
             st.session_state.suggested_questions = active_doc.get(
                 "suggested_questions", []
             )
-            st.caption(f"✅ `{active_doc['chunk_count']}` child chunks indexed")
+            st.caption(f"✅ `{active_doc.get('chunk_count', '?')}` child chunks indexed")
         if previous_doc_id != st.session_state.selected_doc_id:
             st.session_state.awaiting_scope = False
             st.session_state.active_video_url = None
             st.session_state.active_video_id = None
-            st.session_state.active_book_banner = None
     else:
-        st.info("No documents indexed yet. Upload a PDF on the main screen to start.")
+        st.info("No documents indexed yet. Upload a PDF in Step 1 to get started.")
 
     for pd in [d for d in docs if d.get("status") == "processing"]:
         st.info(f"⏳ Indexing `{pd['doc_name']}`...")
@@ -318,14 +335,37 @@ with st.sidebar:
         else:
             st.caption("Select or upload a reference book to inspect sections.")
 
+    with st.expander("🔑 Bring Your Own API Keys", expanded=False):
+        byok_gemini_key = st.text_input(
+            "Gemini API key",
+            type="password",
+            key="byok_gemini_key",
+        )
+        byok_groq_key = st.text_input(
+            "Groq API key",
+            type="password",
+            key="byok_groq_key",
+        )
+        st.caption(
+            "Keys stay in this Streamlit session, are sent with chat requests, "
+            "and are not persisted by the API."
+        )
+
+    has_byok = bool(byok_gemini_key.strip() or byok_groq_key.strip())
     with st.expander("⚙️ Inference Engine & Free Trial", expanded=True):
         st.markdown("🟢 **Gemini 3.8 Flash + Pinecone Connected**")
         st.caption("Hybrid Retrieval: `BGE-base-en-v1.5` + `FlashRank` + `skills.md` Evaluator")
-        st.progress(
-            min(1.0, quota["used"] / max(1, quota["limit"])),
-            text=f"Free Guest Audits: {quota['remaining']} of {quota['limit']} remaining",
-        )
-        st.caption("🔒 Server-side API keys secured via Cloudflare AI Gateway.")
+        if has_byok:
+            st.caption("BYOK enabled — your LLM turns are not charged against the guest limit.")
+        else:
+            st.progress(
+                min(1.0, quota["used"] / max(1, quota["limit"])),
+                text=(
+                    f"Free Guest LLM Turns: {quota['remaining']} of "
+                    f"{quota['limit']} remaining"
+                ),
+            )
+        st.caption("Server-side keys are secured via Cloudflare AI Gateway.")
 
     st.markdown("---")
     st.markdown("**Recent Audits**")
@@ -384,205 +424,130 @@ with tab_audit:
                 "suggested_questions", []
             )
 
-    active_name = (
-        st.session_state.get("selected_doc_name") or "No PDF Selected"
-    )
-    active_pages = st.session_state.get("selected_doc_pages", "—")
-    active_chunks = st.session_state.get("selected_doc_chunks", "—")
-    doc_status = selected_doc.get("status") if selected_doc else None
-    if doc_status == "ready":
-        status_text = "● READY FOR AUDIT"
-        status_color = "#34d399"
-        status_background = "rgba(16,185,129,0.15)"
-        status_border = "rgba(16,185,129,0.4)"
-    elif doc_status == "failed":
-        status_text = "● INDEXING FAILED"
-        status_color = "#f87171"
-        status_background = "rgba(239,68,68,0.15)"
-        status_border = "rgba(239,68,68,0.4)"
-    elif doc_status == "processing":
-        status_text = "● INDEXING"
-        status_color = "#fbbf24"
-        status_background = "rgba(245,158,11,0.15)"
-        status_border = "rgba(245,158,11,0.4)"
-    else:
-        status_text = "● SELECT A PDF"
-        status_color = "#fbbf24"
-        status_background = "rgba(245,158,11,0.15)"
-        status_border = "rgba(245,158,11,0.4)"
-
-    st.markdown(
-        f"""
-        <div style="background:#0f172a;border:1px solid rgba(56,189,248,0.35);border-radius:12px;
-                    padding:12px 18px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
-            <div>
-                <span style="color:#f8fafc;font-weight:700;font-size:15px;">📄 {html.escape(str(active_name))}</span>
-                <span style="margin-left:12px;background:#1e293b;color:#94a3b8;padding:3px 9px;border-radius:6px;font-size:12px;">
-                    {html.escape(str(active_pages))} Pages
-                </span>
-                <span style="margin-left:6px;background:#1e293b;color:#94a3b8;padding:3px 9px;border-radius:6px;font-size:12px;">
-                    {html.escape(str(active_chunks))} Chunks
-                </span>
-                <span style="margin-left:6px;background:#1e293b;color:#38bdf8;padding:3px 9px;border-radius:6px;font-size:12px;">
-                    Pinecone Hybrid + FlashRank
-                </span>
-            </div>
-            <span style="background:{status_background};color:{status_color};border:1px solid {status_border};
-                         padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;">
-                {status_text}
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    suggested_questions = (
-        list(st.session_state.get("suggested_questions") or [])
-        if doc_status == "ready"
-        else []
-    )
-    fallback_questions = [
-        f"What are the core architectural components in {active_name}?",
-        f"Which topics in {active_name} are most critical for production?",
-        "How does this system manage state, interrupts, and recovery?",
-        "Paste a YouTube URL to audit missing topics from this PDF",
-    ]
-    if selected_doc and doc_status == "ready":
-        suggested_questions = (suggested_questions + fallback_questions)[:4]
-    else:
-        suggested_questions = []
-    if suggested_questions:
-        st.caption("💡 SUGGESTED QUESTIONS (DERIVED SPECIFICALLY FROM THIS DOCUMENT)")
-        question_columns = st.columns(4)
-        for idx, question in enumerate(suggested_questions):
-            if question_columns[idx].button(
-                f"💡 {question}",
-                key=f"suggested_question_{selected_doc['doc_id']}_{idx}",
-                use_container_width=True,
-                disabled=quota["remaining"] <= 0,
-            ):
-                st.session_state.queued_pill_prompt = question
-                st.rerun()
-
-    with st.expander(
-        "📥 Upload Reference PDF (Auto-Indexes on Drop) or Pick a Ready Sample Book",
-        expanded=(
-            len(ready_docs) == 0
-            or bool(st.session_state.get("upload_success_message"))
-        ),
-    ):
-        uploaded_pdf = st.file_uploader(
-            "Drop your PDF textbook or syllabus — indexing starts automatically",
-            type=["pdf"],
-            key="auto_pdf_uploader",
+    # ==========================================================================
+    # STEP 1: PERMANENTLY OPEN REFERENCE PDF PANEL (Never collapses / rolls back)
+    # ==========================================================================
+    with st.container(border=True):
+        active_label = (
+            f"{st.session_state.get('selected_doc_name')} ({st.session_state.get('selected_doc_pages', '?')}p)"
+            if st.session_state.get("selected_doc_id")
+            else "No PDF selected"
         )
-        if uploaded_pdf is not None:
-            file_sig = f"{uploaded_pdf.name}:{uploaded_pdf.size}"
-            if st.session_state.get("last_uploaded_sig") != file_sig:
-                try:
-                    with st.spinner(
-                        f"Parsing & embedding **{uploaded_pdf.name}** into Pinecone..."
-                    ):
-                        files = {
-                            "file": (
-                                uploaded_pdf.name,
-                                uploaded_pdf.getvalue(),
-                                "application/pdf",
-                            )
-                        }
-                        up_res = requests.post(
-                            f"{API_BASE}/documents/upload",
-                            files=files,
-                            data={"uploaded_by": st.session_state.visitor_id},
-                            timeout=120,
-                        )
-                        if up_res.ok:
-                            doc_info = up_res.json()
-                            doc_id = doc_info.get("doc_id")
-                            if doc_info.get("status") != "ready" or not doc_id:
-                                raise ValueError(
-                                    "Upload did not return a ready document with an ID."
-                                )
-                            uploaded_doc = {**doc_info, "status": "ready"}
-                            cached_docs = st.session_state.get("cached_docs")
-                            if not isinstance(cached_docs, list):
-                                cached_docs = []
-                            st.session_state.cached_docs = [
-                                uploaded_doc,
-                                *(
-                                    item
-                                    for item in cached_docs
-                                    if item.get("doc_id") != doc_id
-                                ),
-                            ]
-                            st.session_state.last_uploaded_sig = file_sig
-                            st.session_state.selected_doc_id = doc_id
-                            st.session_state.selected_doc_name = doc_info.get(
-                                "doc_name", uploaded_pdf.name
-                            )
-                            st.session_state.selected_doc_pages = doc_info.get(
-                                "page_count", "—"
-                            )
-                            st.session_state.selected_doc_chunks = doc_info.get(
-                                "chunk_count", "—"
-                            )
-                            st.session_state.suggested_questions = doc_info.get(
-                                "suggested_questions", []
-                            )
-                            st.session_state.awaiting_scope = False
-                            st.session_state.active_video_url = None
-                            st.session_state.active_video_id = None
-                            st.session_state.active_book_banner = None
-                            st.session_state.upload_success_message = (
-                                f"✅ Indexed **{st.session_state.selected_doc_name}** "
-                                f"({st.session_state.selected_doc_chunks} child chunks "
-                                "embedded in Pinecone) — now active!"
-                            )
-                            st.rerun()
-                        else:
-                            st.error(
-                                f"PDF indexing failed ({up_res.status_code}): "
-                                f"{up_res.text}"
-                            )
-                except (requests.RequestException, ValueError) as exc:
-                    st.error(f"Upload error: {exc}")
+        st.markdown(f"### 📄 Step 1: Reference PDF — `{active_label}`")
 
-        if ready_docs:
-            st.caption("OR CLICK AN ALREADY-INDEXED SAMPLE BOOK BELOW TO ACTIVATE IMMEDIATELY")
-            sample_cols = st.columns(min(3, len(ready_docs)))
-            for idx, d in enumerate(ready_docs[:3]):
-                clean_title = d["doc_name"].replace("%20", " ")
-                with sample_cols[idx]:
-                    if st.button(
-                        f"📘 {clean_title[:28]} ({d['page_count']}p)",
-                        key=f"sample_{d['doc_id']}",
-                        use_container_width=True,
-                    ):
-                        st.session_state.selected_doc_id = d["doc_id"]
-                        st.session_state.selected_doc_name = d["doc_name"]
-                        st.session_state.selected_doc_pages = d.get(
-                            "page_count", "—"
-                        )
-                        st.session_state.selected_doc_chunks = d.get(
-                            "chunk_count", "—"
-                        )
-                        st.session_state.suggested_questions = d.get(
-                            "suggested_questions", []
-                        )
+        col_up, col_btn = st.columns([3, 1.3], vertical_alignment="bottom")
+        with col_up:
+            uploaded_pdf = st.file_uploader(
+                "1. Choose or drop a PDF textbook / syllabus",
+                type=["pdf"],
+                key="reference_pdf_uploader",
+            )
+        with col_btn:
+            ingest_clicked = st.button(
+                "🚀 Ingest & Embed to Pinecone",
+                type="primary",
+                disabled=(uploaded_pdf is None),
+                use_container_width=True,
+                key="btn_ingest_embed_pinecone",
+            )
+
+        if uploaded_pdf is not None and ingest_clicked:
+            with st.status(f"Running RAG Ingestion for {uploaded_pdf.name}...", expanded=True) as up_status:
+                info = None
+                up_err = None
+                try:
+                    with requests.post(
+                        f"{API_BASE}/documents/upload/stream",
+                        files={"file": (uploaded_pdf.name, uploaded_pdf.getvalue(), "application/pdf")},
+                        data={"user_id": st.session_state.visitor_id},
+                        stream=True,
+                        timeout=300,
+                    ) as r:
+                        for line in r.iter_lines(decode_unicode=True):
+                            if not line or not line.startswith("data: "):
+                                continue
+                            evt = json.loads(line[6:])
+                            if evt.get("type") == "stage":
+                                up_status.update(label=evt["text"], state="running")
+                            elif evt.get("type") == "done":
+                                info = evt["payload"]
+                            elif evt.get("type") == "error":
+                                up_err = evt["text"]
+                except Exception as exc:
+                    up_err = str(exc)
+
+                if up_err:
+                    up_status.update(label="Ingestion failed", state="error")
+                    st.error(up_err)
+                elif info:
+                    up_status.update(
+                        label=f"✅ Embedded {info['chunk_count']} vectors into Pinecone in {info['elapsed_sec']}s",
+                        state="complete",
+                    )
+                    st.session_state.selected_doc_id = info["doc_id"]
+                    st.session_state.selected_doc_name = info.get("filename") or info.get("doc_name")
+                    st.session_state.selected_doc_pages = info.get("page_count", "?")
+                    st.session_state.selected_doc_chunks = info.get("chunk_count", "?")
+                    st.session_state.uploaded_doc_id = info["doc_id"]
+                    st.session_state.freshly_ingested_doc_id = info["doc_id"]
+                    st.session_state.suggested_questions = info.get("suggested_questions", [])
+                    st.session_state.awaiting_scope = False
+                    # Refresh document list once so sidebar & quick-switch buttons update immediately
+                    d_res = requests.get(f"{API_BASE}/documents", timeout=5)
+                    if d_res.ok:
+                        st.session_state.cached_docs = d_res.json()
+                    st.rerun()
+
+        # Deduplicated quick-switch buttons for already-indexed books
+        raw_docs = st.session_state.get("cached_docs") or _fetch_docs()
+        unique_docs: Dict[str, Dict[str, Any]] = {}
+        for d in raw_docs:
+            name = d.get("filename") or d.get("doc_name")
+            if d.get("status") == "ready" and name:
+                unique_docs[name] = d
+
+        if unique_docs:
+            st.caption("Or click an already-indexed book below to switch active document immediately:")
+            book_list = list(unique_docs.values())
+            b_cols = st.columns(min(4, len(book_list)))
+            for idx, book in enumerate(book_list[:4]):
+                is_current = book["doc_id"] == st.session_state.get("selected_doc_id")
+                book_title = book.get("filename") or book.get("doc_name")
+                btn_label = f"{'✅ ' if is_current else '📘 '}{book_title} ({book.get('page_count', '?')}p)"
+                with b_cols[idx % len(b_cols)]:
+                    if st.button(btn_label, key=f"switch_book_{book['doc_id']}", use_container_width=True):
+                        st.session_state.selected_doc_id = book["doc_id"]
+                        st.session_state.selected_doc_name = book_title
+                        st.session_state.selected_doc_pages = book.get("page_count", "?")
+                        st.session_state.selected_doc_chunks = book.get("chunk_count", "?")
                         st.session_state.awaiting_scope = False
-                        st.session_state.active_video_url = None
-                        st.session_state.active_video_id = None
-                        st.session_state.active_book_banner = clean_title
+                        # Keep sidebar selectbox synchronized with the clicked book!
+                        if "sidebar_doc_select" in st.session_state:
+                            st.session_state["sidebar_doc_select"] = book["doc_id"]
+                        if st.session_state.get("uploaded_doc_id") != book["doc_id"]:
+                            st.session_state.suggested_questions = []
                         st.rerun()
 
-        if st.session_state.get("active_book_banner"):
-            st.success(
-                f"✅ **{st.session_state.active_book_banner}** is indexed and active! "
-                "Paste a YouTube video URL below that you want to find the gap audit for."
-            )
-        if st.session_state.get("upload_success_message"):
-            st.success(st.session_state.upload_success_message)
-            st.session_state.upload_success_message = None
+        # Show 4 auto-generated reference questions ONLY for the freshly ingested PDF
+        if (
+            st.session_state.get("uploaded_doc_id") == st.session_state.get("selected_doc_id")
+            and st.session_state.get("suggested_questions")
+        ):
+            st.divider()
+            st.caption(f"💡 **Suggested questions generated for `{st.session_state.get('selected_doc_name')}`:**")
+            q_cols = st.columns(2)
+            for q_idx, q_text in enumerate(st.session_state["suggested_questions"][:4]):
+                with q_cols[q_idx % 2]:
+                    if st.button(q_text, key=f"sug_q_{q_idx}", use_container_width=True):
+                        st.session_state.queued_pill_prompt = q_text
+                        st.rerun()
+
+    st.subheader("Step 2: Chat & Audit Stream")
+    if not st.session_state.messages:
+        st.info(
+            "👋 **How to use:** Ask how this project works, ask a question about your selected PDF, "
+            "or **paste a YouTube lecture URL** below to find every topic from the PDF that the video missed."
+        )
 
     # Render Chat Messages
     rendered_urls = set()
@@ -606,9 +571,10 @@ with tab_audit:
             if msg["role"] == "assistant" and msg.get("id"):
                 _render_message_feedback(msg["id"], idx)
 
-    if quota["remaining"] <= 0:
+    if quota["remaining"] <= 0 and not has_byok:
         st.warning(
-            f"You have reached the free guest limit (**{quota['limit']} audits**). Start a new session or deploy with your own keys for unlimited audits."
+            f"You have reached the free guest limit (**{quota['limit']} LLM turns**). "
+            "Add a Gemini or Groq API key in the sidebar to continue."
         )
     if st.session_state.get("active_video_id"):
         t_lbl = (
@@ -703,11 +669,11 @@ with tab_metrics:
 queued_prompt = st.session_state.pop("queued_pill_prompt", None)
 user_typed = st.chat_input(
     "Ask about this document, specify a chapter/section, or paste a YouTube URL...",
-    disabled=quota["remaining"] <= 0,
+    disabled=quota["remaining"] <= 0 and not has_byok,
 )
 active_prompt = queued_prompt or user_typed
 
-if active_prompt and quota["remaining"] > 0:
+if active_prompt and (quota["remaining"] > 0 or has_byok):
     has_video_url = (
         "youtube.com/" in active_prompt.lower()
         or "youtu.be/" in active_prompt.lower()
@@ -751,6 +717,8 @@ if active_prompt and quota["remaining"] > 0:
                 st.session_state.active_video_url if awaiting_scope else None
             ),
             "prior_clarification_asked": awaiting_scope,
+            "user_gemini_key": byok_gemini_key.strip() or None,
+            "user_groq_key": byok_groq_key.strip() or None,
         }
         response_data = None
         stream_error = None

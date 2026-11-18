@@ -437,7 +437,12 @@ class StreamlitStreamingUITests(unittest.TestCase):
             len([button for button in app.button if button.label.startswith("💡 Question")]),
             4,
         )
-        self.assertTrue(any("READY FOR AUDIT" in item.value for item in app.markdown))
+        self.assertTrue(
+            any("Step 1: Reference PDF" in item.label for item in app.expander)
+        )
+        self.assertTrue(
+            any("Step 2: Chat & Audit Stream" in item.value for item in app.subheader)
+        )
         self.assertFalse(app.exception, [item.message for item in app.exception])
 
     def test_suggested_prompt_streams_and_renders_verified_source(self) -> None:
@@ -484,6 +489,7 @@ class StreamlitStreamingUITests(unittest.TestCase):
                 "Question 4?",
             ],
         }
+        posted_payload = {}
 
         def fake_get(url, **_kwargs):
             if url.endswith("/documents"):
@@ -501,6 +507,7 @@ class StreamlitStreamingUITests(unittest.TestCase):
         def fake_post(url, **kwargs):
             self.assertTrue(url.endswith("/chat/turn/stream"))
             self.assertTrue(kwargs.get("stream"))
+            posted_payload.update(kwargs.get("json") or {})
             return StreamResponse()
 
         with (
@@ -512,12 +519,22 @@ class StreamlitStreamingUITests(unittest.TestCase):
             app.session_state["selected_doc_id"] = "streamlit-doc"
             app.session_state["selected_doc_name"] = "book.pdf"
             app.run()
+            self.assertFalse(
+                any(
+                    button.label.startswith("💡 Question")
+                    for button in app.button
+                )
+            )
+            app.session_state["freshly_ingested_doc_id"] = "streamlit-doc"
+            app.run()
             question_buttons = [
                 button
                 for button in app.button
                 if button.label.startswith("💡 Question")
             ]
             self.assertEqual(len(question_buttons), 4)
+            app.session_state["byok_gemini_key"] = "user-gemini-key"
+            app.session_state["byok_groq_key"] = "user-groq-key"
             next(
                 button for button in question_buttons if button.label == "💡 Question 1?"
             ).click().run()
@@ -525,13 +542,17 @@ class StreamlitStreamingUITests(unittest.TestCase):
         self.assertTrue(
             any(message.get("content") == "Verified result" for message in app.session_state["messages"])
         )
-        self.assertTrue(any("READY FOR AUDIT" in item.value for item in app.markdown))
+        self.assertTrue(
+            any("Step 2: Chat & Audit Stream" in item.value for item in app.subheader)
+        )
         self.assertTrue(
             any(
                 "Match 92%" in item.value and "Chunk: chunk-42" in item.value
                 for item in app.markdown
             )
         )
+        self.assertEqual(posted_payload["user_gemini_key"], "user-gemini-key")
+        self.assertEqual(posted_payload["user_groq_key"], "user-groq-key")
         self.assertFalse(
             any(call.args[0].endswith("/status") for call in get_request.call_args_list)
         )

@@ -67,6 +67,7 @@ class AuditGraphState(TypedDict, total=False):
     prior_clarification_asked: bool
     chat_response: Optional[str]
     route_taken: Optional[str]
+    llm_used: bool
     awaiting_video: bool
     target_scope: str  # e.g., "Chapter 1" or "full_document"
     scoped_section_titles: List[

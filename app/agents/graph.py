@@ -1,11 +1,12 @@
-import re
 import time
 from typing import Any, Dict, List
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import interrupt
+from langgraph.types import Command, interrupt
 from app.agents.nodes.evaluator import evaluator_critic_node
 from app.agents.nodes.gap_auditor import gap_auditor_worker_node
+from app.agents.nodes.intent_router import classify_semantic_intent
+from app.agents.nodes.pdf_qa import pdf_qa_node
 from app.agents.nodes.project_guide import project_guide_node
 from app.agents.nodes.repair import targeted_repair_node
 from app.agents.nodes.syllabus_retriever import retrieve_syllabus_evidence_node
@@ -52,19 +53,13 @@ def media_ingestion_node(state: AuditGraphState) -> Dict[str, Any]:
     }
 
 
-def _has_youtube_url(text: str) -> bool:
-    return bool(
-        re.search(r"https?://(?:www\.)?(?:youtube\.com|youtu\.be)/\S+", text or "")
-    )
-
-
 def route_entry_intent(state: AuditGraphState) -> str:
-    query = state.get("user_query", "")
-    if _has_youtube_url(query) or (
-        state.get("prior_clarification_asked") and state.get("video_url")
-    ):
-        return "media_ingestion"
-    return "project_guide"
+    """Returns a string route key for add_conditional_edges."""
+    return classify_semantic_intent(
+        query=state.get("user_query", ""),
+        has_active_doc=bool(state.get("doc_id")),
+        prior_clarification_asked=bool(state.get("prior_clarification_asked")),
+    )
 
 
 def await_user_input_node(state: AuditGraphState) -> Dict[str, Any]:
@@ -170,6 +165,7 @@ def finalize_and_escalate_node(state: AuditGraphState) -> Dict[str, Any]:
         "final_status": final_verdict,
         "route_taken": "audit_pipeline",
         "awaiting_video": False,
+        "retrieved_sections": state.get("retrieved_sections", []),
     }
 
 
@@ -190,6 +186,7 @@ def _route_after_evaluator(state: AuditGraphState) -> str:
 def build_audit_graph():
     workflow = StateGraph(AuditGraphState)
     workflow.add_node("project_guide", project_guide_node)
+    workflow.add_node("pdf_qa", pdf_qa_node)
     workflow.add_node("await_user_input", await_user_input_node)
     workflow.add_node("media_ingestion", media_ingestion_node)
     workflow.add_node("syllabus_retriever", retrieve_syllabus_evidence_node)
@@ -203,15 +200,20 @@ def build_audit_graph():
         route_entry_intent,
         {
             "project_guide": "project_guide",
+            "pdf_qa": "pdf_qa",
+            "audit": "media_ingestion",
             "media_ingestion": "media_ingestion",
         },
     )
-    workflow.add_edge("project_guide", "await_user_input")
+    workflow.add_edge("project_guide", END)
+    workflow.add_edge("pdf_qa", END)
     workflow.add_conditional_edges(
         "await_user_input",
         route_entry_intent,
         {
             "project_guide": "project_guide",
+            "pdf_qa": "pdf_qa",
+            "audit": "media_ingestion",
             "media_ingestion": "media_ingestion",
         },
     )

@@ -1,9 +1,11 @@
+import hashlib
 import json
 import logging
 import re
 import sqlite3
 import time
 import threading
+import traceback
 import uuid
 from queue import Empty, Queue
 from pathlib import Path
@@ -19,7 +21,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 
 from app.agents.graph import audit_graph
-from app.gateway.client import get_extraction_llm
+from app.agents.intent import classify_intent
+from app.agents.nodes.intent_router import classify_semantic_intent
+from app.gateway.client import get_extraction_llm, use_user_api_keys
 from app.ingestion.processor import (
     PDF_INDEX_VERSION,
     _compute_doc_id,
@@ -32,10 +36,11 @@ from app.services.retrieval.embedding import get_embedder
 from app.services.retrieval.ranking_service import get_flashranker
 from app.services.db.database import init_db
 from app.services.db.repository import (
-    count_completed_audits,
+    count_completed_llm_turns,
     get_document,
     get_session_messages,
     get_system_metrics,
+    log_audit_event,
     list_approvals,
     list_documents,
     list_recent_sessions,
@@ -53,7 +58,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-MAX_FREE_TURNS = 3
+MAX_FREE_LLM_TURNS = 5
 ACTIVE_JOBS: Dict[str, str] = {}
 ACTIVE_JOB_IDS: Dict[str, str] = {}
 ACTIVE_JOB_RESULTS: Dict[str, Dict[str, Any]] = {}
@@ -71,6 +76,12 @@ def on_startup() -> None:
     get_flashranker()
 
 
+@app.on_event("startup")
+def _warmup_models() -> None:
+    from app.agents.nodes.intent_router import _get_anchor_vectors
+    _get_anchor_vectors()
+
+
 # --- Request Schemas ---
 class ChatTurnRequest(BaseModel):
     session_id: str
@@ -79,6 +90,8 @@ class ChatTurnRequest(BaseModel):
     message: str
     video_url: Optional[str] = None
     prior_clarification_asked: bool = False
+    user_gemini_key: Optional[str] = None
+    user_groq_key: Optional[str] = None
 
 
 class TranscribeRequest(BaseModel):
@@ -129,6 +142,50 @@ def _is_video_audit_turn(req: ChatTurnRequest) -> bool:
     return bool(req.doc_id and req.prior_clarification_asked and req.video_url)
 
 
+def _classify_intent(
+    message: str, has_active_doc: bool, prior_clarification: bool
+) -> str:
+    """Apply the shared audit > project guide > PDF Q&A routing priority."""
+    return classify_semantic_intent(
+        query=message,
+        has_active_doc=has_active_doc,
+        prior_clarification_asked=prior_clarification,
+    )
+
+
+def _has_byok(req: ChatTurnRequest) -> bool:
+    return bool((req.user_gemini_key or "").strip() or (req.user_groq_key or "").strip())
+
+
+def _request_may_use_llm(req: ChatTurnRequest) -> bool:
+    clean_msg = _strip_mode_tag(sanitize_transcript_text(req.message))
+    intent = _classify_intent(
+        message=clean_msg,
+        has_active_doc=bool(req.doc_id),
+        prior_clarification=req.prior_clarification_asked,
+    )
+    if intent == "audit":
+        if not req.doc_id:
+            return False
+        has_scope_hint = bool(
+            re.search(
+                r"\b(chapter|unit|module|section|part|page|whole|entire|full|all)\b",
+                clean_msg,
+                re.I,
+            )
+        )
+        return req.prior_clarification_asked or has_scope_hint or not _extract_url_from_text(clean_msg)
+    return not _is_greeting(clean_msg)
+
+
+def _redact_sensitive_text(text: str, req: ChatTurnRequest) -> str:
+    for secret in (req.user_gemini_key, req.user_groq_key):
+        normalized = (secret or "").strip()
+        if normalized:
+            text = text.replace(normalized, "[REDACTED]")
+    return text
+
+
 def _update_session_turn_context(session_id: str, result: Dict[str, Any]) -> None:
     with ACTIVE_JOBS_LOCK:
         job_result = ACTIVE_JOB_RESULTS.setdefault(session_id, {})
@@ -162,11 +219,17 @@ def _format_audit_markdown(state: Dict[str, Any]) -> str:
         "",
     ]
 
+    retrieved_sections = state.get("retrieved_sections") or []
     if not missed and not escalated:
-        lines.append(
-            "✅ **All scoped concepts were covered!** "
-            "No major syllabus gaps were detected in this video for the selected scope."
-        )
+        if not retrieved_sections:
+            lines.append(
+                "⚠️ **No sections matched that scope in Pinecone; auditing full document instead.**"
+            )
+        else:
+            lines.append(
+                "✅ **All scoped concepts were covered!** "
+                "No major syllabus gaps were detected in this video for the selected scope."
+            )
     else:
         if missed:
             lines.append(f"#### Confirmed Missed Topics ({len(missed)})")
@@ -267,13 +330,13 @@ def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
-def _get_user_turn_count(user_id: str) -> int:
+def _get_total_llm_turns(user_id: str) -> int:
     try:
-        return count_completed_audits(user_id)
+        return count_completed_llm_turns(user_id)
     except SQLAlchemyError as exc:
-        logger.exception("Could not read completed audit count for user %s.", user_id)
+        logger.exception("Could not read completed LLM turn count for user %s.", user_id)
         raise HTTPException(
-            status_code=503, detail="Audit quota service is temporarily unavailable."
+            status_code=503, detail="LLM quota service is temporarily unavailable."
         ) from exc
 
 
@@ -291,17 +354,58 @@ def _active_user_reservations(user_id: str) -> int:
     return running_jobs + synchronous_jobs
 
 
-def _reserve_sync_quota(user_id: str) -> str:
+def _reserve_llm_quota(user_id: str) -> str:
     with ACTIVE_JOBS_LOCK:
-        used = _get_user_turn_count(user_id)
-        if used + _active_user_reservations(user_id) >= MAX_FREE_TURNS:
+        used = _get_total_llm_turns(user_id)
+        if used + _active_user_reservations(user_id) >= MAX_FREE_LLM_TURNS:
             raise HTTPException(
                 status_code=429,
-                detail=f"Free trial limit reached ({MAX_FREE_TURNS}/{MAX_FREE_TURNS} audits used).",
+                detail=(
+                    f"Free guest LLM turn limit reached "
+                    f"({MAX_FREE_LLM_TURNS}/{MAX_FREE_LLM_TURNS}). "
+                    "Add a Gemini or Groq API key to continue."
+                ),
             )
         reservation_id = uuid.uuid4().hex
         ACTIVE_SYNC_RESERVATIONS[reservation_id] = user_id
         return reservation_id
+
+
+def _process_chat_turn_with_quota(
+    req: ChatTurnRequest, *, already_reserved: bool = False
+) -> Dict[str, Any]:
+    has_byok = _has_byok(req)
+    reservation_id = None
+    if _request_may_use_llm(req) and not has_byok and not already_reserved:
+        reservation_id = _reserve_llm_quota(req.user_id)
+
+    try:
+        with use_user_api_keys(req.user_gemini_key, req.user_groq_key):
+            result = _process_chat_turn(req)
+
+        llm_used = bool(result.pop("_llm_used", False))
+        route = result.pop("_route_taken", result.get("route_taken", "project_guide"))
+        if llm_used and not has_byok:
+            try:
+                log_audit_event(
+                    action="llm_turn_completed",
+                    run_id=result.get("run_id"),
+                    user_id=req.user_id,
+                    detail={"route": route},
+                )
+            except SQLAlchemyError as exc:
+                logger.exception(
+                    "Could not record completed LLM turn for user %s.", req.user_id
+                )
+                raise HTTPException(
+                    status_code=503,
+                    detail="LLM quota service is temporarily unavailable.",
+                ) from exc
+        return result
+    finally:
+        if reservation_id:
+            with ACTIVE_JOBS_LOCK:
+                ACTIVE_SYNC_RESERVATIONS.pop(reservation_id, None)
 
 
 def _invoke_graph_turn(
@@ -320,12 +424,12 @@ def _invoke_graph_turn(
 
 @app.get("/quota/{user_id}")
 def api_get_quota(user_id: str) -> Dict[str, Any]:
-    used = _get_user_turn_count(user_id)
+    used = _get_total_llm_turns(user_id)
     return {
         "user_id": user_id,
         "used": used,
-        "limit": MAX_FREE_TURNS,
-        "remaining": max(0, MAX_FREE_TURNS - used),
+        "limit": MAX_FREE_LLM_TURNS,
+        "remaining": max(0, MAX_FREE_LLM_TURNS - used),
     }
 
 
@@ -394,6 +498,112 @@ async def api_upload_document(
         "suggested_questions": result["suggested_questions"],
         "elapsed_sec": round(time.perf_counter() - started_at, 2),
     }
+
+
+@app.post("/documents/upload/stream")
+async def api_upload_document_stream(
+    file: UploadFile = File(...),
+    user_id: str = Form("default_user"),
+) -> StreamingResponse:
+    raw_bytes = await file.read()
+    filename = file.filename or "uploaded.pdf"
+
+    def event_stream() -> Generator[str, None, None]:
+        t0 = time.perf_counter()
+        try:
+            if not filename.lower().endswith(".pdf") or not raw_bytes:
+                yield f"data: {json.dumps({'type': 'error', 'text': 'Invalid or empty PDF file.'})}\n\n"
+                return
+
+            content_hash = hashlib.sha256(raw_bytes).hexdigest()[:10]
+            stem = Path(filename).stem.lower().replace(" ", "-")
+            doc_id = f"{stem}-{content_hash}"
+
+            yield f"data: {json.dumps({'type': 'stage', 'text': f'📄 Extracting pages from {filename}...'})}\n\n"
+
+            import fitz
+            pdf_doc = fitz.open(stream=raw_bytes, filetype="pdf")
+            page_count = len(pdf_doc)
+            raw_chunks: List[Dict[str, Any]] = []
+            current_section = "Overview"
+
+            for page_idx in range(page_count):
+                text = pdf_doc[page_idx].get_text("text").strip()
+                if not text:
+                    continue
+                for line in text.splitlines()[:6]:
+                    clean_line = line.strip()
+                    if 4 <= len(clean_line) <= 90 and not clean_line.endswith("."):
+                        current_section = clean_line
+                        break
+                raw_chunks.append(
+                    {
+                        "section_title": current_section,
+                        "chapter": current_section,
+                        "page_number": page_idx + 1,
+                        "text": text,
+                    }
+                )
+            pdf_doc.close()
+
+            if not raw_chunks:
+                yield f"data: {json.dumps({'type': 'error', 'text': 'No selectable text found in this PDF.'})}\n\n"
+                return
+
+            yield f"data: {json.dumps({'type': 'stage', 'text': f'⚡ Embedding {page_count} pages into Pinecone...'})}\n\n"
+
+            from app.services.vector.pinecone_store import upsert_document_chunks
+            chunk_count = upsert_document_chunks(doc_id=doc_id, filename=filename, chunks=raw_chunks)
+
+            section_titles = list(dict.fromkeys(c["section_title"] for c in raw_chunks if c.get("section_title")))
+            from app.services.db.crud import register_document
+            register_document(
+                doc_id=doc_id,
+                filename=filename,
+                page_count=page_count,
+                chunk_count=chunk_count,
+                section_titles=section_titles,
+                status="ready",
+                uploaded_by=user_id,
+            )
+
+            yield f"data: {json.dumps({'type': 'stage', 'text': '💡 Generating 4 document-specific starter questions...'})}\n\n"
+            suggested_questions = _generate_suggested_prompts(filename, raw_chunks)
+
+            register_document(
+                doc_id=doc_id,
+                filename=filename,
+                page_count=page_count,
+                chunk_count=chunk_count,
+                section_titles=section_titles,
+                status="ready",
+                uploaded_by=user_id,
+                suggested_questions=suggested_questions,
+            )
+
+            try:
+                dest = get_settings().DATA_DIR / filename
+                dest.write_bytes(raw_bytes)
+            except Exception:
+                pass
+
+            payload = {
+                "status": "ready",
+                "doc_id": doc_id,
+                "filename": filename,
+                "doc_name": filename,
+                "page_count": page_count,
+                "chunk_count": chunk_count,
+                "sections": section_titles[:12],
+                "suggested_questions": suggested_questions,
+                "elapsed_sec": round(time.perf_counter() - t0, 2),
+            }
+            yield f"data: {json.dumps({'type': 'done', 'payload': payload})}\n\n"
+        except Exception as exc:
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'text': f'{type(exc).__name__}: {exc}'})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @app.get("/sessions")
@@ -561,16 +771,25 @@ def api_transcribe_video(req: TranscribeRequest) -> Dict[str, Any]:
 
 @app.post("/chat/turn")
 def api_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
-    if not _is_video_audit_turn(req):
-        result = _process_chat_turn(req)
+    try:
+        result = _process_chat_turn_with_quota(req)
         _update_session_turn_context(req.session_id, result)
         return result
-    reservation_id = _reserve_sync_quota(req.user_id)
-    try:
-        return _process_chat_turn(req)
-    finally:
-        with ACTIVE_JOBS_LOCK:
-            ACTIVE_SYNC_RESERVATIONS.pop(reservation_id, None)
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=_redact_sensitive_text(str(exc.detail), req),
+        ) from None
+    except Exception as exc:
+        logger.error(
+            "Unexpected error while processing chat turn for session %s (%s).",
+            req.session_id,
+            type(exc).__name__,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=_redact_sensitive_text(f"{type(exc).__name__}: {exc}", req),
+        ) from None
 
 
 @app.post("/chat/turn/stream")
@@ -595,14 +814,28 @@ def api_chat_turn_stream(req: ChatTurnRequest) -> StreamingResponse:
             result_queue.put(("done", result))
         except HTTPException as exc:
             result_queue.put(
-                ("http_error", {"status_code": exc.status_code, "detail": exc.detail})
+                (
+                    "http_error",
+                    {
+                        "status_code": exc.status_code,
+                        "detail": _redact_sensitive_text(str(exc.detail), req),
+                    },
+                )
             )
         except Exception as exc:
-            logger.exception(
-                "Unexpected error while streaming chat turn for session %s.",
+            logger.error(
+                "Unexpected error while streaming chat turn for session %s (%s).",
                 req.session_id,
+                type(exc).__name__,
             )
-            result_queue.put(("error", f"{type(exc).__name__}: {exc}"))
+            result_queue.put(
+                (
+                    "error",
+                    _redact_sensitive_text(
+                        f"{type(exc).__name__}: {exc}", req
+                    ),
+                )
+            )
         finally:
             with ACTIVE_JOBS_LOCK:
                 ACTIVE_STREAM_SESSIONS.discard(req.session_id)
@@ -704,6 +937,8 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
             "message_id": msg_id,
             "reply": reply,
             "awaiting_scope": False,
+            "_llm_used": False,
+            "_route_taken": "project_guide",
         }
 
     # Case A: Video URL present -> Scope Clarification or Full LangGraph Audit
@@ -724,6 +959,8 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
                 "message_id": msg_id,
                 "reply": reply,
                 "awaiting_scope": False,
+                "_llm_used": False,
+                "_route_taken": "audit",
             }
 
         # Fast deterministic check on Turn 1 (< 10ms, zero LLM wait!)
@@ -759,14 +996,27 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
                 "reply": reply,
                 "video_url": detected_url,
                 "awaiting_scope": True,
+                "_llm_used": False,
+                "_route_taken": "audit",
             }
 
-        scope_res = resolve_audit_scope(
-            user_message=clean_msg,
-            doc_name=doc["doc_name"],
-            doc_sections=doc["sections"],
-            prior_clarification_asked=req.prior_clarification_asked or has_scope_hint,
-        )
+        from app.agents.nodes.scope_router import WHOLE_DOC_PHRASES
+
+        clean_low = clean_msg.lower().strip()
+        if any(p in clean_low for p in WHOLE_DOC_PHRASES):
+            scope_res = {
+                "needs_clarification": False,
+                "clarifying_question": "",
+                "target_scope": "Entire Document",
+                "scoped_section_titles": [],
+            }
+        else:
+            scope_res = resolve_audit_scope(
+                user_message=clean_msg,
+                doc_name=doc["doc_name"],
+                doc_sections=doc["sections"],
+                prior_clarification_asked=req.prior_clarification_asked or has_scope_hint,
+            )
 
         if scope_res["needs_clarification"]:
             reply = scope_res["clarifying_question"]
@@ -782,6 +1032,8 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
                 "reply": reply,
                 "video_url": detected_url,
                 "awaiting_scope": True,
+                "_llm_used": True,
+                "_route_taken": "audit",
             }
 
         # Execute full LangGraph Audit Pipeline
@@ -804,21 +1056,30 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
             },
             req.session_id,
         )
-        if final_state.get("route_taken") == "project_guide" or "__interrupt__" in final_state:
+        if final_state.get("route_taken") in ("project_guide", "pdf_qa") or "__interrupt__" in final_state:
             reply_text = final_state.get("chat_response", "")
             if not reply_text:
-                raise RuntimeError("The project guide graph returned an empty response.")
+                raise RuntimeError("The chat graph returned an empty response.")
+            citations = (
+                final_state.get("retrieved_evidence", [])
+                if final_state.get("route_taken") == "pdf_qa"
+                else []
+            )
             msg_id = save_chat_message(
                 session_id=req.session_id,
                 role="assistant",
                 content=reply_text,
                 user_id=req.user_id,
+                citations=citations,
             )
             return {
-                "type": "chat",
+                "type": "pdf_qa" if final_state.get("route_taken") == "pdf_qa" else "chat",
                 "message_id": msg_id,
                 "reply": reply_text,
+                "citations": citations,
                 "awaiting_scope": False,
+                "_llm_used": bool(final_state.get("llm_used", True)),
+                "_route_taken": final_state.get("route_taken", "project_guide"),
             }
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
         final_state["latency_ms"] = elapsed_ms
@@ -855,39 +1116,51 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
                 
             },
             "awaiting_scope": False,
+            "_llm_used": final_state.get("final_status") != "blocked",
+            "_route_taken": "audit",
         }
 
-    # General and project questions are answered by project_guide, which pauses
-    # the graph so the next chat turn can resume it.
+    # Project guidance and document Q&A pause at the same graph input node.
     guide_state = _invoke_graph_turn(
         {
             "session_id": req.session_id,
             "user_id": req.user_id,
             "doc_id": doc["doc_id"] if doc else None,
             "doc_name": doc["doc_name"] if doc else "",
+            "page_count": doc.get("page_count", 0) if doc else 0,
+            "chunk_count": doc.get("chunk_count", 0) if doc else 0,
             "user_query": sanitized_msg,
             "video_url": "",
             "prior_clarification_asked": False,
         },
         req.session_id,
     )
-    if guide_state.get("route_taken") != "project_guide":
-        raise RuntimeError("The project guide graph did not produce a guide response.")
+    if guide_state.get("route_taken") not in ("project_guide", "pdf_qa"):
+        raise RuntimeError("The chat graph did not produce a guide or PDF answer.")
 
     reply_text = guide_state.get("chat_response") or ""
     if not reply_text:
-        raise RuntimeError("The project guide graph returned an empty response.")
+        raise RuntimeError("The chat graph returned an empty response.")
+    citations = (
+        guide_state.get("retrieved_evidence", [])
+        if guide_state.get("route_taken") == "pdf_qa"
+        else []
+    )
     msg_id = save_chat_message(
         session_id=req.session_id,
         role="assistant",
         content=reply_text,
         user_id=req.user_id,
+        citations=citations,
     )
     return {
-        "type": "chat",
+        "type": "pdf_qa" if guide_state.get("route_taken") == "pdf_qa" else "chat",
         "message_id": msg_id,
         "reply": reply_text,
+        "citations": citations,
         "awaiting_scope": False,
+        "_llm_used": bool(guide_state.get("llm_used", True)),
+        "_route_taken": guide_state.get("route_taken", "project_guide"),
     }
 
 
@@ -899,7 +1172,7 @@ def _run_audit_background(req: ChatTurnRequest, job_id: str) -> None:
         ACTIVE_JOBS[session_id] = "running"
     set_job_stage(session_id, "🚀 Starting audit pipeline...")
     try:
-        result = _process_chat_turn(req)
+        result = _process_chat_turn_with_quota(req, already_reserved=True)
         with ACTIVE_JOBS_LOCK:
             if ACTIVE_JOB_IDS.get(session_id) != job_id:
                 return
@@ -931,9 +1204,11 @@ def _run_audit_background(req: ChatTurnRequest, job_id: str) -> None:
     except Exception as exc:
         import traceback
 
-        tb = traceback.format_exc()
+        tb = _redact_sensitive_text(traceback.format_exc(), req)
         print(f"\n[BACKGROUND AUDIT ERROR]\n{tb}")
-        err_msg = f"⚠️ **Audit Error (`{type(exc).__name__}`):** {exc}"
+        err_msg = _redact_sensitive_text(
+            f"⚠️ **Audit Error (`{type(exc).__name__}`):** {exc}", req
+        )
         try:
             save_chat_message(
                 session_id=session_id,
@@ -962,7 +1237,7 @@ def api_chat_turn_async(
     req: ChatTurnRequest, background_tasks: BackgroundTasks
 ) -> Dict[str, Any]:
     try:
-        if not _is_video_audit_turn(req):
+        if not _is_video_audit_turn(req) or not _request_may_use_llm(req):
             with ACTIVE_JOBS_LOCK:
                 if (
                     ACTIVE_JOBS.get(req.session_id) == "running"
@@ -972,7 +1247,7 @@ def api_chat_turn_async(
                         status_code=409,
                         detail="An audit is already running for this session.",
                     )
-            result = _process_chat_turn(req)
+            result = _process_chat_turn_with_quota(req)
             _update_session_turn_context(req.session_id, result)
             return result
 
@@ -986,19 +1261,27 @@ def api_chat_turn_async(
                     detail="An audit is already running for this session.",
                 )
 
-            used = _get_user_turn_count(req.user_id)
-            if used + _active_user_reservations(req.user_id) >= MAX_FREE_TURNS:
+            used = _get_total_llm_turns(req.user_id)
+            if (
+                not _has_byok(req)
+                and used + _active_user_reservations(req.user_id)
+                >= MAX_FREE_LLM_TURNS
+            ):
                 raise HTTPException(
                     status_code=429,
                     detail=(
-                        f"Free trial limit reached ({MAX_FREE_TURNS}/"
-                        f"{MAX_FREE_TURNS} audits used)."
+                        f"Free guest LLM turn limit reached "
+                        f"({MAX_FREE_LLM_TURNS}/{MAX_FREE_LLM_TURNS}). "
+                        "Add a Gemini or Groq API key to continue."
                     ),
                 )
 
             job_id = uuid.uuid4().hex
             ACTIVE_JOB_IDS[req.session_id] = job_id
-            ACTIVE_JOB_USERS[req.session_id] = req.user_id
+            if _has_byok(req):
+                ACTIVE_JOB_USERS.pop(req.session_id, None)
+            else:
+                ACTIVE_JOB_USERS[req.session_id] = req.user_id
             previous_result = ACTIVE_JOB_RESULTS.get(req.session_id, {})
             job_result = {
                 key: previous_result[key]
@@ -1020,13 +1303,14 @@ def api_chat_turn_async(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception(
-            "Unexpected error while accepting chat turn for session %s.",
+        logger.error(
+            "Unexpected error while accepting chat turn for session %s (%s).",
             req.session_id,
+            type(exc).__name__,
         )
         raise HTTPException(
             status_code=500,
-            detail=f"{type(exc).__name__}: {exc}",
+            detail=_redact_sensitive_text(f"{type(exc).__name__}: {exc}", req),
         ) from exc
 
 

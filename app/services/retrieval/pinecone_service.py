@@ -8,6 +8,16 @@ from app.services.retrieval.ranking_service import hybrid_rerank_candidates
 logger = logging.getLogger(__name__)
 
 
+_PINECONE_SERVICE_INSTANCE: Optional["PineconeService"] = None
+
+
+def get_pinecone_index() -> Any:
+    global _PINECONE_SERVICE_INSTANCE
+    if _PINECONE_SERVICE_INSTANCE is None:
+        _PINECONE_SERVICE_INSTANCE = PineconeService()
+    return _PINECONE_SERVICE_INSTANCE.index
+
+
 class PineconeService:
     def __init__(self):
         self.settings = get_settings()
@@ -139,93 +149,16 @@ class PineconeService:
     def fetch_scoped_chunks_with_vectors(
         self,
         doc_id: str,
-        scoped_section_titles: Optional[set[str]] = None,
+        scoped_section_titles: Optional[Any] = None,
         top_k: int = 120,
     ) -> List[Dict[str, Any]]:
-        """Fetch scoped child chunks and their stored vectors in one Pinecone query."""
-        if not doc_id:
-            return []
-        if not 1 <= top_k <= 1000:
-            raise ValueError("top_k must be between 1 and 1000.")
-
-        section_titles = sorted(
-            title.strip()
-            for title in scoped_section_titles or set()
-            if title and title.strip()
-        )
-        filter_by_doc: Dict[str, Any] = {
-            "doc_id": {"$eq": doc_id},
-            "record_type": {"$eq": "child"},
-        }
-        query_filter = dict(filter_by_doc)
-        if section_titles:
-            query_filter["section_title"] = {"$in": section_titles}
-
-        search_text = (
-            "textbook concepts and mechanisms in: " + "; ".join(section_titles)
-            if section_titles
-            else "textbook topics, concepts, mechanisms, and learning objectives"
-        )
-        query_vector = embed_texts([search_text], is_query=True)[0]
-        response = self.index.query(
-            vector=query_vector,
-            filter=query_filter,
+        """Fetch scoped child chunks and their stored vectors in one Pinecone query with safe fallback."""
+        from app.services.vector.pinecone_store import fetch_scoped_chunks_with_vectors
+        return fetch_scoped_chunks_with_vectors(
+            doc_id=doc_id,
+            scoped_section_titles=scoped_section_titles,
             top_k=top_k,
-            include_metadata=True,
-            include_values=True,
         )
-        matches = response.get("matches", [])
-
-        if not matches and section_titles:
-            fallback_response = self.index.query(
-                vector=query_vector,
-                filter=filter_by_doc,
-                top_k=min(max(top_k, 250), 1000),
-                include_metadata=True,
-                include_values=True,
-            )
-            all_matches = fallback_response.get("matches", [])
-            lowered_targets = [title.lower() for title in section_titles]
-            matches = []
-            for match in all_matches:
-                metadata = match.get("metadata") or {}
-                section_title = str(metadata.get("section_title") or "").lower()
-                chapter = str(metadata.get("chapter") or "").lower()
-                if any(
-                    target in section_title or target in chapter
-                    for target in lowered_targets
-                ):
-                    matches.append(match)
-            if not matches:
-                logger.warning(
-                    "No Pinecone child chunks matched the requested sections for doc_id %s.",
-                    doc_id,
-                )
-
-        chunks: List[Dict[str, Any]] = []
-        for match in matches:
-            metadata = match.get("metadata") or {}
-            values = match.get("values")
-            if values is None:
-                raise RuntimeError(
-                    "Pinecone did not return the stored embedding for chunk "
-                    f"{match.get('id', 'unknown')}."
-                )
-            chunks.append(
-                {
-                    "chunk_id": match.get("id", ""),
-                    "doc_id": metadata.get("doc_id", doc_id),
-                    "doc_name": metadata.get("doc_name", ""),
-                    "section_title": metadata.get("section_title", ""),
-                    "chapter": metadata.get("chapter", ""),
-                    "page_number": int(metadata.get("page_number") or 1),
-                    "text": metadata.get("parent_text")
-                    or metadata.get("child_text")
-                    or metadata.get("text", ""),
-                    "score": round(float(match.get("score", 0.0)), 4),
-                    "values": values,
-                }
-            )
 
         chunks.sort(
             key=lambda chunk: (

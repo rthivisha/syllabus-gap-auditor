@@ -163,15 +163,20 @@ def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
     if not doc_id:
         raise ValueError("A reference document is required for syllabus retrieval.")
     video_id = state.get("video_id", "")
-    scoped_titles = set(state.get("scoped_section_titles") or [])
+    target_scope = str(state.get("target_scope", "")).lower().strip()
+    raw_scoped = state.get("scoped_section_titles") or []
+    if not raw_scoped or any(p in target_scope for p in ("whole", "entire", "full", "all")):
+        scoped_titles = None
+    else:
+        scoped_titles = set(raw_scoped)
     video_windows = state.get("video_windows", [])
 
     pc = PineconeService()
     t0 = time.perf_counter()
     chunks = pc.fetch_scoped_chunks_with_vectors(
         doc_id=doc_id,
-        scoped_section_titles=scoped_titles or None,
-        top_k=120,
+        scoped_section_titles=scoped_titles,
+        top_k=200,
     )
     t_chunk_fetch = round(time.perf_counter() - t0, 2)
 

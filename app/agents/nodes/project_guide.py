@@ -5,7 +5,7 @@ from typing import Any, Dict
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agents.state import AuditGraphState
-from app.gateway.client import get_extraction_llm
+from app.gateway.client import get_fast_groq_llm
 
 PROJECT_DOC_PATH = Path(__file__).resolve().parents[3] / "project_context.md"
 
@@ -122,11 +122,13 @@ def project_guide_node(state: AuditGraphState) -> Dict[str, Any]:
             ),
             "route_taken": "project_guide",
             "awaiting_video": True,
+            "llm_used": False,
+            "retrieved_evidence": [],
         }
 
     project_md = PROJECT_DOC_PATH.read_text(encoding="utf-8")
     relevant_md = _select_relevant_md_sections(project_md, clean_query)
-    llm = get_extraction_llm()
+    llm = get_fast_groq_llm()
     resp = llm.invoke(
         [
             SystemMessage(
@@ -168,4 +170,6 @@ def project_guide_node(state: AuditGraphState) -> Dict[str, Any]:
         "chat_response": answer,
         "route_taken": "project_guide",
         "awaiting_video": True,
+        "llm_used": True,
+        "retrieved_evidence": [],
     }

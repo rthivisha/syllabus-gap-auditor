@@ -1,6 +1,7 @@
 {
   "doc_id": "ai-20engineering-20guidebook-1273e50aceb0",
   "doc_name": "AI%20Engineering%20Guidebook.pdf",
+  "index_version": 2,
   "page_count": 384,
   "sections": [
     {
@@ -732,5 +733,11 @@
       "summary": "DailyDoseofDS.com \n \n\u25cf It captures real inputs, model outputs, retrieved context, latencies, costs \nand component-level traces. \n\u25cf It helps identify regressions, bottlenecks, failure cases and shifts in user \nbehavior after the system goes live. \nEvaluation ensures the system meets a defined standard of quality.  \nObservability ensures the system continues to meet that standard under real \noperating conditions. \nTogether, they provide complementary views of system behavior: evaluation \nestablishes expectations, while observability reveals whether those expectations \nhold during operation. \nImplementation \nNow that we understand what observability means in an LLM system, the next \nstep is to implement it in practice. For this, we will use Opik, an open-source \nframework that provides tracing and monitoring tools for LLM applications. \nOpik offers a lightweight way to capture prompts, mode"
     }
   ],
-  "chunk_count": 482
+  "chunk_count": 517,
+  "suggested_questions": [
+    "What is the estimated reading time for this book?",
+    "Where can one find information on LLMs in the book?",
+    "Does the book cover Transformer vs. Mixture of Experts in LLMs?",
+    "How does LoRA work, according to the table of contents?"
+  ]
 }

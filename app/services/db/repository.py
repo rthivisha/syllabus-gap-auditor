@@ -173,6 +173,25 @@ def count_completed_audits(user_id: str) -> int:
         return int(count or 0)
 
 
+def count_completed_llm_turns(user_id: str) -> int:
+    """Count completed LLM turns, including audits completed before unified quota logging."""
+    with get_db_session() as db:
+        audit_count = db.scalar(
+            select(func.count(AuditLog.id)).where(
+                AuditLog.user_id == user_id,
+                AuditLog.action == "audit_completed",
+            )
+        )
+        non_audit_llm_count = db.scalar(
+            select(func.count(AuditLog.id)).where(
+                AuditLog.user_id == user_id,
+                AuditLog.action == "llm_turn_completed",
+                AuditLog.run_id.is_(None),
+            )
+        )
+        return int(audit_count or 0) + int(non_audit_llm_count or 0)
+
+
 def list_recent_sessions(
     limit: int = 15, user_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:

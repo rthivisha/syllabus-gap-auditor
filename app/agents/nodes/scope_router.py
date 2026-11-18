@@ -28,6 +28,28 @@ def load_agents_contract() -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
+WHOLE_DOC_PHRASES = {
+    "whole book",
+    "entire book",
+    "whole document",
+    "entire document",
+    "whole pdf",
+    "entire pdf",
+    "full book",
+    "full pdf",
+    "all",
+    "everything",
+    "all chapters",
+}
+
+
+def _parse_scope_titles(user_msg: str) -> List[str]:
+    clean = (user_msg or "").strip().lower()
+    if not clean or any(p in clean for p in WHOLE_DOC_PHRASES):
+        return []  # Empty list = audit the ENTIRE document!
+    return [s.strip() for s in user_msg.split(",") if s.strip()]
+
+
 def resolve_audit_scope(
     user_message: str,
     doc_name: str,
@@ -39,6 +61,15 @@ def resolve_audit_scope(
       - If user asks a broad question on Turn 1 ("Help me find what I missed"), asks 1 clarifying question.
       - Once answered (or if scope is already explicit), maps request to exact section_title list.
     """
+    clean_low = (user_message or "").strip().lower()
+    if any(p in clean_low for p in WHOLE_DOC_PHRASES):
+        return {
+            "needs_clarification": False,
+            "clarifying_question": "",
+            "target_scope": "Entire Document",
+            "scoped_section_titles": [],
+        }
+
     available_titles = [s["section_title"] for s in doc_sections]
     toc_preview = "\n".join(
         f"- {s['section_title']} (Pages {s.get('start_page', 1)}-{s.get('end_page', 1)})"
@@ -79,7 +110,7 @@ def resolve_audit_scope(
             "needs_clarification": False,
             "clarifying_question": "",
             "target_scope": "Entire Document",
-            "scoped_section_titles": available_titles,
+            "scoped_section_titles": [],
         }
 
     # Match requested chapter/section keywords against actual document section titles
