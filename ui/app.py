@@ -1,7 +1,14 @@
 import json
 import os
+import sys
 import time
 import uuid
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 import requests
 import streamlit as st
 from ui.components.architecture_board import render_system_architecture_board
