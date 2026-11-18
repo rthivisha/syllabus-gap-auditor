@@ -350,6 +350,22 @@ with st.sidebar:
         else:
             st.caption("Select or upload a reference book to inspect sections.")
 
+    with st.expander("🔍 Pinecone Chunk Inspector", expanded=False):
+        active_id = st.session_state.get("selected_doc_id")
+        if not active_id:
+            st.caption("Select or ingest a reference PDF to inspect stored Pinecone chunks.")
+        else:
+            if st.button("Load First 10 Pinecone Chunks", use_container_width=True):
+                c_res = requests.get(f"{API_BASE}/documents/{active_id}/chunks", params={"limit": 10}, timeout=8)
+                st.session_state["inspected_chunks"] = c_res.json() if c_res.ok else []
+
+            for ch in st.session_state.get("inspected_chunks", []):
+                st.caption(
+                    f"`{ch['filename']}` · `Page {ch['page_number']}` · `ID: {ch['id']}` · **{ch['chars']} chars (~{ch['tokens']} tokens)**"
+                )
+                with st.container(border=True):
+                    st.markdown(ch["text"][:600])
+
     with st.expander("🔑 Bring Your Own API Keys", expanded=False):
         byok_gemini_key = st.text_input(
             "Gemini API key",
