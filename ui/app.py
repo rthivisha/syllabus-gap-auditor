@@ -11,6 +11,9 @@ if str(ROOT_DIR) not in sys.path:
 
 import requests
 import streamlit as st
+import importlib
+from ui.components import architecture_board
+importlib.reload(architecture_board)
 from ui.components.architecture_board import render_live_ingestion_board
 
 API_BASE = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
