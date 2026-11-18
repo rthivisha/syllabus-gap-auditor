@@ -248,6 +248,85 @@ if not st.session_state.selected_doc_id:
         placeholder=board_slot,
     )
 
+    # Always-visible Ready Sample Books row (1-click instant demo without re-uploading)
+    ready_docs = [d for d in (st.session_state.get("cached_docs") or []) if d.get("status") == "ready"]
+    harness_doc = next(
+        (d for d in ready_docs if "harness" in d.get("filename", "").lower()),
+        None,
+    )
+    claude_doc = next(
+        (d for d in ready_docs if "claude" in d.get("filename", "").lower()),
+        None,
+    )
+
+    sample_buttons = []
+    if harness_doc:
+        sample_buttons.append(
+            {
+                "doc": harness_doc,
+                "label": f"📘 {harness_doc['filename']} ({harness_doc.get('page_count', 83)}p · Ready in Pinecone)",
+                "video_url": "https://www.youtube.com/watch?v=mv9kfF_kJd0",
+            }
+        )
+    if claude_doc:
+        sample_buttons.append(
+            {
+                "doc": claude_doc,
+                "label": f"📘 {claude_doc['filename']} ({claude_doc.get('page_count', 108)}p · Ready in Pinecone)",
+                "video_url": "https://www.youtube.com/watch?v=mv9kfF_kJd0",
+            }
+        )
+    # Fallback: if cached_docs is empty on cold load, still show the pre-indexed Harness PDF button
+    if not sample_buttons:
+        sample_buttons.append(
+            {
+                "doc": {
+                    "doc_id": "harness-engineering-e81b5a4855ad",
+                    "filename": "harness engineering.pdf",
+                    "page_count": 83,
+                    "chunk_count": 82,
+                },
+                "label": "📘 harness engineering.pdf (83p · Ready in Pinecone)",
+                "video_url": "https://www.youtube.com/watch?v=mv9kfF_kJd0",
+            }
+        )
+
+    st.markdown(
+        '<div class="divider-label">OR TEST INSTANTLY WITH AN ALREADY-INDEXED SAMPLE BOOK</div>',
+        unsafe_allow_html=True,
+    )
+    sb_cols = st.columns(len(sample_buttons))
+    for s_idx, item in enumerate(sample_buttons):
+        doc_obj = item["doc"]
+        with sb_cols[s_idx]:
+            if st.button(item["label"], key=f"quick_sample_{doc_obj['doc_id']}", use_container_width=True):
+                st.session_state.selected_doc_id = doc_obj["doc_id"]
+                st.session_state.selected_doc_name = doc_obj["filename"]
+                st.session_state.selected_doc_pages = doc_obj.get("page_count", 83)
+                st.session_state.selected_doc_chunks = doc_obj.get("chunk_count", 82)
+                st.session_state.paired_sample_video = {
+                    "video_url": item["video_url"],
+                    "label": item["label"],
+                }
+                st.session_state.suggested_questions = [
+                    f"Summarize the key topics covered in {doc_obj['filename']}",
+                    "What are the core architectural principles in this PDF?",
+                    "How does this Syllabus Gap Audit AI project work?",
+                    f"Audit this YouTube lecture against the whole book: {item['video_url']}",
+                ]
+                st.session_state.messages = [
+                    {
+                        "role": "assistant",
+                        "content": (
+                            f"✅ Activated **`{doc_obj['filename']}`** ({doc_obj.get('page_count', 83)} pages, "
+                            f"{doc_obj.get('chunk_count', 82)} vectors in Pinecone).\n\n"
+                            f"- 🎥 **Paired Demo Lecture:** `{item['video_url']}`\n"
+                            "- 📄 Ask any question about this PDF, ask about this project, or click **▶️ Audit Paired Lecture** above!"
+                        ),
+                    }
+                ]
+                st.rerun()
+
     if uploaded_pdf is not None and ingest_btn:
         info, up_err = None, None
         try:
@@ -310,39 +389,6 @@ if not st.session_state.selected_doc_id:
             if d_res.ok:
                 st.session_state.cached_docs = d_res.json()
             st.rerun()
-
-    # Instant 1-Click Sample Books + Paired Lecture Videos
-    ready_docs = [d for d in st.session_state.cached_docs if d.get("status") == "ready"]
-    matched_samples = []
-    seen_sample_ids = set()
-    for sp in SAMPLE_PAIRINGS:
-        found = next(
-            (
-                d
-                for d in ready_docs
-                if sp["match_key"] in (d.get("filename") or d.get("doc_name") or d.get("doc_id") or "").lower()
-                and d.get("doc_id") not in seen_sample_ids
-            ),
-            None,
-        )
-        if found:
-            seen_sample_ids.add(found.get("doc_id"))
-            matched_samples.append((sp, found))
-
-    if matched_samples:
-        st.markdown('<div class="divider-label">OR TEST INSTANTLY WITH A READY SAMPLE BOOK & PAIRED LECTURE</div>', unsafe_allow_html=True)
-        s_cols = st.columns(len(matched_samples))
-        for idx, (sp, doc_obj) in enumerate(matched_samples):
-            with s_cols[idx]:
-                if st.button(sp["label"], key=f"sample_pick_{doc_obj['doc_id']}", use_container_width=True):
-                    doc_title = doc_obj.get("filename") or doc_obj.get("doc_name") or sp["label"]
-                    st.session_state.selected_doc_id = doc_obj["doc_id"]
-                    st.session_state.selected_doc_name = doc_title
-                    st.session_state.selected_doc_pages = doc_obj.get("page_count", "?")
-                    st.session_state.selected_doc_chunks = doc_obj.get("chunk_count", "?")
-                    st.session_state.paired_sample_video = sp
-                    st.session_state.suggested_questions = []  # Only shown for user-uploaded PDFs
-                    st.rerun()
 
 # ==============================================================================
 # STATE 2: REACTIVE AUDIT & CHAT WORKSPACE (Appears after PDF is active)
