@@ -1085,7 +1085,27 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
         final_state["latency_ms"] = elapsed_ms
 
         reply_md = _format_audit_markdown(final_state)
-        citations = final_state.get("cited_chunks", [])
+        all_chunks = (
+            final_state.get("retrieved_evidence")
+            or final_state.get("cited_chunks")
+            or []
+        )
+        missed_gaps = (
+            final_state.get("final_missed_topics")
+            or final_state.get("drafted_gaps")
+            or final_state.get("missed_topics")
+            or []
+        )
+        if missed_gaps and all_chunks:
+            gap_pages = [int(g["page_number"]) for g in missed_gaps if g.get("page_number") is not None]
+            page_order = {pg: idx for idx, pg in enumerate(dict.fromkeys(gap_pages))}
+            matched = [c for c in all_chunks if int(c.get("page_number") or 0) in page_order]
+            matched.sort(key=lambda c: page_order[int(c.get("page_number") or 0)])
+            remaining = [c for c in all_chunks if c not in matched]
+            citations = (matched + remaining)[:6]
+        else:
+            citations = all_chunks[:6]
+
         msg_id = save_chat_message(
             session_id=req.session_id,
             role="assistant",

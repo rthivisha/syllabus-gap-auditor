@@ -111,6 +111,19 @@ def finalize_and_escalate_node(state: AuditGraphState) -> Dict[str, Any]:
         else:
             confirmed_missed.append(item)
 
+    missed_gaps = state.get("drafted_gaps") or state.get("missed_topics") or confirmed_missed or []
+    all_chunks = state.get("retrieved_evidence") or state.get("cited_chunks") or []
+
+    if missed_gaps and all_chunks:
+        gap_pages = [int(g["page_number"]) for g in missed_gaps if g.get("page_number") is not None]
+        page_order = {pg: idx for idx, pg in enumerate(dict.fromkeys(gap_pages))}
+        matched = [c for c in all_chunks if int(c.get("page_number") or 0) in page_order]
+        matched.sort(key=lambda c: page_order[int(c.get("page_number") or 0)])
+        remaining = [c for c in all_chunks if c not in matched]
+        prioritized_sources = (matched + remaining)[:6]
+    else:
+        prioritized_sources = all_chunks[:6]
+
     run_id = save_audit_run(
         {
             "session_id": state["session_id"],
@@ -124,7 +137,7 @@ def finalize_and_escalate_node(state: AuditGraphState) -> Dict[str, Any]:
             "retry_count": attempt,
             "latency_ms": state.get("latency_ms", 0),
             "missed_topics_json": confirmed_missed,
-            "cited_chunks_json": state.get("cited_chunks", []),
+            "cited_chunks_json": prioritized_sources,
             "evaluation_notes": state.get("evaluation_notes", ""),
             "repair_notes": state.get("repair_notes", ""),
         }
@@ -166,6 +179,8 @@ def finalize_and_escalate_node(state: AuditGraphState) -> Dict[str, Any]:
         "route_taken": "audit_pipeline",
         "awaiting_video": False,
         "retrieved_sections": state.get("retrieved_sections", []),
+        "retrieved_evidence": prioritized_sources,
+        "cited_chunks": prioritized_sources,
     }
 
 
