@@ -61,6 +61,7 @@ app.add_middleware(
 MAX_GUEST_CALLS = 3  # Strict 3-call budget (covers gap audits + Q&A) per guest unless BYOK keys are supplied
 MAX_FREE_LLM_TURNS = MAX_GUEST_CALLS
 WHOLE_DOC_PHRASES = {
+    "yes", "yeah", "yep", "sure", "ok", "okay", "go ahead", "proceed",
     "whole book", "entire book", "complete book", "full book",
     "whole document", "entire document", "complete document",
     "whole pdf", "entire pdf", "complete pdf", "full pdf",

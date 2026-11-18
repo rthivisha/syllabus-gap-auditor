@@ -29,6 +29,14 @@ def load_agents_contract() -> str:
 
 
 WHOLE_DOC_PHRASES = {
+    "yes",
+    "yeah",
+    "yep",
+    "sure",
+    "ok",
+    "okay",
+    "go ahead",
+    "proceed",
     "whole book",
     "entire book",
     "complete book",

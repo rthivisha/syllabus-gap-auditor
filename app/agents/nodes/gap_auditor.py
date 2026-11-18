@@ -63,7 +63,7 @@ def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
     t0 = time.perf_counter()
     step_timings = dict(state.get("step_timings") or {})
     session_id = state.get("session_id", "")
-    candidates = state.get("candidate_gaps", [])[:12]
+    candidates = state.get("candidate_gaps", [])[:8]
 
     if not candidates:
         step_timings["gap_auditor_sec"] = round(time.perf_counter() - t0, 2)
@@ -84,7 +84,7 @@ def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
     compact_sections = "\n".join(
         f"- [Chunk: {c.get('chunk_id', '')} | Page {c.get('page_number', 1)} | {c.get('section_title', '')} | "
         f"Closest Video Match: {_format_video_window_str(c.get('closest_video_window') or c.get('closest_video_text') or c.get('closest_timestamp'))}]: "
-        f"{str(c.get('text') or c.get('parent_text') or '')[:350]}"
+        f"{str(c.get('text') or c.get('parent_text') or '')[:260]}"
         for c in candidates
     )
 
