@@ -178,7 +178,18 @@ def _render_verified_sources(sources: list) -> None:
         if 0.0 <= score <= 1.0:
             match_label = f"Match {round(score * 100)}%"
 
-        quote = str(source.get("snippet") or source.get("text") or "").strip()
+        quote = str(
+            source.get("text")
+            or source.get("evidence_quote")
+            or source.get("snippet")
+            or source.get("parent_text")
+            or source.get("summary")
+            or ""
+        ).strip()
+        if not quote:
+            sec_name = str(source.get("section_title") or "this section").strip()
+            pg_num = source.get("page_number", 1)
+            quote = f"Reference excerpt from {sec_name} (Page {pg_num})."
         if len(quote) > 160:
             quote = quote[:160].rstrip() + "..."
         page = html.escape(str(source.get("page_number", 1)))

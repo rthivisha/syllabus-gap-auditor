@@ -219,20 +219,36 @@ def _format_audit_markdown(state: Dict[str, Any]) -> str:
             f"⚠️ **Audit Blocked by Safety/Quality Guard:** {state.get('guard_reason')}"
         )
 
-    missed = state.get("final_missed_topics", [])
+    doc_name = state.get("doc_name") or "Uploaded Document"
+    raw_scoped = state.get("scoped_section_titles") or []
+    scope_label = (
+        ", ".join(raw_scoped)
+        if raw_scoped
+        else f"Full Document ({doc_name})"
+    )
+
+    missed_gaps = (
+        state.get("final_missed_topics")
+        or state.get("drafted_gaps")
+        or state.get("missed_topics")
+        or []
+    )
     escalated = state.get("escalated_items", [])
-    scope = state.get("target_scope", "Entire Document")
-    status = state.get("final_status", "passed")
-    retries = state.get("attempt", 0)
+    eval_passed = (
+        state.get("evaluator_passed")
+        if "evaluator_passed" in state
+        else (state.get("final_status") == "passed" or state.get("evaluator_verdict") == "PASS")
+    )
+    retry_count = state.get("retry_count") if "retry_count" in state else state.get("attempt", 0)
 
     lines = [
-        f"### Gap Audit Results — *{scope}*",
-        f"**Evaluator Status:** `{status.upper()}` (Retries: `{retries}`)",
+        f"### 📋 Gap Audit Results — `{scope_label}`",
+        f"**Evaluator Status:** `{'PASSED' if eval_passed else 'FAILED'}` (Retries: `{retry_count}`) · **Missed Topics Found:** `{len(missed_gaps)}`",
         "",
     ]
 
     retrieved_sections = state.get("retrieved_sections") or []
-    if not missed and not escalated:
+    if not missed_gaps and not escalated:
         if not retrieved_sections:
             lines.append(
                 "⚠️ **No sections matched that scope in Pinecone; auditing full document instead.**"
@@ -243,13 +259,16 @@ def _format_audit_markdown(state: Dict[str, Any]) -> str:
                 "No major syllabus gaps were detected in this video for the selected scope."
             )
     else:
-        if missed:
-            lines.append(f"#### Confirmed Missed Topics ({len(missed)})")
-            for idx, item in enumerate(missed, 1):
-                lines.append(
-                    f"{idx}. **{item['topic_title']}** *(Section: {item['section_title']} — Page {item['page_number']})*\n"
-                    f"   {item['summary']}"
-                )
+        for idx, gap in enumerate(missed_gaps, start=1):
+            title = gap.get("topic_title") or gap.get("section_title") or f"Topic {idx}"
+            sec = gap.get("section_title", "")
+            pg = gap.get("page_number", "?")
+            desc = gap.get("description") or gap.get("explanation") or gap.get("summary") or ""
+            vid_note = gap.get("closest_timestamp") or gap.get("video_check_note") or "Not covered in video transcript"
+
+            lines.append(f"**{idx}. {title}**  ·  `Page {pg}` *({sec})*")
+            lines.append(f"- 📄 **Missing from Video:** {desc}")
+            lines.append(f"- 🎥 **Closest Video Check:** {vid_note}")
             lines.append("")
 
         if escalated:
@@ -267,10 +286,9 @@ def _format_audit_markdown(state: Dict[str, Any]) -> str:
                 )
             lines.append("")
 
-    if missed:
-        lines.append(
-            "Would you like me to briefly explain each of these missed topics, or generate a quick summary script covering them?"
-        )
+    lines.append(
+        "💡 *Would you like a quick breakdown of any missed topic above, or a ready-to-record script covering all of them?*"
+    )
     return "\n".join(lines)
 
 
@@ -1117,6 +1135,49 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
             citations = (matched + remaining)[:6]
         else:
             citations = all_chunks[:6]
+
+        enriched_citations = []
+        for c in citations:
+            c_dict = dict(c)
+            txt = (
+                c_dict.get("text")
+                or c_dict.get("evidence_quote")
+                or c_dict.get("snippet")
+                or c_dict.get("parent_text")
+                or c_dict.get("summary")
+                or ""
+            )
+            c_dict["text"] = txt
+            c_dict["snippet"] = txt[:600]
+            c_dict["evidence_quote"] = c_dict.get("evidence_quote") or txt[:140]
+            enriched_citations.append(c_dict)
+
+        if len(enriched_citations) < 3 and missed_gaps:
+            doc_name = final_state.get("doc_name") or "Uploaded Document"
+            for idx, g in enumerate(missed_gaps):
+                if len(enriched_citations) >= 6:
+                    break
+                txt = (
+                    g.get("evidence_quote")
+                    or g.get("summary")
+                    or g.get("description")
+                    or g.get("explanation")
+                    or ""
+                )
+                if txt:
+                    enriched_citations.append(
+                        {
+                            "chunk_id": g.get("chunk_id", f"gap_{idx}"),
+                            "doc_name": doc_name,
+                            "section_title": g.get("section_title", ""),
+                            "page_number": g.get("page_number", 1),
+                            "text": txt,
+                            "snippet": txt[:600],
+                            "evidence_quote": txt[:140],
+                            "score": 0.45,
+                        }
+                    )
+        citations = enriched_citations
 
         msg_id = save_chat_message(
             session_id=req.session_id,

@@ -4,3 +4,4 @@ __pycache__/
 powershell.cmd
 processed_data/
 cache/*.db
+DATA/

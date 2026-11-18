@@ -136,25 +136,42 @@ def _save_window_vecs(cache_file: Path, vectors: np.ndarray) -> None:
                 )
 
 
+BOILERPLATE_TITLES = {
+    "figures and tables", "table of contents", "contents", "scan to know more",
+    "index", "acknowledgements", "copyright", "references", "bibliography",
+}
+
+
+def _is_substantive_section(sec: Dict[str, Any]) -> bool:
+    title = (sec.get("section_title") or "").strip().lower()
+    raw_texts = sec.get("texts")
+    if isinstance(raw_texts, list):
+        text = " ".join(raw_texts).strip()
+    else:
+        text = str(sec.get("text") or sec.get("parent_text") or sec.get("summary") or "").strip()
+    if any(b in title for b in BOILERPLATE_TITLES):
+        return False
+    return len(text) >= 180  # Skip cover pages & QR-code stub pages
+
+
 def _select_gap_candidates(
     candidates: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    # Keep only the top 6 lowest-similarity sections (actual gap candidates) for the LLM auditor
-    low_sim_sections = [
-        s for s in candidates
+    substantive = [s for s in candidates if _is_substantive_section(s)] or candidates
+    # Keep all sections where video coverage is weak (< 0.68), evenly sampled across the entire PDF
+    gap_pool = [
+        s for s in substantive
         if s.get("flashrank_score", s.get("rerank_score", s.get("best_video_similarity", 1.0))) < 0.68
-    ]
-    if not low_sim_sections:
-        low_sim_sections = sorted(
-            candidates,
-            key=lambda x: x.get("flashrank_score", x.get("rerank_score", x.get("best_video_similarity", 1.0))),
-        )[:6]
+    ] or substantive
+    gap_pool.sort(key=lambda x: int(x.get("page_number") or 1))
+
+    # Evenly sample up to 12 sections across the full page range so the whole PDF is represented!
+    if len(gap_pool) > 12:
+        step = len(gap_pool) / 12.0
+        selected_sections = [gap_pool[int(i * step)] for i in range(12)]
     else:
-        low_sim_sections = sorted(
-            low_sim_sections,
-            key=lambda x: x.get("flashrank_score", x.get("rerank_score", x.get("best_video_similarity", 1.0))),
-        )[:6]
-    return low_sim_sections
+        selected_sections = gap_pool
+    return selected_sections
 
 
 def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
@@ -358,8 +375,10 @@ def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
                 "section_title": section["section_title"],
                 "page_number": section["page_number"],
                 "chunk_id": parent_chunk["chunk_id"],
+                "doc_name": parent_chunk.get("doc_name", ""),
                 "parent_text": parent_chunk["parent_text"],
                 "text": parent_chunk["parent_text"][:650],
+                "snippet": parent_chunk["parent_text"][:600],
                 "best_video_similarity": round(best_sim, 4),
                 "bi_encoder_score": round(best_sim, 4),
                 "flashrank_score": rerank_score,

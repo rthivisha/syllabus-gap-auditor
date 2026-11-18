@@ -63,7 +63,7 @@ def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
     t0 = time.perf_counter()
     step_timings = dict(state.get("step_timings") or {})
     session_id = state.get("session_id", "")
-    candidates = state.get("candidate_gaps", [])[:6]
+    candidates = state.get("candidate_gaps", [])[:12]
 
     if not candidates:
         step_timings["gap_auditor_sec"] = round(time.perf_counter() - t0, 2)
@@ -90,18 +90,13 @@ def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
 
     llm = get_structured_auditor_llm(WorkerDraftOutput)
     system_prompt = (
-        f"{load_agents_contract()}\n\n"
-        "You are the Syllabus Gap Worker Node. Compare each reference book section "
-        "directly against its closest video match window.\n"
-        "Classify each important concept as missed or covered; do not emit unrelated topics.\n"
-        "For every missed or covered topic, cite the exact section_title, page_number, and "
-        "chunk_id supplied; provide an evidence_quote of at most 20 words copied "
-        "verbatim from that chunk; and provide a video_check_note containing the "
-        "closest checked MM:SS timestamp. Keep each summary to 1-2 sentences and "
-        "no more than 30 words. A synonym or clearly explained slide concept counts "
-        "as covered; a bare term mention does not. Do not excuse omitted mechanisms "
-        "because the lecture is introductory. Put each candidate in exactly one of "
-        "missed_topics or covered_topics."
+        "You are a strict Syllabus & Document Coverage Auditor.\n"
+        "Compare the PDF sections below against the YouTube video transcript windows.\n"
+        "RULES:\n"
+        "1. Identify EVERY substantive topic, rule, eligibility criterion, or mechanism in the PDF that the video completely skipped or failed to explain.\n"
+        "2. IGNORE non-content boilerplate (Table of Contents, Figures and Tables, QR code/Scan pages, cover pages).\n"
+        "3. Keep 'topic_title' crisp (4-8 words) and 'description' under 22 words so teachers/viewers can scan every missed topic instantly.\n"
+        "4. Cite the exact 'page_number' and 'section_title' from the provided chunks."
     )
     user_prompt = (
         f"Document: {state.get('doc_name')} | Scope: {state.get('target_scope')}\n"

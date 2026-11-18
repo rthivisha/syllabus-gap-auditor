@@ -52,6 +52,79 @@ def finalize_and_escalate_node(state: AuditGraphState) -> Dict[str, Any]:
     else:
         prioritized_sources = all_chunks[:6]
 
+    enriched_sources = []
+    for c in prioritized_sources:
+        c_dict = dict(c)
+        txt = (
+            c_dict.get("text")
+            or c_dict.get("evidence_quote")
+            or c_dict.get("snippet")
+            or c_dict.get("parent_text")
+            or c_dict.get("summary")
+            or ""
+        )
+        c_dict["text"] = txt
+        c_dict["snippet"] = txt[:600]
+        c_dict["evidence_quote"] = c_dict.get("evidence_quote") or txt[:140]
+        enriched_sources.append(c_dict)
+
+    doc_name = state.get("doc_name") or "Uploaded Document"
+    if len(enriched_sources) < 3 and missed_gaps:
+        for idx, g in enumerate(missed_gaps):
+            if len(enriched_sources) >= 6:
+                break
+            txt = (
+                g.get("evidence_quote")
+                or g.get("summary")
+                or g.get("description")
+                or g.get("explanation")
+                or ""
+            )
+            if txt:
+                enriched_sources.append(
+                    {
+                        "chunk_id": g.get("chunk_id", f"gap_{idx}"),
+                        "doc_name": doc_name,
+                        "section_title": g.get("section_title", ""),
+                        "page_number": g.get("page_number", 1),
+                        "text": txt,
+                        "snippet": txt[:600],
+                        "evidence_quote": txt[:140],
+                        "score": 0.45,
+                    }
+                )
+    prioritized_sources = enriched_sources
+
+    raw_scoped = state.get("scoped_section_titles") or []
+    scope_label = (
+        ", ".join(raw_scoped)
+        if raw_scoped
+        else f"Full Document ({doc_name})"
+    )
+
+    lines = [
+        f"### 📋 Gap Audit Results — `{scope_label}`",
+        f"**Evaluator Status:** `{'PASSED' if eval_passed else 'FAILED'}` (Retries: `{attempt}`) · **Missed Topics Found:** `{len(missed_gaps)}`",
+        "",
+    ]
+
+    for idx, gap in enumerate(missed_gaps, start=1):
+        title = gap.get("topic_title") or gap.get("section_title") or f"Topic {idx}"
+        sec = gap.get("section_title", "")
+        pg = gap.get("page_number", "?")
+        desc = gap.get("description") or gap.get("explanation") or gap.get("summary") or ""
+        vid_note = gap.get("closest_timestamp") or gap.get("video_check_note") or "Not covered in video transcript"
+
+        lines.append(f"**{idx}. {title}**  ·  `Page {pg}` *({sec})*")
+        lines.append(f"- 📄 **Missing from Video:** {desc}")
+        lines.append(f"- 🎥 **Closest Video Check:** {vid_note}")
+        lines.append("")
+
+    lines.append(
+        "💡 *Would you like a quick breakdown of any missed topic above, or a ready-to-record script covering all of them?*"
+    )
+    chat_response = "\n".join(lines)
+
     run_id = save_audit_run(
         {
             "session_id": state["session_id"],
@@ -101,6 +174,7 @@ def finalize_and_escalate_node(state: AuditGraphState) -> Dict[str, Any]:
 
     return {
         "run_id": run_id,
+        "chat_response": chat_response,
         "final_missed_topics": confirmed_missed,
         "escalated_items": escalated_items,
         "final_status": final_verdict,
