@@ -580,7 +580,7 @@ async def api_upload_document_stream(
             stem = Path(filename).stem.lower().replace(" ", "-")
             doc_id = f"{stem}-{content_hash}"
 
-            yield f"data: {json.dumps({'type': 'stage', 'text': f'📄 Extracting pages from {filename}...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'step', 'step': 1, 'text': 'Extracting PDF pages...'})}\n\n"
 
             import fitz
             pdf_doc = fitz.open(stream=raw_bytes, filetype="pdf")
@@ -611,11 +611,17 @@ async def api_upload_document_stream(
                 yield f"data: {json.dumps({'type': 'error', 'text': 'No selectable text found in this PDF.'})}\n\n"
                 return
 
-            yield f"data: {json.dumps({'type': 'stage', 'text': f'⚡ Embedding {page_count} pages into Pinecone...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'step', 'step': 2, 'text': 'Filtering boilerplate & TOC...'})}\n\n"
+            time.sleep(0.15)
 
+            yield f"data: {json.dumps({'type': 'step', 'step': 3, 'text': 'Coalescing adaptive chunks...'})}\n\n"
+            time.sleep(0.15)
+
+            yield f"data: {json.dumps({'type': 'step', 'step': 4, 'text': 'Generating 768-d BGE embeddings...'})}\n\n"
             from app.services.vector.pinecone_store import upsert_document_chunks
             chunk_count = upsert_document_chunks(doc_id=doc_id, filename=filename, chunks=raw_chunks)
 
+            yield f"data: {json.dumps({'type': 'step', 'step': 5, 'text': 'Upserting vectors into Pinecone...'})}\n\n"
             section_titles = list(dict.fromkeys(c["section_title"] for c in raw_chunks if c.get("section_title")))
             from app.services.db.crud import register_document
             register_document(
@@ -626,20 +632,6 @@ async def api_upload_document_stream(
                 section_titles=section_titles,
                 status="ready",
                 uploaded_by=user_id,
-            )
-
-            yield f"data: {json.dumps({'type': 'stage', 'text': '💡 Generating 4 document-specific starter questions...'})}\n\n"
-            suggested_questions = _generate_suggested_prompts(filename, raw_chunks)
-
-            register_document(
-                doc_id=doc_id,
-                filename=filename,
-                page_count=page_count,
-                chunk_count=chunk_count,
-                section_titles=section_titles,
-                status="ready",
-                uploaded_by=user_id,
-                suggested_questions=suggested_questions,
             )
 
             try:
@@ -656,7 +648,6 @@ async def api_upload_document_stream(
                 "page_count": page_count,
                 "chunk_count": chunk_count,
                 "sections": section_titles[:12],
-                "suggested_questions": suggested_questions,
                 "elapsed_sec": round(time.perf_counter() - t0, 2),
             }
             yield f"data: {json.dumps({'type': 'done', 'payload': payload})}\n\n"

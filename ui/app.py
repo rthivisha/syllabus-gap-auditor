@@ -11,7 +11,7 @@ if str(ROOT_DIR) not in sys.path:
 
 import requests
 import streamlit as st
-from ui.components.architecture_board import render_system_architecture_board
+from ui.components.architecture_board import render_live_ingestion_board
 
 API_BASE = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 
@@ -235,45 +235,64 @@ if not st.session_state.selected_doc_id:
             key="landing_ingest_btn",
         )
 
-    if uploaded_pdf is not None and ingest_btn:
-        with st.status(f"Indexing {uploaded_pdf.name} into Pinecone...", expanded=True) as status:
-            info, up_err = None, None
-            try:
-                with requests.post(
-                    f"{API_BASE}/documents/upload/stream",
-                    files={"file": (uploaded_pdf.name, uploaded_pdf.getvalue(), "application/pdf")},
-                    data={"user_id": st.session_state.visitor_id},
-                    stream=True,
-                    timeout=300,
-                ) as r:
-                    for line in r.iter_lines(decode_unicode=True):
-                        if not line or not line.startswith("data: "):
-                            continue
-                        evt = json.loads(line[6:])
-                        if evt.get("type") == "stage":
-                            status.update(label=evt["text"], state="running")
-                        elif evt.get("type") == "done":
-                            info = evt["payload"]
-                        elif evt.get("type") == "error":
-                            up_err = evt["text"]
-            except Exception as exc:
-                up_err = str(exc)
+    board_slot = st.empty()
+    render_live_ingestion_board(
+        active_step=6 if st.session_state.selected_doc_id else 0,
+        doc_name=st.session_state.selected_doc_name,
+        page_count=st.session_state.selected_doc_pages,
+        vector_count=st.session_state.selected_doc_chunks,
+        elapsed_sec=st.session_state.get("last_ingest_sec"),
+        placeholder=board_slot,
+    )
 
-            if up_err:
-                status.update(label="Ingestion failed", state="error")
-                st.error(up_err)
-            elif info:
-                st.session_state.selected_doc_id = info["doc_id"]
-                st.session_state.selected_doc_name = info.get("filename") or info.get("doc_name")
-                st.session_state.selected_doc_pages = info.get("page_count", "?")
-                st.session_state.selected_doc_chunks = info.get("chunk_count", "?")
-                st.session_state.uploaded_doc_id = info["doc_id"]
-                st.session_state.suggested_questions = info.get("suggested_questions", [])
-                st.session_state.paired_sample_video = None
-                d_res = requests.get(f"{API_BASE}/documents", timeout=5)
-                if d_res.ok:
-                    st.session_state.cached_docs = d_res.json()
-                st.rerun()
+    if uploaded_pdf is not None and ingest_btn:
+        info, up_err = None, None
+        try:
+            with requests.post(
+                f"{API_BASE}/documents/upload/stream",
+                files={"file": (uploaded_pdf.name, uploaded_pdf.getvalue(), "application/pdf")},
+                data={"user_id": st.session_state.visitor_id},
+                stream=True,
+                timeout=300,
+            ) as r:
+                for line in r.iter_lines(decode_unicode=True):
+                    if not line or not line.startswith("data: "):
+                        continue
+                    evt = json.loads(line[6:])
+                    if evt.get("type") == "step":
+                        render_live_ingestion_board(
+                            active_step=evt["step"],
+                            doc_name=uploaded_pdf.name,
+                            placeholder=board_slot,
+                        )
+                    elif evt.get("type") == "done":
+                        info = evt["payload"]
+                    elif evt.get("type") == "error":
+                        up_err = evt["text"]
+        except Exception as exc:
+            up_err = str(exc)
+
+        if up_err:
+            st.error(up_err)
+        elif info:
+            st.session_state.selected_doc_id = info["doc_id"]
+            st.session_state.selected_doc_name = info["filename"]
+            st.session_state.selected_doc_pages = info.get("page_count", "?")
+            st.session_state.selected_doc_chunks = info.get("chunk_count", "?")
+            st.session_state.last_ingest_sec = info.get("elapsed_sec")
+            st.session_state.paired_sample_video = None
+            render_live_ingestion_board(
+                active_step=6,
+                doc_name=info["filename"],
+                page_count=info.get("page_count"),
+                vector_count=info.get("chunk_count"),
+                elapsed_sec=info.get("elapsed_sec"),
+                placeholder=board_slot,
+            )
+            d_res = requests.get(f"{API_BASE}/documents", timeout=5)
+            if d_res.ok:
+                st.session_state.cached_docs = d_res.json()
+            st.rerun()
 
     # Instant 1-Click Sample Books + Paired Lecture Videos
     ready_docs = [d for d in st.session_state.cached_docs if d.get("status") == "ready"]
@@ -312,11 +331,12 @@ if not st.session_state.selected_doc_id:
 # STATE 2: REACTIVE AUDIT & CHAT WORKSPACE (Appears after PDF is active)
 # ==============================================================================
 else:
-    render_system_architecture_board(
+    render_live_ingestion_board(
+        active_step=6,
         doc_name=st.session_state.selected_doc_name,
         page_count=st.session_state.selected_doc_pages,
         vector_count=st.session_state.selected_doc_chunks,
-        last_trace=st.session_state.get("last_audit_trace"),
+        elapsed_sec=st.session_state.get("last_ingest_sec"),
     )
 
     # If a sample book was picked, offer its paired YouTube lecture URL as a 1-click audit trigger
@@ -329,20 +349,6 @@ else:
             if st.button("▶️ Audit Paired Lecture", type="primary", use_container_width=True):
                 st.session_state.queued_pill_prompt = f"Audit this lecture against the whole book: {sp['video_url']}"
                 st.rerun()
-
-    # Show 4 auto-generated starter questions ONLY when the user uploaded their own PDF
-    if (
-        st.session_state.uploaded_doc_id == st.session_state.selected_doc_id
-        and st.session_state.suggested_questions
-        and not st.session_state.messages
-    ):
-        st.caption(f"💡 **Auto-Generated Prompts for `{st.session_state.selected_doc_name}`:**")
-        q_cols = st.columns(2)
-        for q_idx, q_text in enumerate(st.session_state.suggested_questions[:4]):
-            with q_cols[q_idx % 2]:
-                if st.button(q_text, key=f"auto_q_{q_idx}", use_container_width=True):
-                    st.session_state.queued_pill_prompt = q_text
-                    st.rerun()
 
     # Render Chat & Audit History
     for msg in st.session_state.messages:
