@@ -1,4 +1,5 @@
 import json
+import re
 import urllib.request
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -9,6 +10,19 @@ from langchain_core.runnables import RunnableLambda
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from app.config import get_settings
+
+
+def sanitize_error_message(msg: str) -> str:
+    """Strips any Bearer tokens, API keys, or query-string key parameters from error text."""
+    cleaned = re.sub(
+        r"(AIza[0-9A-Za-z\-_]{20,}|gsk_[0-9A-Za-z]{20,}|sk-[0-9A-Za-z\-_]{20,})",
+        "[REDACTED_KEY]",
+        str(msg),
+    )
+    cleaned = re.sub(
+        r"(key|api_key|token)=[^&\s\"']+", r"\1=[REDACTED]", cleaned, flags=re.IGNORECASE
+    )
+    return cleaned
 
 _USER_GEMINI_KEY: ContextVar[Optional[str]] = ContextVar(
     "user_gemini_key", default=None

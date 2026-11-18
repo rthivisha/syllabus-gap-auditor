@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from app.services.db.repository import save_document_record
+from app.services.db.repository import save_document_record, list_documents, delete_document
 
 
 def register_document(
@@ -29,4 +29,4 @@ def register_document(
     )
 
 
-__all__ = ["register_document"]
+__all__ = ["register_document", "list_documents", "delete_document"]

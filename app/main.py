@@ -23,7 +23,7 @@ from starlette.concurrency import run_in_threadpool
 from app.agents.graph import audit_graph
 from app.agents.intent import classify_intent
 from app.agents.nodes.intent_router import classify_semantic_intent
-from app.gateway.client import get_extraction_llm, use_user_api_keys
+from app.gateway.client import get_extraction_llm, sanitize_error_message, use_user_api_keys
 from app.ingestion.processor import (
     PDF_INDEX_VERSION,
     _compute_doc_id,
@@ -58,7 +58,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-MAX_FREE_LLM_TURNS = 5
+MAX_GUEST_CALLS = 3  # Strict 3-call budget (covers gap audits + Q&A) per guest unless BYOK keys are supplied
+MAX_FREE_LLM_TURNS = MAX_GUEST_CALLS
 WHOLE_DOC_PHRASES = {
     "whole book", "entire book", "complete book", "full book",
     "whole document", "entire document", "complete document",
@@ -195,7 +196,7 @@ def _redact_sensitive_text(text: str, req: ChatTurnRequest) -> str:
         normalized = (secret or "").strip()
         if normalized:
             text = text.replace(normalized, "[REDACTED]")
-    return text
+    return sanitize_error_message(text)
 
 
 def _update_session_turn_context(session_id: str, result: Dict[str, Any]) -> None:
@@ -387,13 +388,12 @@ def _active_user_reservations(user_id: str) -> int:
 def _reserve_llm_quota(user_id: str) -> str:
     with ACTIVE_JOBS_LOCK:
         used = _get_total_llm_turns(user_id)
-        if used + _active_user_reservations(user_id) >= MAX_FREE_LLM_TURNS:
+        if used + _active_user_reservations(user_id) >= MAX_GUEST_CALLS:
             raise HTTPException(
                 status_code=429,
                 detail=(
-                    f"Free guest LLM turn limit reached "
-                    f"({MAX_FREE_LLM_TURNS}/{MAX_FREE_LLM_TURNS}). "
-                    "Add a Gemini or Groq API key to continue."
+                    f"Free demo limit reached ({MAX_GUEST_CALLS}/{MAX_GUEST_CALLS} LLM calls used). "
+                    "Enter your own Gemini or Groq API key in the sidebar under Inference Engine to continue."
                 ),
             )
         reservation_id = uuid.uuid4().hex
@@ -510,6 +510,27 @@ def api_preview_pinecone_chunks(doc_id: str, limit: int = 10) -> List[Dict[str, 
         )
     chunks.sort(key=lambda c: (int(c["page_number"]), str(c["id"])))
     return chunks
+
+
+@app.post("/documents/clear-user-uploads")
+def api_clear_user_uploads(preserve_sample_prefix: str = "harness-engineering") -> Dict[str, Any]:
+    """Deletes user-uploaded documents from Pinecone & SQLite while keeping built-in demo sample books intact."""
+    from app.services.db.crud import list_documents, delete_document
+    from app.services.vector.pinecone_store import get_pinecone_index
+
+    idx = get_pinecone_index()
+    removed = 0
+    for doc in list_documents():
+        did = doc["doc_id"]
+        if preserve_sample_prefix and did.startswith(preserve_sample_prefix):
+            continue
+        try:
+            idx.delete(filter={"doc_id": {"$eq": did}})
+        except Exception:
+            pass
+        delete_document(did)
+        removed += 1
+    return {"status": "cleared", "removed_count": removed}
 
 
 @app.post("/documents/upload")
@@ -669,7 +690,8 @@ async def api_upload_document_stream(
             yield f"data: {json.dumps({'type': 'done', 'payload': payload})}\n\n"
         except Exception as exc:
             traceback.print_exc()
-            yield f"data: {json.dumps({'type': 'error', 'text': f'{type(exc).__name__}: {exc}'})}\n\n"
+            cleaned_err = sanitize_error_message(f"{type(exc).__name__}: {exc}")
+            yield f"data: {json.dumps({'type': 'error', 'text': cleaned_err})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -870,6 +892,20 @@ def api_chat_turn_stream(req: ChatTurnRequest) -> StreamingResponse:
             raise HTTPException(
                 status_code=409,
                 detail="A chat turn is already running for this session.",
+            )
+
+        used = _get_total_llm_turns(req.user_id)
+        if (
+            not _has_byok(req)
+            and _request_may_use_llm(req)
+            and used + _active_user_reservations(req.user_id) >= MAX_GUEST_CALLS
+        ):
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Free demo limit reached ({MAX_GUEST_CALLS}/{MAX_GUEST_CALLS} LLM calls used). "
+                    "Enter your own Gemini or Groq API key in the sidebar under Inference Engine to continue."
+                ),
             )
         ACTIVE_STREAM_SESSIONS.add(req.session_id)
 
@@ -1396,14 +1432,13 @@ def api_chat_turn_async(
             if (
                 not _has_byok(req)
                 and used + _active_user_reservations(req.user_id)
-                >= MAX_FREE_LLM_TURNS
+                >= MAX_GUEST_CALLS
             ):
                 raise HTTPException(
                     status_code=429,
                     detail=(
-                        f"Free guest LLM turn limit reached "
-                        f"({MAX_FREE_LLM_TURNS}/{MAX_FREE_LLM_TURNS}). "
-                        "Add a Gemini or Groq API key to continue."
+                        f"Free demo limit reached ({MAX_GUEST_CALLS}/{MAX_GUEST_CALLS} LLM calls used). "
+                        "Enter your own Gemini or Groq API key in the sidebar under Inference Engine to continue."
                     ),
                 )
 

@@ -152,43 +152,160 @@ SAMPLE_PAIRINGS = [
     },
 ]
 
-# --- Minimal Left Sidebar (Matching Reference UI) ---
+if "show_sidebar_uploader" not in st.session_state:
+    st.session_state.show_sidebar_uploader = False
+if "guest_calls_used" not in st.session_state:
+    st.session_state.guest_calls_used = 0
+
+def _reset_to_initial_landing() -> None:
+    """Restores the exact initial landing page state with zero active documents or chat history."""
+    for key in [
+        "selected_doc_id",
+        "selected_doc_name",
+        "selected_doc_pages",
+        "selected_doc_chunks",
+        "paired_sample_video",
+        "uploaded_doc_id",
+        "active_video_url",
+        "last_ingest_sec",
+        "last_audit_trace",
+        "inspected_chunks",
+    ]:
+        st.session_state[key] = None
+    st.session_state.messages = []
+    st.session_state.suggested_questions = []
+    st.session_state.awaiting_scope = False
+    st.session_state.show_sidebar_uploader = False
+
 with st.sidebar:
     st.markdown("### 📁 Document Knowledge Base")
-    if st.session_state.selected_doc_name:
-        st.success(
-            f"**{st.session_state.selected_doc_name}**\n\n"
-            f"{st.session_state.selected_doc_pages} pages · {st.session_state.selected_doc_chunks} vectors in Pinecone"
+
+    # Show active indexed document card (matching reference layout)
+    if st.session_state.selected_doc_id:
+        st.markdown("**Indexed Documents (1):**")
+        col_doc, col_del = st.columns([4.2, 1], vertical_alignment="center")
+        with col_doc:
+            short_name = st.session_state.selected_doc_name or "Active PDF"
+            if len(short_name) > 22:
+                short_name = short_name[:20] + "..."
+            st.markdown(
+                f"""
+                <div style="background:#162033;border:1px solid #283556;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#e2e8f0;">
+                    🟢 {short_name}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with col_del:
+            if st.button("🗑️", key="remove_active_doc_btn", help="Remove active document"):
+                _reset_to_initial_landing()
+                st.rerun()
+
+        st.caption(
+            f"{st.session_state.selected_doc_pages or '?'} pg · "
+            f"{st.session_state.selected_doc_chunks or '?'} chunks"
         )
-        if st.button("🔄 Switch / Upload Another PDF", use_container_width=True):
-            st.session_state.selected_doc_id = None
-            st.session_state.selected_doc_name = None
-            st.session_state.selected_doc_pages = None
-            st.session_state.selected_doc_chunks = None
-            st.session_state.paired_sample_video = None
-            st.session_state.suggested_questions = []
-            st.session_state.messages = []
-            st.session_state.awaiting_scope = False
-            st.rerun()
     else:
-        st.info("No document active yet.\n\nUpload a PDF or pick a ready sample book to start.")
+        st.info("No document active.\n\nUpload a PDF or select the sample book to begin.")
+
+    st.markdown("")
+
+    # 1. "+ Upload Another Document" button + inline sidebar uploader
+    if st.button("➕ Upload Another Document", use_container_width=True, key="sidebar_toggle_upload"):
+        st.session_state.show_sidebar_uploader = not st.session_state.show_sidebar_uploader
+
+    if st.session_state.show_sidebar_uploader:
+        sb_pdf = st.file_uploader(
+            "Choose PDF",
+            type=["pdf"],
+            label_visibility="collapsed",
+            key="sidebar_pdf_uploader",
+        )
+        if sb_pdf is not None and st.button("🚀 Ingest PDF", type="primary", use_container_width=True, key="sidebar_ingest_btn"):
+            with st.spinner(f"Indexing {sb_pdf.name} into Pinecone..."):
+                info, up_err = None, None
+                try:
+                    with requests.post(
+                        f"{API_BASE}/documents/upload/stream",
+                        files={"file": (sb_pdf.name, sb_pdf.getvalue(), "application/pdf")},
+                        data={"user_id": st.session_state.visitor_id},
+                        stream=True,
+                        timeout=300,
+                    ) as r:
+                        for line in r.iter_lines(decode_unicode=True):
+                            if not line or not line.startswith("data: "):
+                                continue
+                            evt = json.loads(line[6:])
+                            if evt.get("type") == "done":
+                                info = evt["payload"]
+                            elif evt.get("type") == "error":
+                                up_err = evt["text"]
+                except Exception as exc:
+                    up_err = str(exc)
+
+                if up_err:
+                    st.error(up_err)
+                elif info:
+                    st.session_state.selected_doc_id = info["doc_id"]
+                    st.session_state.selected_doc_name = info["filename"]
+                    st.session_state.selected_doc_pages = info.get("page_count", "?")
+                    st.session_state.selected_doc_chunks = info.get("chunk_count", "?")
+                    st.session_state.uploaded_doc_id = info["doc_id"]
+                    st.session_state.last_ingest_sec = info.get("elapsed_sec")
+                    st.session_state.suggested_questions = info.get("suggested_questions", [])
+                    st.session_state.show_sidebar_uploader = False
+                    st.session_state.messages = [
+                        {
+                            "role": "assistant",
+                            "content": (
+                                f"✅ **`{info['filename']}`** is indexed into Pinecone ({info.get('page_count', '?')} pages, "
+                                f"{info.get('chunk_count', '?')} vectors).\n\n"
+                                "- 🎥 Paste a **YouTube lecture URL** below to audit missed topics\n"
+                                "- 📄 Ask any question about this PDF or about this project"
+                            ),
+                        }
+                    ]
+                    st.rerun()
+
+    # 2. "🗑️ Clear All Knowledge" — resets UI cleanly back to initial first-load screen
+    if st.button("🗑️ Clear All Knowledge", use_container_width=True, key="sidebar_clear_all_btn"):
+        try:
+            requests.post(f"{API_BASE}/documents/clear-user-uploads", timeout=6)
+            d_res = requests.get(f"{API_BASE}/documents", timeout=5)
+            if d_res.ok:
+                st.session_state.cached_docs = d_res.json()
+        except Exception:
+            pass
+        _reset_to_initial_landing()
+        st.rerun()
 
     st.divider()
 
+    # 3. Inspect Chunks (Under the Hood)
     with st.expander("🔍 Inspect Chunks (Under the Hood)", expanded=False):
         active_id = st.session_state.get("selected_doc_id")
         if active_id and st.button("Load First 10 Pinecone Chunks", use_container_width=True):
             c_res = requests.get(f"{API_BASE}/documents/{active_id}/chunks", params={"limit": 10}, timeout=8)
             st.session_state["inspected_chunks"] = c_res.json() if c_res.ok else []
         for ch in st.session_state.get("inspected_chunks", []):
-            st.caption(f"`Page {ch.get('page_number', '?')}` · `{ch.get('id', '')}` · **{ch.get('chars', len(ch.get('text', '')))} chars**")
+            st.caption(f"`Page {ch['page_number']}` · `{ch['id']}` · **{ch['chars']} chars**")
             with st.container(border=True):
-                st.markdown(ch.get("text", "")[:450])
+                st.markdown(ch["text"][:450])
 
-    with st.expander("⚙️ Inference Engine & BYOK", expanded=False):
+    # 4. Secure Inference Engine & 3-Call Free Quota
+    with st.expander("⚙️ Inference Engine & Quota", expanded=False):
+        has_byok = bool(st.session_state.get("byok_gemini_key") or st.session_state.get("byok_groq_key"))
+        if has_byok:
+            st.success("🔓 **BYOK Mode Active** — Unlimited turns using your session key.")
+        else:
+            used = min(3, st.session_state.guest_calls_used)
+            st.info(
+                f"🔒 **Managed Server Keys Active** (Keys stored securely on backend)\n\n"
+                f"**Free Trial Quota:** `{used} / 3` LLM calls used (includes Gap Audits & Q&A)."
+            )
         st.caption("Primary: **Gemini 2.5 Flash** · Fast Q&A & Failover: **Groq Live**")
-        st.text_input("Your Gemini API Key (Optional)", type="password", key="byok_gemini_key")
-        st.text_input("Your Groq API Key (Optional)", type="password", key="byok_groq_key")
+        st.text_input("Optional Gemini API Key (BYOK)", type="password", key="byok_gemini_key", placeholder="AIza...")
+        st.text_input("Optional Groq API Key (BYOK)", type="password", key="byok_groq_key", placeholder="gsk_...")
 
 # --- Hero Header Banner (Always Visible at Top) ---
 st.markdown(
@@ -489,6 +606,9 @@ if active_prompt:
                 run_status.update(label=f"Failed ({elapsed}s)", state="error")
                 st.error(err_msg)
             elif final_payload:
+                has_byok = bool(st.session_state.get("byok_gemini_key") or st.session_state.get("byok_groq_key"))
+                if not has_byok:
+                    st.session_state.guest_calls_used += 1
                 run_status.update(label=f"Completed in {elapsed}s", state="complete", expanded=False)
                 trace_data = final_payload.get("trace") or {}
                 st.session_state.last_audit_trace = {

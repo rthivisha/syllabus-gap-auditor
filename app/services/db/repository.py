@@ -97,6 +97,16 @@ def get_document(doc_id: str) -> Optional[Dict[str, Any]]:
         }
 
 
+def delete_document(doc_id: str) -> bool:
+    with get_db_session() as db:
+        r = db.get(DocumentRecord, doc_id)
+        if r:
+            db.delete(r)
+            db.commit()
+            return True
+        return False
+
+
 # --- Audit Runs & Immutable Logs ---
 def log_audit_event(
     action: str,
