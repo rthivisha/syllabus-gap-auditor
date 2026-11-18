@@ -59,6 +59,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 MAX_FREE_LLM_TURNS = 5
+WHOLE_DOC_PHRASES = {
+    "whole book", "entire book", "complete book", "full book",
+    "whole document", "entire document", "complete document",
+    "whole pdf", "entire pdf", "complete pdf", "full pdf",
+    "all", "everything", "all chapters",
+}
 ACTIVE_JOBS: Dict[str, str] = {}
 ACTIVE_JOB_IDS: Dict[str, str] = {}
 ACTIVE_JOB_RESULTS: Dict[str, Dict[str, Any]] = {}

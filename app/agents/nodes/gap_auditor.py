@@ -1,7 +1,4 @@
-import json
 import time
-from contextvars import copy_context
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -12,13 +9,14 @@ from app.gateway.client import get_structured_auditor_llm
 from app.services.job_tracker import set_job_stage
 
 
-def _chunk_list(
-    items: List[Dict[str, Any]], batch_size: int = 3
-) -> List[List[Dict[str, Any]]]:
-    return [
-        items[index : index + batch_size]
-        for index in range(0, len(items), batch_size)
-    ]
+def _format_video_window_str(val: Any) -> str:
+    if isinstance(val, dict):
+        ts = val.get("timestamp", "")
+        txt = val.get("combined_text") or val.get("text") or ""
+        return f"[{ts}] {txt}"[:140] if (ts or txt) else "None"
+    if isinstance(val, str) and val:
+        return val[:140]
+    return "None"
 
 
 def _format_missed_topics(
@@ -56,32 +54,45 @@ def _format_missed_topics(
     return formatted
 
 
-def _audit_single_batch(
-    batch_idx: int,
-    evidence_batch: List[Dict[str, Any]],
-    video_digest: str,
-    state: AuditGraphState,
-) -> WorkerDraftOutput:
-    books_payload = json.dumps(
-        [
-            {
-                "section_title": candidate.get("section_title", ""),
-                "page_number": candidate.get("page_number", 1),
-                "chunk_id": candidate.get("chunk_id", ""),
-                "best_video_similarity": candidate.get("best_video_similarity") or candidate.get("bi_encoder_score", 0.0),
-                "closest_timestamp": candidate.get("closest_timestamp") or (candidate.get("closest_video_window") or {}).get("timestamp", ""),
-                "closest_video_text": candidate.get("closest_video_text") or (candidate.get("closest_video_window") or {}).get("combined_text", "") or (candidate.get("closest_video_window") or {}).get("text", ""),
-                "book_parent_text": (candidate.get("parent_text") or candidate.get("text") or "")[:1400],
-            }
-            for candidate in evidence_batch
-        ],
-        indent=2,
+def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
+    """
+    Step 4.1 Worker Node (Single Compact Pass):
+      - Compares top 6 lowest-similarity textbook sections against closest video matches in 1 call.
+      - ~1,400 tokens total (instead of 10,000+ across multi-batches) for ~2.5-3.5s runtime.
+    """
+    t0 = time.perf_counter()
+    step_timings = dict(state.get("step_timings") or {})
+    session_id = state.get("session_id", "")
+    candidates = state.get("candidate_gaps", [])[:6]
+
+    if not candidates:
+        step_timings["gap_auditor_sec"] = round(time.perf_counter() - t0, 2)
+        return {
+            "draft_missed_topics": [],
+            "drafted_gaps": [],
+            "missed_topics": [],
+            "draft_covered_topics": [],
+            "attempt": state.get("attempt", 0),
+            "step_timings": step_timings,
+        }
+
+    set_job_stage(
+        session_id,
+        f"3/4 Auditing {len(candidates)} candidate sections in a single fast pass...",
     )
+
+    compact_sections = "\n".join(
+        f"- [Chunk: {c.get('chunk_id', '')} | Page {c.get('page_number', 1)} | {c.get('section_title', '')} | "
+        f"Closest Video Match: {_format_video_window_str(c.get('closest_video_window') or c.get('closest_video_text') or c.get('closest_timestamp'))}]: "
+        f"{str(c.get('text') or c.get('parent_text') or '')[:350]}"
+        for c in candidates
+    )
+
     llm = get_structured_auditor_llm(WorkerDraftOutput)
     system_prompt = (
         f"{load_agents_contract()}\n\n"
-        "You are the Syllabus Gap Worker Node. Compare these reference book chunks "
-        "against the timestamped video transcript and slide OCR windows.\n"
+        "You are the Syllabus Gap Worker Node. Compare each reference book section "
+        "directly against its closest video match window.\n"
         "Classify each important concept as missed or covered; do not emit unrelated topics.\n"
         "For every missed or covered topic, cite the exact section_title, page_number, and "
         "chunk_id supplied; provide an evidence_quote of at most 20 words copied "
@@ -95,87 +106,34 @@ def _audit_single_batch(
     user_prompt = (
         f"Document: {state.get('doc_name')} | Scope: {state.get('target_scope')}\n"
         f"Video Title: {state.get('video_title')}\n\n"
-        f"=== VIDEO WINDOWS ===\n{video_digest}\n\n"
-        f"=== CANDIDATE BOOK SECTIONS (BATCH {batch_idx + 1}) ===\n"
-        f"{books_payload}"
+        f"=== CANDIDATE BOOK SECTIONS & CLOSEST VIDEO MATCHES ===\n"
+        f"{compact_sections}"
     )
-    return llm.invoke(
+
+    draft_result: WorkerDraftOutput = llm.invoke(
         [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ]
     )
 
-
-def gap_auditor_worker_node(state: AuditGraphState) -> Dict[str, Any]:
-    """
-    Step 4.1 Worker Node:
-      - Loads invariant `agents.md` contract (does NOT load `skills.md` yet).
-      - Diffs candidate book parent chunks against the video's 25s speech + Slide OCR windows.
-      - Drafts concise, self-verifying missed and covered topic records.
-    """
-    t0 = time.perf_counter()
-    step_timings = dict(state.get("step_timings") or {})
-    session_id = state.get("session_id", "")
-    candidates = state.get("candidate_gaps", [])[:6]
-    batches = _chunk_list(candidates, batch_size=3)
-    set_job_stage(
-        session_id,
-        f"3/4 Auditing {len(candidates)} candidate sections across "
-        f"{len(batches)} batches...",
-    )
-    if not candidates:
-        step_timings["gap_auditor_sec"] = round(time.perf_counter() - t0, 2)
-        return {
-            "draft_missed_topics": [],
-            "drafted_gaps": [],
-            "missed_topics": [],
-            "draft_covered_topics": [],
-            "attempt": state.get("attempt", 0),
-            "step_timings": step_timings,
-        }
-
-    video_digest = "\n".join(
-        f"[{w['timestamp']}] {w['combined_text'][:320]}"
-        for w in state.get("video_windows", [])[:40]
-    )
-    results: Dict[int, WorkerDraftOutput] = {}
-    with ThreadPoolExecutor(max_workers=min(3, len(batches)) if batches else 1) as executor:
-        futures = {
-            executor.submit(
-                copy_context().run,
-                _audit_single_batch,
-                batch_idx,
-                batch,
-                video_digest,
-                state,
-            ): batch_idx
-            for batch_idx, batch in enumerate(batches)
-        }
-        for completed, future in enumerate(as_completed(futures), start=1):
-            batch_idx = futures[future]
-            results[batch_idx] = future.result()
-            set_job_stage(
-                session_id,
-                f"3/4 Auditing candidate sections... "
-                f"{completed}/{len(batches)} batches complete.",
-            )
-
     missed_topics = []
     covered_topics = []
     seen_missed_topics = set()
     seen_covered_topics = set()
-    for batch_idx in sorted(results):
-        for item in results[batch_idx].missed_topics:
-            topic_key = item.topic_title.strip().casefold()
-            if topic_key not in seen_missed_topics:
-                seen_missed_topics.add(topic_key)
-                missed_topics.append(item.model_dump())
-        for item in results[batch_idx].covered_topics:
-            topic_key = item.topic_title.strip().casefold()
-            if topic_key not in seen_covered_topics:
-                seen_covered_topics.add(topic_key)
-                covered_topics.append(item.model_dump())
+
+    for item in (getattr(draft_result, "missed_topics", None) or []):
+        topic_key = item.topic_title.strip().casefold()
+        if topic_key not in seen_missed_topics:
+            seen_missed_topics.add(topic_key)
+            missed_topics.append(item.model_dump() if hasattr(item, "model_dump") else dict(item))
+
+    for item in (getattr(draft_result, "covered_topics", None) or []):
+        topic_key = item.topic_title.strip().casefold()
+        if topic_key not in seen_covered_topics:
+            seen_covered_topics.add(topic_key)
+            covered_topics.append(item.model_dump() if hasattr(item, "model_dump") else dict(item))
+
     covered_topics = [
         item
         for item in covered_topics

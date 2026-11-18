@@ -1,4 +1,5 @@
 import json
+import urllib.request
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Dict, Generator, List, Optional
@@ -61,6 +62,43 @@ def _cf_groq_base_url() -> Optional[str]:
     return None
 
 
+_RESOLVED_GROQ_MODEL: Optional[str] = None
+
+
+def _resolve_live_groq_model(api_key: str, preferred: str) -> str:
+    """Verifies preferred Groq model against Groq's live /models list once and caches it."""
+    global _RESOLVED_GROQ_MODEL
+    if _RESOLVED_GROQ_MODEL:
+        return _RESOLVED_GROQ_MODEL
+    candidates = [
+        preferred,
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "qwen/qwen3-32b",
+    ]
+    try:
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/models",
+            headers={"Authorization": f"Bearer {api_key}", "User-Agent": "syllabus-gap-audit/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            live_ids = {m["id"] for m in data.get("data", []) if "whisper" not in m["id"]}
+            for c in candidates:
+                if c in live_ids:
+                    _RESOLVED_GROQ_MODEL = c
+                    print(f"[Groq Model Verified] Using active Groq model: {_RESOLVED_GROQ_MODEL}")
+                    return _RESOLVED_GROQ_MODEL
+            if live_ids:
+                _RESOLVED_GROQ_MODEL = sorted(live_ids)[0]
+                return _RESOLVED_GROQ_MODEL
+    except Exception:
+        pass
+    _RESOLVED_GROQ_MODEL = preferred
+    return _RESOLVED_GROQ_MODEL
+
+
 def _build_groq_fallback(
     temperature: float = 0.1,
     model: Optional[str] = None,
@@ -72,8 +110,9 @@ def _build_groq_fallback(
     if not api_key:
         print("[WARN] GROQ_API_KEY is missing in .env — Groq fallback disabled!")
         return None
+    live_model = _resolve_live_groq_model(api_key, model or settings.FALLBACK_MODEL)
     kwargs: Dict[str, Any] = {
-        "model": model or settings.FALLBACK_MODEL,
+        "model": live_model,
         "api_key": api_key,
         "temperature": temperature,
         "max_retries": 0 if model else 2,

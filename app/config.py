@@ -45,9 +45,9 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
 
     # Model Routing
-    FAST_MODEL: str = "llama-3.3-70b-versatile"  # Groq: scope routing & fast checks
-    AUDITOR_MODEL: str = "gemini-3.8-flash"  # Gemini: Worker, Evaluator & Repair
-    FALLBACK_MODEL: str = "llama-3.3-70b-versatile"
+    FAST_MODEL: str = "openai/gpt-oss-20b"
+    AUDITOR_MODEL: str = "gemini-2.5-flash"
+    FALLBACK_MODEL: str = "openai/gpt-oss-120b"
     GROQ_WHISPER_MODEL: str = (
         "whisper-large-v3-turbo"  # Groq: 216x real-time English ASR
     )
