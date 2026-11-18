@@ -6,6 +6,8 @@ import uuid
 import requests
 import streamlit as st
 
+from ui.components.architecture_board import render_system_architecture_board
+
 API_BASE = "http://127.0.0.1:8000"
 
 st.set_page_config(
@@ -554,6 +556,13 @@ with tab_audit:
                         st.session_state.queued_pill_prompt = q_text
                         st.rerun()
 
+    render_system_architecture_board(
+        doc_name=st.session_state.get("selected_doc_name"),
+        page_count=st.session_state.get("selected_doc_pages"),
+        vector_count=st.session_state.get("selected_doc_chunks"),
+        last_trace=st.session_state.get("last_audit_trace"),
+    )
+
     st.subheader("Step 2: Chat & Audit Stream")
     if not st.session_state.messages:
         st.info(
@@ -827,6 +836,7 @@ if active_prompt and (quota["remaining"] > 0 or has_byok):
                             assistant_message[key] = response_data[key]
                     st.session_state.messages.append(assistant_message)
                     if assistant_message.get("trace"):
+                        st.session_state["last_audit_trace"] = assistant_message["trace"]
                         _render_audit_trace(assistant_message["trace"])
                     st.markdown(reply)
                     _render_verified_sources(
