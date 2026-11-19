@@ -5,7 +5,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from app.services.db.database import Base
 
-JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
+# Use cross-database JSON type (JSONB on Postgres, JSON on SQLite)
+JsonType = JSON().with_variant(JSONB(), "postgresql")
+JSON_TYPE = JsonType
 
 
 def _utcnow() -> datetime:
@@ -33,7 +35,7 @@ class DocumentRecord(Base):
         JSON_TYPE, default=list
     )  # Extracted TOC / section titles + page spans
     suggested_questions_json: Mapped[list] = mapped_column(
-        JSON_TYPE, default=list, server_default="[]"
+        JsonType, default=list, server_default=text("'[]'")
     )
     status: Mapped[str] = mapped_column(String(32), default="ready")
     uploaded_by: Mapped[str] = mapped_column(String(100), default="default_user")

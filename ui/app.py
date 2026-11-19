@@ -14,6 +14,19 @@ import requests
 import streamlit as st
 import uvicorn
 import importlib
+
+# 1. Inject all Streamlit Cloud secrets into os.environ BEFORE FastAPI/settings loads
+try:
+    for k, v in st.secrets.items():
+        if isinstance(v, (str, int, float, bool)):
+            os.environ[str(k)] = str(v)
+        elif isinstance(v, dict):
+            for sub_k, sub_v in v.items():
+                if isinstance(sub_v, (str, int, float, bool)):
+                    os.environ[str(sub_k)] = str(sub_v)
+except Exception:
+    pass
+
 from ui.components import architecture_board
 importlib.reload(architecture_board)
 from ui.components.architecture_board import render_live_ingestion_board
@@ -625,16 +638,26 @@ if active_prompt:
             }
             try:
                 with requests.post(f"{API_BASE}/chat/turn/stream", json=payload, stream=True, timeout=120) as r:
-                    for raw_line in r.iter_lines(decode_unicode=True):
-                        if not raw_line or not raw_line.startswith("data: "):
-                            continue
-                        evt = json.loads(raw_line[6:])
-                        if evt.get("type") == "stage":
-                            run_status.update(label=evt["text"], state="running")
-                        elif evt.get("type") == "done":
-                            final_payload = evt["payload"]
-                        elif evt.get("type") == "error":
-                            err_msg = evt["text"]
+                    if r.status_code != 200:
+                        try:
+                            err_data = r.json()
+                            err_msg = err_data.get("detail") or err_data.get("message") or f"HTTP {r.status_code}: {r.text}"
+                        except Exception:
+                            err_msg = f"HTTP {r.status_code}: {r.text}"
+                    else:
+                        for raw_line in r.iter_lines(decode_unicode=True):
+                            if not raw_line or not raw_line.startswith("data: "):
+                                continue
+                            try:
+                                evt = json.loads(raw_line[6:])
+                            except Exception:
+                                continue
+                            if evt.get("type") == "stage":
+                                run_status.update(label=evt.get("text", "Processing..."), state="running")
+                            elif evt.get("type") == "done":
+                                final_payload = evt.get("payload") or {}
+                            elif evt.get("type") == "error":
+                                err_msg = evt.get("text") or evt.get("detail") or evt.get("message") or "An error occurred during processing."
             except Exception as exc:
                 err_msg = str(exc)
 
@@ -642,31 +665,53 @@ if active_prompt:
             if err_msg:
                 run_status.update(label=f"Failed ({elapsed}s)", state="error")
                 st.error(err_msg)
-            elif final_payload:
+            elif final_payload is not None:
                 has_byok = bool(st.session_state.get("byok_gemini_key") or st.session_state.get("byok_groq_key"))
                 if not has_byok:
                     st.session_state.guest_calls_used += 1
-                run_status.update(label=f"Completed in {elapsed}s", state="complete", expanded=False)
-                trace_data = final_payload.get("trace") or {}
-                st.session_state.last_audit_trace = {
-                    "elapsed_sec": elapsed,
-                    "latency_ms": trace_data.get("latency_ms", elapsed * 1000),
-                    "windows_count": trace_data.get("windows_count", 0),
-                    "sections_checked": trace_data.get("sections_checked", 0),
-                    "evaluator_status": trace_data.get("evaluator_status", "passed"),
-                    "retry_count": trace_data.get("retry_count", 0),
-                }
-                reply = final_payload.get("reply") or final_payload.get("chat_response") or ""
-                sources = (
-                    final_payload.get("citations")
-                    or final_payload.get("retrieved_evidence")
-                    or final_payload.get("cited_chunks")
-                    or []
-                )
-                st.markdown(reply)
-                st.session_state.messages.append({"role": "assistant", "content": reply, "sources": sources})
-                st.session_state.awaiting_scope = (
-                    "would you like to analyze this video" in reply.lower()
-                    or bool(final_payload.get("awaiting_scope"))
-                )
-                st.rerun()
+
+                reply = (
+                    final_payload.get("reply")
+                    or final_payload.get("chat_response")
+                    or final_payload.get("answer")
+                    or final_payload.get("final_answer")
+                    or final_payload.get("response")
+                    or final_payload.get("message")
+                    or ""
+                ).strip()
+
+                if not reply:
+                    error_detail = (
+                        final_payload.get("error")
+                        or final_payload.get("detail")
+                        or "Audit pipeline returned an empty response."
+                    )
+                    run_status.update(label=f"Failed ({elapsed}s)", state="error")
+                    st.error(f"⚠️ {error_detail}")
+                else:
+                    run_status.update(label=f"Completed in {elapsed}s", state="complete", expanded=False)
+                    trace_data = final_payload.get("trace") or {}
+                    st.session_state.last_audit_trace = {
+                        "elapsed_sec": elapsed,
+                        "latency_ms": trace_data.get("latency_ms", elapsed * 1000),
+                        "windows_count": trace_data.get("windows_count", 0),
+                        "sections_checked": trace_data.get("sections_checked", 0),
+                        "evaluator_status": trace_data.get("evaluator_status", "passed"),
+                        "retry_count": trace_data.get("retry_count", 0),
+                    }
+                    sources = (
+                        final_payload.get("citations")
+                        or final_payload.get("retrieved_evidence")
+                        or final_payload.get("cited_chunks")
+                        or []
+                    )
+                    st.markdown(reply)
+                    st.session_state.messages.append({"role": "assistant", "content": reply, "sources": sources})
+                    st.session_state.awaiting_scope = (
+                        "would you like to analyze this video" in reply.lower()
+                        or bool(final_payload.get("awaiting_scope"))
+                    )
+                    st.rerun()
+            else:
+                run_status.update(label=f"Failed ({elapsed}s)", state="error")
+                st.error("⚠️ Connection closed without returning a response.")
