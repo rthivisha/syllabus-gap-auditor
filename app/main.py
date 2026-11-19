@@ -7,6 +7,7 @@ import time
 import threading
 import traceback
 import uuid
+from contextlib import asynccontextmanager
 from queue import Empty, Queue
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple
@@ -50,7 +51,28 @@ from app.services.db.repository import (
 )
 from app.services.job_tracker import get_job_state, set_job_stage
 
-app = FastAPI(title="Syllabus & Book Gap Finder API", version="1.0.0")
+def _background_warmup() -> None:
+    try:
+        get_embedder()
+        get_flashranker()
+        from app.agents.nodes.intent_router import _get_anchor_vectors
+        _get_anchor_vectors()
+        print("[Warmup] BGE-base & FlashRank models preloaded in background.")
+    except Exception as exc:
+        print(f"[Warmup] Skipped/failed: {exc}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        init_db()
+    except Exception as exc:
+        logger.warning("DB init error: %s", exc)
+    threading.Thread(target=_background_warmup, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Syllabus & Book Gap Finder API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -75,25 +97,6 @@ ACTIVE_SYNC_RESERVATIONS: Dict[str, str] = {}
 ACTIVE_STREAM_SESSIONS: set[str] = set()
 ACTIVE_JOBS_LOCK = threading.Lock()
 logger = logging.getLogger(__name__)
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    init_db()
-    get_embedder()
-    get_flashranker()
-
-
-@app.on_event("startup")
-def _preload_local_models() -> None:
-    try:
-        from app.agents.nodes.intent_router import _get_anchor_vectors
-        from app.services.vector.reranker import get_flashrank_ranker
-        _get_anchor_vectors()
-        get_flashrank_ranker()
-        print("[Startup] Preloaded BGE embedding anchors & FlashRank ranker.")
-    except Exception as exc:
-        print(f"[Startup Warn] Model preload skipped: {exc}")
 
 
 # --- Request Schemas ---
