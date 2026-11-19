@@ -74,10 +74,7 @@ class _PineconeRemoteEmbedder:
 @lru_cache(maxsize=1)
 def get_embedder():
     settings = get_settings()
-    pc_key = (
-        os.getenv("PINECONE_API_KEY")
-        or getattr(settings, "PINECONE_API_KEY", "")
-    )
+    pc_key = os.getenv("PINECONE_API_KEY") or getattr(settings, "PINECONE_API_KEY", "")
     if not pc_key:
         try:
             import streamlit as st
@@ -85,7 +82,7 @@ def get_embedder():
         except Exception:
             pass
     if not pc_key:
-        raise ValueError("PINECONE_API_KEY is missing in environment/secrets.")
+        raise ValueError("PINECONE_API_KEY is missing in environment or Streamlit Secrets.")
     return _PineconeRemoteEmbedder(api_key=pc_key, model_name=settings.EMBEDDING_MODEL)
 
 
@@ -95,25 +92,11 @@ def embed_texts(
     if not texts:
         return []
     embedder = get_embedder()
-    if isinstance(embedder, _PineconeRemoteEmbedder):
-        vectors = embedder.encode(
-            texts,
-            batch_size=batch_size,
-            normalize_embeddings=True,
-            input_type="query" if is_query else "passage",
-        )
-        return vectors.tolist()
-
-    formatted = (
-        [f"Represent this sentence for searching relevant passages: {t}" for t in texts]
-        if is_query
-        else texts
-    )
     vectors = embedder.encode(
-        formatted,
+        texts,
         batch_size=batch_size,
         normalize_embeddings=True,
-        show_progress_bar=False,
+        input_type="query" if is_query else "passage",
     )
     return vectors.tolist()
 
