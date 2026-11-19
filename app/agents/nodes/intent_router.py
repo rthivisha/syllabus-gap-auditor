@@ -45,19 +45,27 @@ def classify_semantic_intent(
         return "audit"
 
     # 2. Fast Semantic Similarity against Project vs. PDF anchors (~1ms)
-    from app.services.vector.embeddings import batch_encode_texts
-    q_vec = batch_encode_texts([q])[0]
-    q_vec = q_vec / (np.linalg.norm(q_vec) + 1e-12)
+    try:
+        from app.services.vector.embeddings import batch_encode_texts
+        q_vec = batch_encode_texts([q])[0]
+        q_vec = q_vec / (np.linalg.norm(q_vec) + 1e-12)
 
-    anchors = _get_anchor_vectors()
-    proj_score = float(np.max(anchors["project_guide"] @ q_vec))
-    pdf_score = float(np.max(anchors["pdf_qa"] @ q_vec)) if has_active_doc else 0.0
+        anchors = _get_anchor_vectors()
+        proj_score = float(np.max(anchors["project_guide"] @ q_vec))
+        pdf_score = float(np.max(anchors["pdf_qa"] @ q_vec)) if has_active_doc else 0.0
 
-    # Clear semantic winner (margin >= 0.06)
-    if proj_score >= pdf_score + 0.06:
-        return "project_guide"
-    if has_active_doc and pdf_score >= proj_score + 0.06:
-        return "pdf_qa"
+        # Clear semantic winner (margin >= 0.06)
+        if proj_score >= pdf_score + 0.06:
+            return "project_guide"
+        if has_active_doc and pdf_score >= proj_score + 0.06:
+            return "pdf_qa"
+    except Exception:
+        ql = q.lower()
+        if "youtube.com/" in ql or "youtu.be/" in ql or "audit" in ql:
+            return "audit"
+        if any(w in ql for w in ("project", "architecture", "how does this work", "hi", "hello", "hey", "help")):
+            return "project_guide"
+        return "pdf_qa" if has_active_doc else "project_guide"
 
     # 3. Borderline semantic tie -> 0.25s Groq classification
     if not has_active_doc:

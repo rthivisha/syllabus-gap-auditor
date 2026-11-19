@@ -216,7 +216,9 @@ def build_audit_graph():
         {
             "project_guide": "project_guide",
             "pdf_qa": "pdf_qa",
+            "rag_qa": "pdf_qa",
             "audit": "media_ingestion",
+            "gap_audit": "media_ingestion",
             "media_ingestion": "media_ingestion",
         },
     )
@@ -228,7 +230,9 @@ def build_audit_graph():
         {
             "project_guide": "project_guide",
             "pdf_qa": "pdf_qa",
+            "rag_qa": "pdf_qa",
             "audit": "media_ingestion",
+            "gap_audit": "media_ingestion",
             "media_ingestion": "media_ingestion",
         },
     )
