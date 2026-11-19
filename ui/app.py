@@ -32,7 +32,7 @@ importlib.reload(architecture_board)
 from ui.components.architecture_board import render_live_ingestion_board
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def start_embedded_backend():
     try:
         if requests.get("http://127.0.0.1:8000/docs", timeout=1).status_code == 200:

@@ -1,3 +1,5 @@
+import logging
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from sqlalchemy import desc, func, select
@@ -10,6 +12,8 @@ from app.services.db.models import (
     DocumentRecord,
     FeedbackRecord,
 )
+
+logger = logging.getLogger(__name__)
 
 
 # --- Documents ---
@@ -58,52 +62,64 @@ def save_document_record(
 
 
 def list_documents() -> List[Dict[str, Any]]:
-    with get_db_session() as db:
-        rows = db.scalars(
-            select(DocumentRecord).order_by(desc(DocumentRecord.created_at))
-        ).all()
-        return [
-            {
+    try:
+        with get_db_session() as db:
+            rows = db.scalars(
+                select(DocumentRecord).order_by(desc(DocumentRecord.created_at))
+            ).all()
+            return [
+                {
+                    "doc_id": r.doc_id,
+                    "doc_name": r.doc_name,
+                    "page_count": r.page_count,
+                    "chunk_count": r.chunk_count,
+                    "index_version": r.index_version,
+                    "sections": r.sections_json or [],
+                    "suggested_questions": r.suggested_questions_json or [],
+                    "status": r.status,
+                    "uploaded_by": r.uploaded_by,
+                    "created_at": r.created_at.isoformat() if r.created_at else "",
+                }
+                for r in rows
+            ]
+    except Exception as exc:
+        logger.warning("Could not list documents (%s)", exc)
+        return []
+
+
+def get_document(doc_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        with get_db_session() as db:
+            r = db.get(DocumentRecord, doc_id)
+            if not r:
+                return None
+            return {
                 "doc_id": r.doc_id,
                 "doc_name": r.doc_name,
+                "file_path": r.file_path,
                 "page_count": r.page_count,
                 "chunk_count": r.chunk_count,
                 "index_version": r.index_version,
                 "sections": r.sections_json or [],
                 "suggested_questions": r.suggested_questions_json or [],
                 "status": r.status,
-                "uploaded_by": r.uploaded_by,
-                "created_at": r.created_at.isoformat() if r.created_at else "",
             }
-            for r in rows
-        ]
-
-
-def get_document(doc_id: str) -> Optional[Dict[str, Any]]:
-    with get_db_session() as db:
-        r = db.get(DocumentRecord, doc_id)
-        if not r:
-            return None
-        return {
-            "doc_id": r.doc_id,
-            "doc_name": r.doc_name,
-            "file_path": r.file_path,
-            "page_count": r.page_count,
-            "chunk_count": r.chunk_count,
-            "index_version": r.index_version,
-            "sections": r.sections_json or [],
-            "suggested_questions": r.suggested_questions_json or [],
-            "status": r.status,
-        }
+    except Exception as exc:
+        logger.warning("Could not get document %s (%s)", doc_id, exc)
+        return None
 
 
 def delete_document(doc_id: str) -> bool:
-    with get_db_session() as db:
-        r = db.get(DocumentRecord, doc_id)
-        if r:
-            db.delete(r)
-            db.commit()
-            return True
+    try:
+        with get_db_session() as db:
+            r = db.get(DocumentRecord, doc_id)
+            if r:
+                db.delete(r)
+                db.commit()
+                return True
+            return False
+    except Exception as exc:
+        logger.warning("Could not delete document %s (%s)", doc_id, exc)
         return False
 
 
@@ -114,16 +130,23 @@ def log_audit_event(
     run_id: Optional[str] = None,
     user_id: str = "default_user",
 ) -> None:
-    with get_db_session() as db:
-        db.add(AuditLog(run_id=run_id, user_id=user_id, action=action, detail=detail))
+    try:
+        with get_db_session() as db:
+            db.add(AuditLog(run_id=run_id, user_id=user_id, action=action, detail=detail))
+    except Exception as exc:
+        logger.warning("Failed to log audit event %s (%s)", action, exc)
 
 
 def save_audit_run(payload: Dict[str, Any]) -> str:
-    with get_db_session() as db:
-        run = AuditRun(**payload)
-        db.add(run)
-        db.flush()
-        return run.run_id
+    try:
+        with get_db_session() as db:
+            run = AuditRun(**payload)
+            db.add(run)
+            db.flush()
+            return run.run_id
+    except Exception as exc:
+        logger.warning("Failed to save audit run (%s)", exc)
+        return payload.get("run_id") or uuid.uuid4().hex
 
 
 # --- Chat Messages & Session History ---
@@ -136,91 +159,111 @@ def save_chat_message(
     citations: Optional[List[Dict[str, Any]]] = None,
     run_id: Optional[str] = None,
 ) -> str:
-    with get_db_session() as db:
-        msg = ChatMessage(
-            session_id=session_id,
-            user_id=user_id,
-            role=role,
-            content=content,
-            video_url=video_url,
-            citations_json=citations or [],
-            run_id=run_id,
-        )
-        db.add(msg)
-        db.flush()
-        return msg.id
+    try:
+        with get_db_session() as db:
+            msg = ChatMessage(
+                session_id=session_id,
+                user_id=user_id,
+                role=role,
+                content=content,
+                video_url=video_url,
+                citations_json=citations or [],
+                run_id=run_id,
+            )
+            db.add(msg)
+            db.flush()
+            return msg.id
+    except Exception as exc:
+        logger.warning("Failed to save chat message (%s)", exc)
+        return uuid.uuid4().hex
 
 
 def get_session_messages(session_id: str) -> List[Dict[str, Any]]:
-    with get_db_session() as db:
-        rows = db.scalars(
-            select(ChatMessage)
-            .where(ChatMessage.session_id == session_id)
-            .order_by(ChatMessage.created_at)
-        ).all()
-        return [
-            {
-                "id": r.id,
-                "role": r.role,
-                "content": r.content,
-                "video_url": r.video_url,
-                "citations": r.citations_json or [],
-                "run_id": r.run_id,
-                "created_at": r.created_at.isoformat() if r.created_at else "",
-            }
-            for r in rows
-        ]
+    try:
+        with get_db_session() as db:
+            rows = db.scalars(
+                select(ChatMessage)
+                .where(ChatMessage.session_id == session_id)
+                .order_by(ChatMessage.created_at)
+            ).all()
+            return [
+                {
+                    "id": r.id,
+                    "role": r.role,
+                    "content": r.content,
+                    "video_url": r.video_url,
+                    "citations": r.citations_json or [],
+                    "run_id": r.run_id,
+                    "created_at": r.created_at.isoformat() if r.created_at else "",
+                }
+                for r in rows
+            ]
+    except Exception as exc:
+        logger.warning("Could not get session messages for %s (%s)", session_id, exc)
+        return []
 
 
 def count_completed_audits(user_id: str) -> int:
-    with get_db_session() as db:
-        count = db.scalar(
-            select(func.count(AuditLog.id)).where(
-                AuditLog.user_id == user_id,
-                AuditLog.action == "audit_completed",
+    try:
+        with get_db_session() as db:
+            count = db.scalar(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.user_id == user_id,
+                    AuditLog.action == "audit_completed",
+                )
             )
-        )
-        return int(count or 0)
+            return int(count or 0)
+    except Exception as exc:
+        logger.warning("Could not count completed audits (%s)", exc)
+        return 0
 
 
 def count_completed_llm_turns(user_id: str) -> int:
     """Count completed LLM turns, including audits completed before unified quota logging."""
-    with get_db_session() as db:
-        audit_count = db.scalar(
-            select(func.count(AuditLog.id)).where(
-                AuditLog.user_id == user_id,
-                AuditLog.action == "audit_completed",
+    try:
+        with get_db_session() as db:
+            audit_count = db.scalar(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.user_id == user_id,
+                    AuditLog.action == "audit_completed",
+                )
             )
-        )
-        non_audit_llm_count = db.scalar(
-            select(func.count(AuditLog.id)).where(
-                AuditLog.user_id == user_id,
-                AuditLog.action == "llm_turn_completed",
-                AuditLog.run_id.is_(None),
+            non_audit_llm_count = db.scalar(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.user_id == user_id,
+                    AuditLog.action == "llm_turn_completed",
+                    AuditLog.run_id.is_(None),
+                )
             )
-        )
-        return int(audit_count or 0) + int(non_audit_llm_count or 0)
+            return int(audit_count or 0) + int(non_audit_llm_count or 0)
+    except Exception as exc:
+        logger.warning("Could not count completed LLM turns (%s)", exc)
+        return 0
 
 
 def list_recent_sessions(
     limit: int = 15, user_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
-    with get_db_session() as db:
-        stmt = select(AuditRun).order_by(desc(AuditRun.created_at))
-        if user_id is not None:
-            stmt = stmt.where(AuditRun.user_id == user_id)
-        rows = db.scalars(stmt.limit(limit)).all()
-        return [
-            {
-                "session_id": r.session_id,
-                "run_id": r.run_id,
-                "video_title": r.video_title or r.video_id,
-                "target_scope": r.target_scope,
-                "evaluator_status": r.evaluator_status,
-                "created_at": r.created_at.isoformat() if r.created_at else "",
-            }
-            for r in rows
-        ]
+    try:
+        with get_db_session() as db:
+            stmt = select(AuditRun).order_by(desc(AuditRun.created_at))
+            if user_id is not None:
+                stmt = stmt.where(AuditRun.user_id == user_id)
+            rows = db.scalars(stmt.limit(limit)).all()
+            return [
+                {
+                    "session_id": r.session_id,
+                    "run_id": r.run_id,
+                    "video_title": r.video_title or r.video_id,
+                    "target_scope": r.target_scope,
+                    "evaluator_status": r.evaluator_status,
+                    "created_at": r.created_at.isoformat() if r.created_at else "",
+                }
+                for r in rows
+            ]
+    except Exception as exc:
+        logger.warning("Could not list recent sessions (%s)", exc)
+        return []
 
 
 # --- HITL Approvals Queue ---

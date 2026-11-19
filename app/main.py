@@ -416,14 +416,10 @@ def _process_chat_turn_with_quota(
                     user_id=req.user_id,
                     detail={"route": route},
                 )
-            except SQLAlchemyError as exc:
-                logger.exception(
-                    "Could not record completed LLM turn for user %s.", req.user_id
+            except Exception as exc:
+                logger.warning(
+                    "Could not record completed LLM turn for user %s (%s).", req.user_id, exc
                 )
-                raise HTTPException(
-                    status_code=503,
-                    detail="LLM quota service is temporarily unavailable.",
-                ) from exc
         return result
     finally:
         if reservation_id:
