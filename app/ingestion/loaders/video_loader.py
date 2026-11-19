@@ -117,14 +117,39 @@ def _extract_unique_slide_ocr(
 def _fetch_youtube_captions_fast(
     video_id: str, source_url: str
 ) -> Optional[List[Dict[str, Any]]]:
-    """Fetch English captions via youtube-transcript-api, then yt-dlp subtitles."""
+    """Fetch English captions via youtube-transcript-api (with optional proxy), then fast yt-dlp JSON3 subtitles."""
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
 
-        ytt_api = YouTubeTranscriptApi()
-        transcript = ytt_api.fetch(
-            video_id, languages=["en", "en-US", "en-GB", "en-IN"]
-        )
+        proxy_user = os.getenv("WEBSHARE_PROXY_USER")
+        proxy_pass = os.getenv("WEBSHARE_PROXY_PASS")
+        if proxy_user and proxy_pass:
+            from youtube_transcript_api.proxies import WebshareProxyConfig
+            ytt_api = YouTubeTranscriptApi(
+                proxy_config=WebshareProxyConfig(
+                    proxy_username=proxy_user,
+                    proxy_password=proxy_pass,
+                )
+            )
+        else:
+            ytt_api = YouTubeTranscriptApi()
+
+        try:
+            transcript = ytt_api.fetch(
+                video_id, languages=["en", "en-US", "en-GB", "en-IN"]
+            )
+        except Exception:
+            # Fallback: grab any available transcript and translate to English if needed
+            t_list = ytt_api.list(video_id)
+            chosen = next(iter(t_list), None)
+            if chosen is None:
+                raise RuntimeError("No caption tracks found.")
+            transcript = (
+                chosen.fetch()
+                if chosen.language_code.startswith("en")
+                else chosen.translate("en").fetch()
+            )
+
         segs: List[Dict[str, Any]] = []
         for entry in transcript:
             raw_txt = (
@@ -153,19 +178,10 @@ def _fetch_youtube_captions_fast(
                     }
                 )
         if segs:
-            print(
-                f"[CAPTIONS FAST] Fetched {len(segs)} segments via youtube-transcript-api"
-            )
+            print(f"[CAPTIONS FAST] Fetched {len(segs)} segments via youtube-transcript-api")
             return segs
-        print(
-            "[CAPTIONS WARN] youtube-transcript-api returned no English segments, "
-            "trying yt-dlp subtitles..."
-        )
     except Exception as exc:
-        print(
-            f"[CAPTIONS WARN] youtube-transcript-api failed ({exc}), "
-            "trying yt-dlp subtitles..."
-        )
+        print(f"[CAPTIONS WARN] youtube-transcript-api failed ({exc}), trying yt-dlp subtitles...")
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -175,16 +191,16 @@ def _fetch_youtube_captions_fast(
                 "skip_download": True,
                 "writesubtitles": True,
                 "writeautomaticsub": True,
-                "subtitleslangs": ["en", "en-US", "en-orig"],
+                "subtitleslangs": ["en", "en-US", "en-GB", "en-IN", "en-orig"],
                 "subtitlesformat": "json3",
+                "socket_timeout": 8,
+                "retries": 1,
                 "outtmpl": str(Path(tmpdir) / "%(id)s.%(ext)s"),
             }
             with yt_dlp.YoutubeDL(sub_opts) as ydl:
                 ydl.download([source_url])
             json3_files = sorted(Path(tmpdir).glob("*.json3"))
-            if not json3_files:
-                print("[CAPTIONS WARN] yt-dlp did not produce an English JSON3 subtitle file.")
-            else:
+            if json3_files:
                 payload = json.loads(json3_files[0].read_text(encoding="utf-8"))
                 segs = []
                 for event in payload.get("events", []):
@@ -207,17 +223,10 @@ def _fetch_youtube_captions_fast(
                             }
                         )
                 if segs:
-                    print(
-                        f"[CAPTIONS FAST] Fetched {len(segs)} segments via "
-                        "yt-dlp json3 subtitles"
-                    )
+                    print(f"[CAPTIONS FAST] Fetched {len(segs)} segments via yt-dlp json3 subtitles")
                     return segs
-                print("[CAPTIONS WARN] yt-dlp JSON3 subtitles contained no usable segments.")
     except Exception as exc:
-        print(
-            f"[CAPTIONS WARN] yt-dlp subtitles failed ({exc}), "
-            "falling back to Whisper audio..."
-        )
+        print(f"[CAPTIONS WARN] yt-dlp subtitles failed ({exc})")
 
     return None
 
@@ -226,9 +235,8 @@ def parse_video_source(
     source: str, browser_for_cookies: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Fast Multimodal Ingestion with per-step timing telemetry:
-      1. Metadata & Caption Fast-Path (~1.5s) -> falls back to Audio-Only Groq Whisper (~15s).
-      2. Window Merging (25s chunks) & Guardrails.
+    Fast Caption-Only Ingestion (~1.5s) with strict empty-transcript guardrails.
+    Never downloads heavy video/audio streams on cloud servers.
     """
     import time
 
@@ -241,19 +249,28 @@ def parse_video_source(
     title = "YouTube Lecture"
     duration = 0.0
 
-    # Step 1: Metadata + Fast YouTube Captions Check
+    # Step 1: Fast Metadata Check (8s timeout)
     t0 = time.perf_counter()
     if is_url:
-        base_opts: Dict[str, Any] = {"quiet": True, "no_warnings": True}
-        if browser_for_cookies:
-            base_opts["cookiesfrombrowser"] = (browser_for_cookies,)
-        with yt_dlp.YoutubeDL(base_opts) as ydl:
-            info = ydl.extract_info(source, download=False)
-            duration = float(info.get("duration") or 0)
-            title = info.get("title", "YouTube Lecture")
+        try:
+            base_opts: Dict[str, Any] = {
+                "quiet": True,
+                "no_warnings": True,
+                "skip_download": True,
+                "socket_timeout": 8,
+                "retries": 1,
+            }
+            if browser_for_cookies:
+                base_opts["cookiesfrombrowser"] = (browser_for_cookies,)
+            with yt_dlp.YoutubeDL(base_opts) as ydl:
+                info = ydl.extract_info(source, download=False)
+                duration = float(info.get("duration") or 0)
+                title = info.get("title", "YouTube Lecture")
+        except Exception as exc:
+            print(f"[METADATA WARN] yt-dlp metadata lookup skipped ({exc}); proceeding directly to captions.")
     timings["metadata_fetch_sec"] = round(time.perf_counter() - t0, 2)
 
-    if is_url and (duration <= 0 or duration > settings.MAX_VIDEO_DURATION_SEC):
+    if is_url and duration > settings.MAX_VIDEO_DURATION_SEC:
         return {
             "video_id": video_id,
             "title": title,
@@ -265,89 +282,35 @@ def parse_video_source(
             "step_timings": timings,
         }
 
-    # Step 2: Fast Captions Path vs. Audio-Only Groq Whisper Fallback
+    # Step 2: Fast Captions Extraction (Never falls back to slow audio download on YouTube URLs)
     t0 = time.perf_counter()
     raw_segs = _fetch_youtube_captions_fast(video_id, source) if is_url else None
     ocr_slides: List[Dict[str, Any]] = []
     mean_ocr_conf = 0.0
 
-    if raw_segs:
-        timings["transcription_sec"] = round(time.perf_counter() - t0, 2)
-        timings["transcription_mode"] = "youtube_captions_fast"
-        mean_lp = -0.10
-    else:
-        if not settings.GROQ_API_KEY:
-            raise ValueError("GROQ_API_KEY is missing in .env")
-        groq_client = Groq(api_key=settings.GROQ_API_KEY)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            if is_url:
-                audio_dl = Path(tmpdir) / f"{video_id}.m4a"
-                dl_opts = {
-                    "quiet": True,
-                    "no_warnings": True,
-                    "format": "bestaudio[ext=m4a]/bestaudio/best",
-                    "outtmpl": str(audio_dl),
-                }
-                with yt_dlp.YoutubeDL(dl_opts) as ydl:
-                    ydl.download([source])
-                timings["audio_download_sec"] = round(time.perf_counter() - t0, 2)
-                source_media = audio_dl
-            else:
-                source_media = Path(source)
-                title = source_media.stem
+    if not raw_segs:
+        return {
+            "video_id": video_id,
+            "title": title,
+            "duration_sec": duration,
+            "passed_guard": False,
+            "guard_reason": (
+                "Could not fetch English captions for this YouTube video (captions may be disabled "
+                "or YouTube blocked this cloud server IP). Please use a video with English captions enabled."
+            ),
+            "windows": [],
+            "ocr_slides": [],
+            "step_timings": timings,
+        }
 
-            t_asr = time.perf_counter()
-            audio_file = Path(tmpdir) / f"{video_id}.mp3"
-            _extract_compressed_audio(source_media, audio_file)
-            with open(audio_file, "rb") as af:
-                resp = groq_client.audio.transcriptions.create(
-                    file=(audio_file.name, af.read()),
-                    model=settings.GROQ_WHISPER_MODEL,
-                    language="en",
-                    response_format="verbose_json",
-                    timestamp_granularities=["segment"],
-                    temperature=0.0,
-                )
+    if duration <= 0:
+        duration = max((s["end_sec"] for s in raw_segs), default=600.0)
 
-            raw_segs = []
-            logprobs: List[float] = []
-            for seg in getattr(resp, "segments", []) or []:
-                txt = (
-                    seg.get("text", "")
-                    if isinstance(seg, dict)
-                    else getattr(seg, "text", "")
-                ).strip()
-                if not txt:
-                    continue
-                s_sec = float(
-                    seg.get("start", 0.0)
-                    if isinstance(seg, dict)
-                    else getattr(seg, "start", 0.0)
-                )
-                e_sec = float(
-                    seg.get("end", s_sec)
-                    if isinstance(seg, dict)
-                    else getattr(seg, "end", s_sec)
-                )
-                lp = float(
-                    seg.get("avg_logprob", -0.25)
-                    if isinstance(seg, dict)
-                    else getattr(seg, "avg_logprob", -0.25)
-                )
-                raw_segs.append(
-                    {
-                        "start_sec": s_sec,
-                        "end_sec": e_sec,
-                        "text": sanitize_transcript_text(txt),
-                        "avg_logprob": lp,
-                    }
-                )
-                logprobs.append(lp)
-            mean_lp = round(sum(logprobs) / len(logprobs), 4) if logprobs else -9.9
-            timings["whisper_asr_sec"] = round(time.perf_counter() - t_asr, 2)
-            timings["transcription_mode"] = "groq_whisper_audio"
+    timings["transcription_sec"] = round(time.perf_counter() - t0, 2)
+    timings["transcription_mode"] = "youtube_captions_fast"
+    mean_lp = -0.10
 
-    guard = check_media_guard(duration or 600.0, len(raw_segs), mean_lp)
+    guard = check_media_guard(duration, len(raw_segs), mean_lp)
     if not guard.passed:
         return {
             "video_id": video_id,
@@ -376,7 +339,7 @@ def parse_video_source(
         "mean_logprob": mean_lp,
         "mean_ocr_conf": mean_ocr_conf,
         "passed_guard": True,
-        "guard_reason": "Passed English ASR quality gates.",
+        "guard_reason": "Passed English caption quality gates.",
         "windows": windows,
         "ocr_slides": ocr_slides,
         "step_timings": timings,
