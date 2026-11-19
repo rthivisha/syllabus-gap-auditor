@@ -1,28 +1,16 @@
 import json
 import os
 import re
-import subprocess
 import tempfile
+import time
 import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-try:
-    import cv2
-except ImportError:
-    cv2 = None
-import imagehash
-import pytesseract
 import yt_dlp
-from groq import Groq
-from PIL import Image
 from app.config import get_settings
 from app.guardrails.rails import check_media_guard, sanitize_transcript_text
 from app.ingestion.chunking.splitter import format_mmss, merge_multimodal_windows
-
-WINDOWS_TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-if os.name == "nt" and Path(WINDOWS_TESSERACT_PATH).exists():
-    pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT_PATH
 
 
 def extract_video_id(source: str) -> str:
@@ -30,94 +18,20 @@ def extract_video_id(source: str) -> str:
     return match.group(1) if match else Path(source).stem
 
 
-def _extract_compressed_audio(video_file: Path, audio_out: Path) -> None:
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-i",
-        str(video_file),
-        "-vn",
-        "-ac",
-        "1",
-        "-ar",
-        "16000",
-        "-b:a",
-        "48k",
-        str(audio_out),
-    ]
-    subprocess.run(
-        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
-    )
-
-
-def _extract_unique_slide_ocr(
-    video_file: Path, min_conf: float = 0.65, sample_every_sec: int = 8
-) -> tuple[List[Dict[str, Any]], float]:
-    if cv2 is None:
-        return [], 0.0
-    cap = cv2.VideoCapture(str(video_file))
-    slides: List[Dict[str, Any]] = []
-    confs: List[float] = []
-
-    try:
-        fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        interval = max(1, int(fps * sample_every_sec))
-        last_hash = None
-        frame_idx = 0
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            if frame_idx % interval == 0:
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                pil_img = Image.fromarray(rgb)
-                curr_hash = imagehash.phash(pil_img)
-
-                if last_hash is not None and (curr_hash - last_hash) <= 10:
-                    frame_idx += 1
-                    continue
-                last_hash = curr_hash
-
-                data = pytesseract.image_to_data(
-                    pil_img,
-                    lang="eng",
-                    config="--psm 6",
-                    output_type=pytesseract.Output.DICT,
-                )
-                words: List[str] = []
-                frame_confs: List[float] = []
-                for txt, c in zip(data["text"], data["conf"]):
-                    score = float(c) / 100.0 if float(c) >= 0 else 0.0
-                    cleaned = unicodedata.normalize("NFKC", str(txt)).strip()
-                    if score >= min_conf and len(cleaned) >= 2:
-                        words.append(cleaned)
-                        frame_confs.append(score)
-
-                if words:
-                    sec = frame_idx / fps
-                    avg_c = round(sum(frame_confs) / len(frame_confs), 4)
-                    confs.append(avg_c)
-                    slides.append(
-                        {
-                            "sec": round(sec, 2),
-                            "timestamp": format_mmss(sec),
-                            "text": sanitize_transcript_text(" ".join(words)),
-                            "confidence": avg_c,
-                        }
-                    )
-            frame_idx += 1
-    finally:
-        cap.release()
-
-    mean_conf = round(sum(confs) / len(confs), 4) if confs else 0.0
-    return slides, mean_conf
+def _parse_timestamp_to_sec(ts: str) -> float:
+    """Converts MM:SS or HH:MM:SS into float seconds."""
+    parts = [int(p) for p in ts.strip().split(":")]
+    if len(parts) == 2:
+        return float(parts[0] * 60 + parts[1])
+    if len(parts) == 3:
+        return float(parts[0] * 3600 + parts[1] * 60 + parts[2])
+    return 0.0
 
 
 def _fetch_youtube_captions_fast(
-    video_id: str, source_url: str
+    video_id: str,
 ) -> Optional[List[Dict[str, Any]]]:
-    """Fetch English captions via youtube-transcript-api (with optional proxy), then fast yt-dlp JSON3 subtitles."""
+    """Tier 1 (~1.5s, free): Fetch English captions via youtube-transcript-api."""
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
 
@@ -139,11 +53,10 @@ def _fetch_youtube_captions_fast(
                 video_id, languages=["en", "en-US", "en-GB", "en-IN"]
             )
         except Exception:
-            # Fallback: grab any available transcript and translate to English if needed
             t_list = ytt_api.list(video_id)
             chosen = next(iter(t_list), None)
             if chosen is None:
-                raise RuntimeError("No caption tracks found.")
+                return None
             transcript = (
                 chosen.fetch()
                 if chosen.language_code.startswith("en")
@@ -181,52 +94,92 @@ def _fetch_youtube_captions_fast(
             print(f"[CAPTIONS FAST] Fetched {len(segs)} segments via youtube-transcript-api")
             return segs
     except Exception as exc:
-        print(f"[CAPTIONS WARN] youtube-transcript-api failed ({exc}), trying yt-dlp subtitles...")
+        print(f"[CAPTIONS WARN] youtube-transcript-api skipped ({exc}); using Gemini video fallback.")
+    return None
+
+
+def _extract_windows_via_gemini_youtube(
+    source_url: str, window_sec: int = 25
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Tier 2 Fallback (Cloud-Safe, Zero Caption Requirement):
+    Passes the public YouTube URL directly to Gemini 2.5 Flash via file_uri,
+    extracts chronological [MM:SS] topic/explanation intervals, and maps them
+    directly into the 25-second windows schema used by BGE-base + Pinecone.
+    """
+    settings = get_settings()
+    api_key = os.getenv("GEMINI_API_KEY") or settings.GEMINI_API_KEY
+    if not api_key:
+        print("[GEMINI VIDEO WARN] GEMINI_API_KEY not configured for YouTube fallback.")
+        return None
 
     try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            sub_opts = {
-                "quiet": True,
-                "no_warnings": True,
-                "skip_download": True,
-                "writesubtitles": True,
-                "writeautomaticsub": True,
-                "subtitleslangs": ["en", "en-US", "en-GB", "en-IN", "en-orig"],
-                "subtitlesformat": "json3",
-                "socket_timeout": 8,
-                "retries": 1,
-                "outtmpl": str(Path(tmpdir) / "%(id)s.%(ext)s"),
-            }
-            with yt_dlp.YoutubeDL(sub_opts) as ydl:
-                ydl.download([source_url])
-            json3_files = sorted(Path(tmpdir).glob("*.json3"))
-            if json3_files:
-                payload = json.loads(json3_files[0].read_text(encoding="utf-8"))
-                segs = []
-                for event in payload.get("events", []):
-                    start_ms = event.get("tStartMs")
-                    if start_ms is None or "segs" not in event:
-                        continue
-                    text = "".join(
-                        segment.get("utf8", "") for segment in event["segs"]
-                    ).replace("\n", " ").strip()
-                    text = sanitize_transcript_text(text)
-                    if text:
-                        start_sec = start_ms / 1000.0
-                        duration_sec = (event.get("dDurationMs") or 2000) / 1000.0
-                        segs.append(
-                            {
-                                "start_sec": start_sec,
-                                "end_sec": start_sec + duration_sec,
-                                "text": text,
-                                "avg_logprob": -0.12,
-                            }
-                        )
-                if segs:
-                    print(f"[CAPTIONS FAST] Fetched {len(segs)} segments via yt-dlp json3 subtitles")
-                    return segs
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=api_key)
+        canonical_url = f"https://www.youtube.com/watch?v={extract_video_id(source_url)}"
+
+        prompt = (
+            "Extract a timestamped chronological outline of every topic, definition, "
+            "formula, example, and concept taught in this lecture in 25-second intervals "
+            "([MM:SS] topic and explanation).\n\n"
+            "Formatting rules:\n"
+            "- Output one line per interval starting strictly with [MM:SS] (or [HH:MM:SS] if over 1 hour).\n"
+            "- Include specific technical terms, theorem names, equations, and explanations spoken or shown on slides.\n"
+            "- Do not include markdown headers, bullet points, or intro/outro commentary."
+        )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=types.Content(
+                parts=[
+                    types.Part(
+                        file_data=types.FileData(file_uri=canonical_url)
+                    ),
+                    types.Part(text=prompt),
+                ]
+            ),
+        )
+        raw_text = (response.text or "").strip()
+        if not raw_text:
+            return None
+
+        line_pattern = re.compile(r"^\[?(\d{1,2}:\d{2}(?::\d{2})?)\]?\s*[-–:]?\s*(.+)$")
+        parsed_entries: List[Dict[str, Any]] = []
+
+        for line in raw_text.splitlines():
+            clean_line = unicodedata.normalize("NFKC", line).strip()
+            if not clean_line:
+                continue
+            m = line_pattern.match(clean_line)
+            if m:
+                ts_raw, body = m.group(1), sanitize_transcript_text(m.group(2)).strip()
+                if not body:
+                    continue
+                start_sec = _parse_timestamp_to_sec(ts_raw)
+                parsed_entries.append(
+                    {
+                        "start_sec": start_sec,
+                        "end_sec": start_sec + float(window_sec),
+                        "timestamp": format_mmss(start_sec),
+                        "combined_text": body,
+                        "transcript_text": body,
+                        "ocr_text": "",
+                    }
+                )
+            elif parsed_entries:
+                # Append continuation text to previous timestamp window
+                extra = sanitize_transcript_text(clean_line).strip()
+                if extra:
+                    parsed_entries[-1]["combined_text"] += f" {extra}"
+                    parsed_entries[-1]["transcript_text"] += f" {extra}"
+
+        if parsed_entries:
+            print(f"[GEMINI VIDEO FALLBACK] Extracted {len(parsed_entries)} timestamped windows from YouTube URL.")
+            return parsed_entries
     except Exception as exc:
-        print(f"[CAPTIONS WARN] yt-dlp subtitles failed ({exc})")
+        print(f"[GEMINI VIDEO ERROR] Gemini YouTube URL extraction failed: {exc}")
 
     return None
 
@@ -235,11 +188,10 @@ def parse_video_source(
     source: str, browser_for_cookies: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Fast Caption-Only Ingestion (~1.5s) with strict empty-transcript guardrails.
-    Never downloads heavy video/audio streams on cloud servers.
+    2-Tier Cloud-Safe Video Ingestion:
+    1. Fast `youtube-transcript-api` (~1.5s, 0 LLM tokens) -> 25s merged windows.
+    2. Automatic Fallback to Gemini 2.5 Flash native YouTube `file_uri` -> [MM:SS] 25s windows.
     """
-    import time
-
     t_total = time.perf_counter()
     timings: Dict[str, float] = {}
 
@@ -249,7 +201,7 @@ def parse_video_source(
     title = "YouTube Lecture"
     duration = 0.0
 
-    # Step 1: Fast Metadata Check (8s timeout)
+    # Step 1: Lightweight Metadata Check (8s timeout, skip_download)
     t0 = time.perf_counter()
     if is_url:
         try:
@@ -267,7 +219,7 @@ def parse_video_source(
                 duration = float(info.get("duration") or 0)
                 title = info.get("title", "YouTube Lecture")
         except Exception as exc:
-            print(f"[METADATA WARN] yt-dlp metadata lookup skipped ({exc}); proceeding directly to captions.")
+            print(f"[METADATA WARN] Metadata lookup skipped ({exc}); proceeding to captions/Gemini.")
     timings["metadata_fetch_sec"] = round(time.perf_counter() - t0, 2)
 
     if is_url and duration > settings.MAX_VIDEO_DURATION_SEC:
@@ -282,54 +234,61 @@ def parse_video_source(
             "step_timings": timings,
         }
 
-    # Step 2: Fast Captions Extraction (Never falls back to slow audio download on YouTube URLs)
+    # Step 2: Tier 1 Fast Captions -> Tier 2 Gemini Native YouTube Fallback
     t0 = time.perf_counter()
-    raw_segs = _fetch_youtube_captions_fast(video_id, source) if is_url else None
+    raw_segs = _fetch_youtube_captions_fast(video_id) if is_url else None
     ocr_slides: List[Dict[str, Any]] = []
-    mean_ocr_conf = 0.0
-
-    if not raw_segs:
-        return {
-            "video_id": video_id,
-            "title": title,
-            "duration_sec": duration,
-            "passed_guard": False,
-            "guard_reason": (
-                "Could not fetch English captions for this YouTube video (captions may be disabled "
-                "or YouTube blocked this cloud server IP). Please use a video with English captions enabled."
-            ),
-            "windows": [],
-            "ocr_slides": [],
-            "step_timings": timings,
-        }
-
-    if duration <= 0:
-        duration = max((s["end_sec"] for s in raw_segs), default=600.0)
-
-    timings["transcription_sec"] = round(time.perf_counter() - t0, 2)
-    timings["transcription_mode"] = "youtube_captions_fast"
+    windows: List[Dict[str, Any]] = []
     mean_lp = -0.10
 
-    guard = check_media_guard(duration, len(raw_segs), mean_lp)
-    if not guard.passed:
-        return {
-            "video_id": video_id,
-            "title": title,
-            "duration_sec": duration,
-            "mean_logprob": mean_lp,
-            "passed_guard": False,
-            "guard_reason": guard.reason,
-            "windows": [],
-            "ocr_slides": [],
-            "step_timings": timings,
-        }
+    if raw_segs:
+        if duration <= 0:
+            duration = max((s["end_sec"] for s in raw_segs), default=600.0)
+        guard = check_media_guard(duration, len(raw_segs), mean_lp)
+        if not guard.passed:
+            return {
+                "video_id": video_id,
+                "title": title,
+                "duration_sec": duration,
+                "mean_logprob": mean_lp,
+                "passed_guard": False,
+                "guard_reason": guard.reason,
+                "windows": [],
+                "ocr_slides": [],
+                "step_timings": timings,
+            }
+        timings["transcription_sec"] = round(time.perf_counter() - t0, 2)
+        timings["transcription_mode"] = "youtube_captions_fast"
 
-    # Step 3: Merge into 25-second windows
-    t0 = time.perf_counter()
-    windows = merge_multimodal_windows(
-        raw_segs, ocr_slides, window_sec=settings.WINDOW_SECONDS
-    )
-    timings["window_merge_sec"] = round(time.perf_counter() - t0, 2)
+        t_merge = time.perf_counter()
+        windows = merge_multimodal_windows(
+            raw_segs, ocr_slides, window_sec=settings.WINDOW_SECONDS
+        )
+        timings["window_merge_sec"] = round(time.perf_counter() - t_merge, 2)
+    else:
+        windows = _extract_windows_via_gemini_youtube(
+            source, window_sec=settings.WINDOW_SECONDS
+        ) or []
+        timings["transcription_sec"] = round(time.perf_counter() - t0, 2)
+        timings["transcription_mode"] = "gemini_2.5_flash_youtube_uri"
+
+        if not windows:
+            return {
+                "video_id": video_id,
+                "title": title,
+                "duration_sec": duration,
+                "passed_guard": False,
+                "guard_reason": (
+                    "Could not extract lecture content from this YouTube URL. "
+                    "Ensure the video is public (not private or unlisted)."
+                ),
+                "windows": [],
+                "ocr_slides": [],
+                "step_timings": timings,
+            }
+        if duration <= 0:
+            duration = max((w["end_sec"] for w in windows), default=600.0)
+
     timings["total_ingestion_sec"] = round(time.perf_counter() - t_total, 2)
 
     return {
@@ -337,9 +296,9 @@ def parse_video_source(
         "title": title,
         "duration_sec": duration,
         "mean_logprob": mean_lp,
-        "mean_ocr_conf": mean_ocr_conf,
+        "mean_ocr_conf": 0.0,
         "passed_guard": True,
-        "guard_reason": "Passed English caption quality gates.",
+        "guard_reason": "Passed lecture ingestion quality gates.",
         "windows": windows,
         "ocr_slides": ocr_slides,
         "step_timings": timings,
@@ -372,6 +331,3 @@ def parse_raw_transcript_text(
         "ocr_slides": [],
         "step_timings": {"transcription_mode": "manual_paste"},
     }
-
-
-
