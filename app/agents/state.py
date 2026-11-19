@@ -63,6 +63,7 @@ class AuditGraphState(TypedDict, total=False):
     doc_id: Optional[str]
     doc_name: str
     video_url: str
+    raw_transcript: Optional[str]
     user_query: str
     prior_clarification_asked: bool
     chat_response: Optional[str]

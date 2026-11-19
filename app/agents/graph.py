@@ -12,6 +12,7 @@ from app.agents.nodes.repair import targeted_repair_node
 from app.agents.nodes.syllabus_retriever import retrieve_syllabus_evidence_node
 from app.agents.state import AuditGraphState
 from app.config import get_settings
+from app.ingestion.loaders.video_loader import parse_raw_transcript_text
 from app.ingestion.processor import get_or_parse_video
 from app.services.db.repository import enqueue_approval, log_audit_event, save_audit_run
 from app.services.job_tracker import set_job_stage
@@ -23,7 +24,10 @@ def media_ingestion_node(state: AuditGraphState) -> Dict[str, Any]:
         "1/4 Fetching captions and extracting 25-second video windows...",
     )
     t0 = time.perf_counter()
-    parsed = get_or_parse_video(state["video_url"])
+    if state.get("raw_transcript"):
+        parsed = parse_raw_transcript_text(state["raw_transcript"])
+    else:
+        parsed = get_or_parse_video(state.get("video_url", ""))
     timings = dict(parsed.get("step_timings") or {})
     if parsed.get("from_cache"):
         timings["total_ingestion_sec"] = round(time.perf_counter() - t0, 2)

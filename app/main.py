@@ -95,6 +95,7 @@ class ChatTurnRequest(BaseModel):
     prior_clarification_asked: bool = False
     user_gemini_key: Optional[str] = None
     user_groq_key: Optional[str] = None
+    raw_transcript: Optional[str] = None
 
 
 class TranscribeRequest(BaseModel):
@@ -1138,6 +1139,7 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
                 "doc_id": doc["doc_id"],
                 "doc_name": doc["doc_name"],
                 "video_url": detected_url,
+                "raw_transcript": req.raw_transcript,
                 "user_query": sanitized_msg,
                 "prior_clarification_asked": bool(
                     req.prior_clarification_asked or has_scope_hint

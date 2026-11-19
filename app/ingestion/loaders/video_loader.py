@@ -346,3 +346,32 @@ def parse_video_source(
     }
 
 
+def parse_raw_transcript_text(
+    transcript_text: str, title: str = "Pasted Lecture Transcript"
+) -> Dict[str, Any]:
+    cleaned = sanitize_transcript_text(transcript_text).strip()
+    words = cleaned.split()
+    # Chunk every ~60 words as a synthetic 25-second window
+    segs = []
+    for idx in range(0, len(words), 60):
+        start_sec = (idx // 60) * 25.0
+        segs.append({
+            "start_sec": start_sec,
+            "end_sec": start_sec + 25.0,
+            "text": " ".join(words[idx : idx + 60]),
+            "avg_logprob": -0.10,
+        })
+    windows = merge_multimodal_windows(segs, [], window_sec=25)
+    return {
+        "video_id": "pasted-transcript",
+        "title": title,
+        "duration_sec": len(segs) * 25.0,
+        "passed_guard": len(cleaned) >= 120,
+        "guard_reason": "Passed pasted transcript guard." if len(cleaned) >= 120 else "Transcript too short.",
+        "windows": windows,
+        "ocr_slides": [],
+        "step_timings": {"transcription_mode": "manual_paste"},
+    }
+
+
+
