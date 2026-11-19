@@ -27,7 +27,10 @@ def upsert_document_chunks(
     if not chunks:
         return 0
 
-    texts = [str(c.get("text") or "").strip() for c in chunks]
+    texts = [
+        str(c.get("text") or c.get("child_text") or c.get("parent_text") or "").strip()
+        for c in chunks
+    ]
     valid_pairs = [(c, t) for c, t in zip(chunks, texts) if t]
     if not valid_pairs:
         return 0
@@ -52,7 +55,7 @@ def upsert_document_chunks(
                     "chapter": str(chunk.get("chapter") or chunk.get("section_title") or "Overview")[:120],
                     "page_number": int(chunk.get("page_number") or (idx + 1)),
                     "text": text[:3500],
-                    "parent_text": text[:3500],
+                    "parent_text": str(chunk.get("parent_text") or text)[:3500],
                 },
             }
         )

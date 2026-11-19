@@ -589,7 +589,7 @@ async def api_upload_document_stream(
 
             content_hash = hashlib.sha256(raw_bytes).hexdigest()[:10]
             stem = Path(filename).stem.lower().replace(" ", "-")
-            doc_id = f"{stem}-{content_hash}"
+            doc_id = f"{stem}-v2-{content_hash}"
 
             from app.services.db.repository import get_document
             existing_doc = get_document(doc_id)
@@ -609,60 +609,63 @@ async def api_upload_document_stream(
                 yield f"data: {json.dumps({'type': 'done', 'payload': payload})}\n\n"
                 return
 
-            yield f"data: {json.dumps({'type': 'step', 'step': 1, 'text': 'Extracting PDF pages...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'step', 'step': 1, 'text': 'Extracting PDF sections & pages...'})}\n\n"
 
-            import fitz
-            pdf_doc = fitz.open(stream=raw_bytes, filetype="pdf")
-            page_count = len(pdf_doc)
-            raw_chunks: List[Dict[str, Any]] = []
-            current_section = "Overview"
+            dest = get_settings().DATA_DIR / Path(filename.replace("\\", "/")).name
+            dest.write_bytes(raw_bytes)
 
-            for page_idx in range(page_count):
-                text = pdf_doc[page_idx].get_text("text").strip()
-                if not text:
-                    continue
-                for line in text.splitlines()[:6]:
-                    clean_line = line.strip()
-                    if 4 <= len(clean_line) <= 90 and not clean_line.endswith("."):
-                        current_section = clean_line
-                        break
-                raw_chunks.append(
-                    {
-                        "section_title": current_section,
-                        "chapter": current_section,
-                        "page_number": page_idx + 1,
-                        "text": text,
-                    }
-                )
-            pdf_doc.close()
+            from app.ingestion.loaders.pdf_loader import load_pdf_sections
+            from app.ingestion.chunking.splitter import build_hierarchical_chunks
 
-            if not raw_chunks:
-                yield f"data: {json.dumps({'type': 'error', 'text': 'No selectable text found in this PDF.'})}\n\n"
+            parsed_pdf = load_pdf_sections(dest)
+            sections = parsed_pdf["sections"]
+            page_count = parsed_pdf["page_count"]
+
+            yield f"data: {json.dumps({'type': 'step', 'step': 2, 'text': 'Filtering boilerplate, headers & stub pages...'})}\n\n"
+
+            child_chunks = build_hierarchical_chunks(doc_id=doc_id, sections=sections)
+            # Drop image-only divider pages & header-only stubs (e.g., "DailyDoseofDS.com 210")
+            clean_chunks = [
+                c for c in child_chunks
+                if len(str(c.get("text") or c.get("parent_text") or "").strip()) >= 180
+            ]
+            if not clean_chunks:
+                clean_chunks = child_chunks
+
+            if not clean_chunks:
+                yield f"data: {json.dumps({'type': 'error', 'text': 'No substantive selectable text found in this PDF.'})}\n\n"
                 return
 
-            yield f"data: {json.dumps({'type': 'step', 'step': 2, 'text': 'Filtering boilerplate & TOC...'})}\n\n"
-            time.sleep(0.15)
+            yield f"data: {json.dumps({'type': 'step', 'step': 3, 'chunk_count': len(clean_chunks), 'text': f'Coalesced {len(clean_chunks)} adaptive chunks...'})}\n\n"
 
-            yield f"data: {json.dumps({'type': 'step', 'step': 3, 'text': 'Coalescing adaptive chunks...'})}\n\n"
-            time.sleep(0.15)
-
-            yield f"data: {json.dumps({'type': 'step', 'step': 4, 'text': 'Generating 768-d BGE embeddings...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'step', 'step': 4, 'text': 'Generating 768-d BGE embeddings (parallel)...'})}\n\n"
             from app.services.vector.pinecone_store import upsert_document_chunks
-            chunk_count = upsert_document_chunks(doc_id=doc_id, filename=filename, chunks=raw_chunks)
+            chunk_count = upsert_document_chunks(
+                doc_id=doc_id,
+                filename=filename,
+                chunks=clean_chunks,
+            )
 
-            yield f"data: {json.dumps({'type': 'step', 'step': 5, 'text': 'Upserting vectors into Pinecone...'})}\n\n"
-            section_titles = list(dict.fromkeys(c["section_title"] for c in raw_chunks if c.get("section_title")))
-            clean_sections = [
-                s for s in section_titles
-                if len(s) >= 5 and s.lower() not in {"figures and tables", "table of contents", "contents"}
-            ]
-            top_sec = clean_sections[0] if clean_sections else "the main sections"
-            second_sec = clean_sections[1] if len(clean_sections) > 1 else "key guidelines"
+            yield f"data: {json.dumps({'type': 'step', 'step': 5, 'text': f'Indexed {chunk_count} vectors into Pinecone...'})}\n\n"
+
+            BOILERPLATE = {"figures and tables", "table of contents", "contents", "overview", "dailydoseofds.com"}
+            section_titles = list(
+                dict.fromkeys(
+                    s["section_title"]
+                    for s in sections
+                    if s.get("section_title")
+                    and len(s["section_title"].strip()) >= 5
+                    and s["section_title"].strip().lower() not in BOILERPLATE
+                    and "dailydoseofds" not in s["section_title"].lower()
+                )
+            )
+            top_sec = section_titles[0] if section_titles else "the core chapters"
+            second_sec = section_titles[1] if len(section_titles) > 1 else "key architectures"
 
             starter_prompts = [
                 f"Summarize the key topics covered in {filename}",
                 f"Explain '{top_sec}' from this PDF",
-                f"What are the main rules or takeaways in '{second_sec}'?",
+                f"What are the key concepts in '{second_sec}'?",
                 "How does this Syllabus Gap Audit AI project work?",
             ]
 
@@ -678,12 +681,6 @@ async def api_upload_document_stream(
                 suggested_questions=starter_prompts,
             )
 
-            try:
-                dest = get_settings().DATA_DIR / filename
-                dest.write_bytes(raw_bytes)
-            except Exception:
-                pass
-
             payload = {
                 "status": "ready",
                 "doc_id": doc_id,
@@ -691,7 +688,7 @@ async def api_upload_document_stream(
                 "doc_name": filename,
                 "page_count": page_count,
                 "chunk_count": chunk_count,
-                "sections": clean_sections[:12],
+                "sections": section_titles[:12],
                 "suggested_questions": starter_prompts,
                 "elapsed_sec": round(time.perf_counter() - t0, 2),
             }
