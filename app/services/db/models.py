@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from app.services.db.database import Base
+
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
 
 def _utcnow() -> datetime:
@@ -28,10 +30,10 @@ class DocumentRecord(Base):
         Integer, default=1, server_default=text("1"), nullable=False
     )
     sections_json: Mapped[list] = mapped_column(
-        JSONB, default=list
+        JSON_TYPE, default=list
     )  # Extracted TOC / section titles + page spans
     suggested_questions_json: Mapped[list] = mapped_column(
-        JSONB, default=list, server_default=text("'[]'::jsonb")
+        JSON_TYPE, default=list, server_default="[]"
     )
     status: Mapped[str] = mapped_column(String(32), default="ready")
     uploaded_by: Mapped[str] = mapped_column(String(100), default="default_user")
@@ -62,8 +64,8 @@ class AuditRun(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
 
-    missed_topics_json: Mapped[list] = mapped_column(JSONB, default=list)
-    cited_chunks_json: Mapped[list] = mapped_column(JSONB, default=list)
+    missed_topics_json: Mapped[list] = mapped_column(JSON_TYPE, default=list)
+    cited_chunks_json: Mapped[list] = mapped_column(JSON_TYPE, default=list)
     evaluation_notes: Mapped[str] = mapped_column(Text, default="")
     repair_notes: Mapped[str] = mapped_column(Text, default="")
     langsmith_run_url: Mapped[str] = mapped_column(Text, default="")
@@ -81,7 +83,7 @@ class AuditLog(Base):
     run_id: Mapped[str] = mapped_column(String(64), index=True, nullable=True)
     user_id: Mapped[str] = mapped_column(String(100), default="default_user")
     action: Mapped[str] = mapped_column(String(64), nullable=False)
-    detail: Mapped[dict] = mapped_column(JSONB, default=dict)
+    detail: Mapped[dict] = mapped_column(JSON_TYPE, default=dict)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
     )
@@ -98,7 +100,7 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)  # user | assistant
     content: Mapped[str] = mapped_column(Text, nullable=False)
     video_url: Mapped[str] = mapped_column(Text, default="")
-    citations_json: Mapped[list] = mapped_column(JSONB, default=list)
+    citations_json: Mapped[list] = mapped_column(JSON_TYPE, default=list)
     run_id: Mapped[str] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow
