@@ -1,6 +1,8 @@
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Dict, List, Optional
+from app.services.retrieval.embedding import embed_texts
 from app.services.retrieval.pinecone_service import PineconeService, get_pinecone_index
 
 
@@ -8,78 +10,57 @@ def upsert_document_chunks(
     doc_id: str,
     filename: str,
     chunks: List[Dict[str, Any]],
+    upsert_batch_size: int = 200,
     progress_cb: Optional[Callable[[str], None]] = None,
 ) -> int:
-    """
-    High-speed Pinecone indexer built for both small syllabi and 100MB+ textbooks:
-      - Automatically scales chunk window (1,500 chars for <80 pages, 2,800 chars for 80+ pages)
-      - Uses hosted Pinecone Inference for zero-RAM 768-dim embeddings
-      - Upserts in batches of 100 vectors
-    """
+    """Embeds chunks in parallel 96-text batches via Pinecone Inference (no torch) and upserts in parallel."""
     if not chunks:
         return 0
 
-    t0 = time.perf_counter()
-    index = get_pinecone_index()
+    texts = [str(c.get("text") or "").strip() for c in chunks]
+    valid_pairs = [(c, t) for c, t in zip(chunks, texts) if t]
+    if not valid_pairs:
+        return 0
 
-    # Scale chunk size dynamically for huge textbooks (e.g., 91MB / 400+ pages)
-    max_chunk_chars = 2800 if len(chunks) > 80 else 1500
+    clean_chunks, clean_texts = zip(*valid_pairs)
 
-    merged_chunks: List[Dict[str, Any]] = []
-    for ch in chunks:
-        txt = (ch.get("text") or "").strip()
-        if not txt:
-            continue
-        if (
-            merged_chunks
-            and len(merged_chunks[-1]["text"]) + len(txt) <= max_chunk_chars
-        ):
-            merged_chunks[-1]["text"] += "\n" + txt
-        else:
-            merged_chunks.append(
-                {
-                    "section_title": ch.get("section_title") or f"Page {ch.get('page_number', 1)}",
-                    "chapter": ch.get("chapter", ""),
-                    "page_number": int(ch.get("page_number") or 1),
-                    "text": txt[:max_chunk_chars],
-                }
-            )
+    # 1. Parallel 96-batch hosted embedding via Pinecone Inference API (no local PyTorch)
+    vectors = embed_texts(list(clean_texts), is_query=False, batch_size=96)
 
-    if progress_cb:
-        progress_cb(f"Embedding {len(merged_chunks)} consolidated sections...")
-
-    from app.services.retrieval.embedding import embed_texts
-
-    texts = [c["text"] for c in merged_chunks]
-    embeddings = embed_texts(texts, is_query=False, batch_size=96)
-
-    if progress_cb:
-        progress_cb(f"Upserting {len(merged_chunks)} vectors into Pinecone...")
-
-    vectors = []
-    for idx, (ch, vec) in enumerate(zip(merged_chunks, embeddings)):
-        vectors.append(
+    # 2. Build Pinecone records
+    records = []
+    for idx, (chunk, text, vec) in enumerate(zip(clean_chunks, clean_texts, vectors)):
+        records.append(
             {
-                "id": f"{doc_id}-c{idx:04d}",
-                "values": vec if isinstance(vec, list) else (vec.tolist() if hasattr(vec, "tolist") else list(vec)),
+                "id": f"{doc_id}_p{chunk.get('page_number', idx + 1)}_{idx}",
+                "values": vec,
                 "metadata": {
                     "doc_id": doc_id,
-                    "filename": filename,
                     "doc_name": filename,
-                    "record_type": "child",
-                    "section_title": ch["section_title"][:200],
-                    "chapter": str(ch["chapter"])[:120],
-                    "page_number": ch["page_number"],
-                    "text": ch["text"][:2200],
+                    "filename": filename,
+                    "section_title": str(chunk.get("section_title") or "Overview")[:120],
+                    "chapter": str(chunk.get("chapter") or chunk.get("section_title") or "Overview")[:120],
+                    "page_number": int(chunk.get("page_number") or (idx + 1)),
+                    "text": text[:3500],
+                    "parent_text": text[:3500],
                 },
             }
         )
 
-    for start in range(0, len(vectors), 200):
-        index.upsert(vectors=vectors[start : start + 200])
+    # 3. Parallel Pinecone upsert in 200-vector batches
+    index = get_pinecone_index()
+    upsert_batches = [
+        records[i : i + upsert_batch_size]
+        for i in range(0, len(records), upsert_batch_size)
+    ]
 
-    print(f"[Pinecone Fast Index] Indexed {len(vectors)} chunks for '{filename}' in {time.perf_counter() - t0:.2f}s")
-    return len(vectors)
+    if len(upsert_batches) == 1:
+        index.upsert(vectors=upsert_batches[0])
+    else:
+        with ThreadPoolExecutor(max_workers=min(4, len(upsert_batches))) as pool:
+            list(pool.map(lambda b: index.upsert(vectors=b), upsert_batches))
+
+    return len(records)
 
 
 def fetch_scoped_chunks_with_vectors(
