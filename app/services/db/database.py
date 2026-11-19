@@ -18,15 +18,16 @@ class Base(DeclarativeBase):
 
 
 _settings = get_settings()
-_direct_url = _normalize_pg_url(_settings.DATABASE_URL)
+_direct_url = _normalize_pg_url(_settings.DATABASE_URL or "sqlite:///cache/audit_cache.db")
 _runtime_url = _normalize_pg_url(
-    _settings.DATABASE_URL_POOLED or _settings.DATABASE_URL
+    _settings.DATABASE_URL_POOLED or _settings.DATABASE_URL or "sqlite:///cache/audit_cache.db"
 )
 
 # Direct engine for DDL / table creation; NullPool runtime engine for Neon PgBouncer
-direct_engine = create_engine(_direct_url, pool_pre_ping=True)
+_connect_args = {"check_same_thread": False} if "sqlite" in _direct_url else {}
+direct_engine = create_engine(_direct_url, pool_pre_ping=True, connect_args=_connect_args)
 runtime_engine = (
-    create_engine(_runtime_url, poolclass=NullPool, pool_pre_ping=True)
+    create_engine(_runtime_url, poolclass=NullPool, pool_pre_ping=True, connect_args=_connect_args)
     if _settings.DATABASE_URL_POOLED
     else direct_engine
 )
@@ -39,21 +40,25 @@ def init_db() -> None:
     from app.services.db import models  # noqa: F401
 
     Base.metadata.create_all(bind=direct_engine)
-    with direct_engine.begin() as connection:
-        connection.execute(
-            text(
-                "ALTER TABLE documents "
-                "ADD COLUMN IF NOT EXISTS suggested_questions_json "
-                "JSONB NOT NULL DEFAULT '[]'::jsonb"
-            )
-        )
-        connection.execute(
-            text(
-                "ALTER TABLE documents "
-                "ADD COLUMN IF NOT EXISTS index_version "
-                "INTEGER NOT NULL DEFAULT 1"
-            )
-        )
+    if "postgres" in _direct_url:
+        try:
+            with direct_engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "ALTER TABLE documents "
+                        "ADD COLUMN IF NOT EXISTS suggested_questions_json "
+                        "JSONB NOT NULL DEFAULT '[]'::jsonb"
+                    )
+                )
+                connection.execute(
+                    text(
+                        "ALTER TABLE documents "
+                        "ADD COLUMN IF NOT EXISTS index_version "
+                        "INTEGER NOT NULL DEFAULT 1"
+                    )
+                )
+        except Exception:
+            pass
 
 
 @contextmanager

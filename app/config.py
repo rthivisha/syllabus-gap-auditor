@@ -20,14 +20,14 @@ class Settings(BaseSettings):
     SKILLS_MD_PATH: Path = Path("skills/skills.md")
 
     # --- Neon PostgreSQL ---
-    DATABASE_URL: str
+    DATABASE_URL: str = "sqlite:///cache/audit_cache.db"
     DATABASE_URL_POOLED: Optional[str] = None
 
     # LLM Models (used by app/gateway/client.py)
     EXTRACTION_MODEL: str = "gemini-3.5-flash-lite"
 
     # --- Pinecone Serverless (768d) ---
-    PINECONE_API_KEY: str
+    PINECONE_API_KEY: str = ""
     PINECONE_INDEX_NAME: str = "syllabus-gap-audit-vec"
     PINECONE_CLOUD: str = "aws"
     PINECONE_REGION: str = "us-east-1"

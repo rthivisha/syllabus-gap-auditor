@@ -56,10 +56,24 @@ app = modal.App("syllabus-gap-audit-backend", image=image)
 def fastapi_app():
     import os
     import sys
+    import traceback
 
     os.environ["HF_HUB_OFFLINE"] = "1"
     sys.path.insert(0, "/root/project")
     os.chdir("/root/project")
 
-    from app.main import app as web_app
-    return web_app
+    try:
+        from app.main import app as web_app
+        return web_app
+    except Exception:
+        # If any import fails, return a diagnostic FastAPI app showing the exact traceback at /docs
+        from fastapi import FastAPI
+        err_trace = traceback.format_exc()
+        print(err_trace)
+        fallback = FastAPI(title="Startup Error Diagnostic")
+
+        @fallback.get("/{full_path:path}")
+        def show_err(full_path: str):
+            return {"status": "startup_error", "traceback": err_trace}
+
+        return fallback
