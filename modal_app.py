@@ -14,6 +14,8 @@ image = (
         "python-dotenv",
         "pydantic>=2.0",
         "pydantic-settings",
+        "sqlalchemy",
+        "psycopg[binary]",
         "langgraph",
         "langchain",
         "langchain-core",
@@ -31,7 +33,6 @@ image = (
         "httpx",
         "requests",
         "sse-starlette",
-        "sqlalchemy",
     )
     .run_commands(
         "python -c \"from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-base-en-v1.5')\"",
