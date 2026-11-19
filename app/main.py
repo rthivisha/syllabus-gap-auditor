@@ -53,8 +53,8 @@ from app.services.job_tracker import get_job_state, set_job_stage
 app = FastAPI(title="Syllabus & Book Gap Finder API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501"],
-    allow_credentials=False,
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -16,7 +16,17 @@ from ui.components import architecture_board
 importlib.reload(architecture_board)
 from ui.components.architecture_board import render_live_ingestion_board
 
-API_BASE = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
+def _get_api_base() -> str:
+    try:
+        if "API_BASE_URL" in st.secrets:
+            return str(st.secrets["API_BASE_URL"]).rstrip("/")
+        if "BACKEND_URL" in st.secrets:
+            return str(st.secrets["BACKEND_URL"]).rstrip("/")
+    except Exception:
+        pass
+    return os.getenv("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+
+API_BASE = _get_api_base()
 
 st.set_page_config(
     page_title="Syllabus Gap Audit AI",
