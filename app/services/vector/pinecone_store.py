@@ -75,8 +75,8 @@ def upsert_document_chunks(
             }
         )
 
-    for start in range(0, len(vectors), 100):
-        index.upsert(vectors=vectors[start : start + 100])
+    for start in range(0, len(vectors), 200):
+        index.upsert(vectors=vectors[start : start + 200])
 
     print(f"[Pinecone Fast Index] Indexed {len(vectors)} chunks for '{filename}' in {time.perf_counter() - t0:.2f}s")
     return len(vectors)

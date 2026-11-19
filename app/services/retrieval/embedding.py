@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from typing import List
 
@@ -8,43 +9,65 @@ from app.config import get_settings
 
 
 class _PineconeRemoteEmbedder:
-    """768-dim hosted embedder via Pinecone Inference API (uses existing PINECONE_API_KEY, zero local RAM)."""
+    """768-dim hosted embedder via Pinecone Inference API with 96-batch parallel throughput."""
 
     def __init__(self, api_key: str, model_name: str = "BAAI/bge-base-en-v1.5") -> None:
         self.pc = Pinecone(api_key=api_key)
-        # Map HF model name to Pinecone Inference model ID
         self.model = "bge-base-en-v1.5" if "bge-base" in model_name else model_name
+
+    def _embed_batch(
+        self, batch: List[str], input_type: str, normalize_embeddings: bool
+    ) -> List[List[float]]:
+        try:
+            res = self.pc.inference.embed(
+                model=self.model,
+                inputs=batch,
+                parameters={"input_type": input_type, "truncate": "END"},
+            )
+        except Exception:
+            res = self.pc.inference.embed(
+                model="llama-text-embed-v2",
+                inputs=batch,
+                parameters={"input_type": input_type, "truncate": "END", "dimension": 768},
+            )
+        out: List[List[float]] = []
+        for item in res.data:
+            vec = np.asarray(item["values"], dtype=np.float32)
+            if normalize_embeddings:
+                norm = np.linalg.norm(vec)
+                if norm > 1e-12:
+                    vec = vec / norm
+            out.append(vec.tolist())
+        return out
 
     def encode(
         self,
         texts: List[str],
-        batch_size: int = 32,
+        batch_size: int = 96,
         normalize_embeddings: bool = True,
         show_progress_bar: bool = False,
         input_type: str = "passage",
     ) -> np.ndarray:
-        all_vecs: List[List[float]] = []
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i : i + batch_size]
-            try:
-                res = self.pc.inference.embed(
-                    model=self.model,
-                    inputs=batch,
-                    parameters={"input_type": input_type, "truncate": "END"},
-                )
-            except Exception:
-                res = self.pc.inference.embed(
-                    model="llama-text-embed-v2",
-                    inputs=batch,
-                    parameters={"input_type": input_type, "truncate": "END", "dimension": 768},
-                )
-            for item in res.data:
-                vec = np.asarray(item["values"], dtype=np.float32)
-                if normalize_embeddings:
-                    norm = np.linalg.norm(vec)
-                    if norm > 1e-12:
-                        vec = vec / norm
-                all_vecs.append(vec.tolist())
+        if not texts:
+            return np.zeros((0, 768), dtype=np.float32)
+
+        # Pinecone hosted inference maximum batch size is 96
+        effective_batch = min(max(batch_size, 64), 96)
+        batches = [
+            texts[i : i + effective_batch]
+            for i in range(0, len(texts), effective_batch)
+        ]
+
+        if len(batches) == 1:
+            all_vecs = self._embed_batch(batches[0], input_type, normalize_embeddings)
+        else:
+            with ThreadPoolExecutor(max_workers=min(5, len(batches))) as pool:
+                futures = [
+                    pool.submit(self._embed_batch, b, input_type, normalize_embeddings)
+                    for b in batches
+                ]
+                all_vecs = [vec for f in futures for vec in f.result()]
+
         return np.asarray(all_vecs, dtype=np.float32)
 
 
@@ -63,7 +86,7 @@ def get_embedder():
 
 
 def embed_texts(
-    texts: List[str], is_query: bool = False, batch_size: int = 32
+    texts: List[str], is_query: bool = False, batch_size: int = 96
 ) -> List[List[float]]:
     if not texts:
         return []
@@ -91,8 +114,8 @@ def embed_texts(
     return vectors.tolist()
 
 
-def batch_encode_texts(texts: List[str], batch_size: int = 32) -> np.ndarray:
-    """Encode unprefixed video-window text in one normalized batch."""
+def batch_encode_texts(texts: List[str], batch_size: int = 96) -> np.ndarray:
+    """Encode unprefixed video-window text in one normalized parallel batch."""
     settings = get_settings()
     if not texts:
         return np.zeros((0, settings.EMBEDDING_DIM), dtype=np.float32)

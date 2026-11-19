@@ -53,9 +53,15 @@ class PineconeService:
         """
         records: List[Dict[str, Any]] = []
 
-        # 1. Embed & package Child Chunks
+        # Single-pass parallel batch embedding for child chunks and section summaries
         child_texts = [c["child_text"] for c in child_chunks]
-        child_vecs = embed_texts(child_texts, is_query=False)
+        sec_texts = [f"{s['section_title']}: {s['summary']}" for s in section_summaries]
+        all_texts = child_texts + sec_texts
+        all_vecs = embed_texts(all_texts, is_query=False, batch_size=96)
+        child_vecs = all_vecs[: len(child_texts)]
+        sec_vecs = all_vecs[len(child_texts) :]
+
+        # 1. Package Child Chunks
         for c, vec in zip(child_chunks, child_vecs):
             records.append(
                 {
@@ -74,9 +80,7 @@ class PineconeService:
                 }
             )
 
-        # 2. Embed & package Section Summaries (for Map-Reduce Coverage Inventory)
-        sec_texts = [f"{s['section_title']}: {s['summary']}" for s in section_summaries]
-        sec_vecs = embed_texts(sec_texts, is_query=False)
+        # 2. Package Section Summaries (for Map-Reduce Coverage Inventory)
         for s, vec in zip(section_summaries, sec_vecs):
             records.append(
                 {
@@ -97,8 +101,9 @@ class PineconeService:
         if records:
             self.index.delete(filter={"doc_id": {"$eq": doc_id}})
 
-        for i in range(0, len(records), batch_size):
-            self.index.upsert(vectors=records[i : i + batch_size])
+        upsert_batch = max(batch_size, 200)
+        for i in range(0, len(records), upsert_batch):
+            self.index.upsert(vectors=records[i : i + upsert_batch])
 
         return len(records)
 

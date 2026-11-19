@@ -591,6 +591,24 @@ async def api_upload_document_stream(
             stem = Path(filename).stem.lower().replace(" ", "-")
             doc_id = f"{stem}-{content_hash}"
 
+            from app.services.db.repository import get_document
+            existing_doc = get_document(doc_id)
+            if existing_doc and existing_doc.get("status") == "ready" and existing_doc.get("chunk_count", 0) > 0:
+                payload = {
+                    "status": "ready",
+                    "doc_id": doc_id,
+                    "filename": filename,
+                    "doc_name": filename,
+                    "page_count": existing_doc.get("page_count", 0),
+                    "chunk_count": existing_doc.get("chunk_count", 0),
+                    "sections": existing_doc.get("sections", [])[:12],
+                    "suggested_questions": existing_doc.get("suggested_questions", []),
+                    "elapsed_sec": round(time.perf_counter() - t0, 2),
+                    "from_cache": True,
+                }
+                yield f"data: {json.dumps({'type': 'done', 'payload': payload})}\n\n"
+                return
+
             yield f"data: {json.dumps({'type': 'step', 'step': 1, 'text': 'Extracting PDF pages...'})}\n\n"
 
             import fitz
