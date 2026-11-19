@@ -11,6 +11,7 @@ image = (
         "fastapi[standard]",
         "uvicorn",
         "python-multipart",
+        "python-dotenv",
         "pydantic>=2.0",
         "pydantic-settings",
         "langgraph",
@@ -18,8 +19,10 @@ image = (
         "langchain-core",
         "langchain-groq",
         "langchain-google-genai",
+        "langsmith",
         "google-genai",
         "pinecone",
+        "rank-bm25",
         "flashrank",
         "sentence-transformers",
         "pymupdf",
@@ -29,7 +32,6 @@ image = (
         "requests",
         "sse-starlette",
         "sqlalchemy",
-        "python-dotenv",
     )
     .run_commands(
         "python -c \"from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-base-en-v1.5')\"",
@@ -56,24 +58,10 @@ app = modal.App("syllabus-gap-audit-backend", image=image)
 def fastapi_app():
     import os
     import sys
-    import traceback
 
     os.environ["HF_HUB_OFFLINE"] = "1"
     sys.path.insert(0, "/root/project")
     os.chdir("/root/project")
 
-    try:
-        from app.main import app as web_app
-        return web_app
-    except Exception:
-        # If any import fails, return a diagnostic FastAPI app showing the exact traceback at /docs
-        from fastapi import FastAPI
-        err_trace = traceback.format_exc()
-        print(err_trace)
-        fallback = FastAPI(title="Startup Error Diagnostic")
-
-        @fallback.get("/{full_path:path}")
-        def show_err(full_path: str):
-            return {"status": "startup_error", "traceback": err_trace}
-
-        return fallback
+    from app.main import app as web_app
+    return web_app
