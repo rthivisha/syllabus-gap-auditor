@@ -51,7 +51,7 @@ def upsert_document_chunks(
     from app.services.retrieval.embedding import embed_texts
 
     texts = [c["text"] for c in merged_chunks]
-    embeddings = embed_texts(texts, is_query=False, batch_size=32)
+    embeddings = embed_texts(texts, is_query=False, batch_size=96)
 
     if progress_cb:
         progress_cb(f"Upserting {len(merged_chunks)} vectors into Pinecone...")

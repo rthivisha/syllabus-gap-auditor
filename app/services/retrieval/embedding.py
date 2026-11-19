@@ -74,15 +74,19 @@ class _PineconeRemoteEmbedder:
 @lru_cache(maxsize=1)
 def get_embedder():
     settings = get_settings()
-    pc_key = os.getenv("PINECONE_API_KEY") or settings.PINECONE_API_KEY
-    if pc_key:
-        return _PineconeRemoteEmbedder(api_key=pc_key, model_name=settings.EMBEDDING_MODEL)
-
-    try:
-        from sentence_transformers import SentenceTransformer
-        return SentenceTransformer(settings.EMBEDDING_MODEL)
-    except ImportError:
-        return _PineconeRemoteEmbedder(api_key=pc_key or "", model_name=settings.EMBEDDING_MODEL)
+    pc_key = (
+        os.getenv("PINECONE_API_KEY")
+        or getattr(settings, "PINECONE_API_KEY", "")
+    )
+    if not pc_key:
+        try:
+            import streamlit as st
+            pc_key = st.secrets.get("PINECONE_API_KEY", "")
+        except Exception:
+            pass
+    if not pc_key:
+        raise ValueError("PINECONE_API_KEY is missing in environment/secrets.")
+    return _PineconeRemoteEmbedder(api_key=pc_key, model_name=settings.EMBEDDING_MODEL)
 
 
 def embed_texts(
