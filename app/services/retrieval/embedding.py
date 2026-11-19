@@ -3,21 +3,17 @@ from functools import lru_cache
 from typing import List
 
 import numpy as np
-import requests
+from pinecone import Pinecone
 from app.config import get_settings
 
-HF_API_URL = "https://router.huggingface.co/hf-inference/models/BAAI/bge-base-en-v1.5/pipeline/feature-extraction"
 
+class _PineconeRemoteEmbedder:
+    """768-dim hosted embedder via Pinecone Inference API (uses existing PINECONE_API_KEY, zero local RAM)."""
 
-class _HFRemoteEmbedder:
-    """Lightweight 768-dim BGE-base client via Hugging Face Inference API (zero local PyTorch RAM)."""
-
-    def __init__(self, model_name: str, api_token: str | None = None) -> None:
-        self.model_name = model_name
-        self.url = f"https://router.huggingface.co/hf-inference/models/{model_name}/pipeline/feature-extraction"
-        self.headers = {"Content-Type": "application/json"}
-        if api_token:
-            self.headers["Authorization"] = f"Bearer {api_token}"
+    def __init__(self, api_key: str, model_name: str = "BAAI/bge-base-en-v1.5") -> None:
+        self.pc = Pinecone(api_key=api_key)
+        # Map HF model name to Pinecone Inference model ID
+        self.model = "bge-base-en-v1.5" if "bge-base" in model_name else model_name
 
     def encode(
         self,
@@ -25,42 +21,45 @@ class _HFRemoteEmbedder:
         batch_size: int = 32,
         normalize_embeddings: bool = True,
         show_progress_bar: bool = False,
+        input_type: str = "passage",
     ) -> np.ndarray:
         all_vecs: List[List[float]] = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
-            resp = requests.post(
-                self.url,
-                headers=self.headers,
-                json={"inputs": batch, "options": {"wait_for_model": True}},
-                timeout=60,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # Handle both 2D [batch, 768] and 3D token-pooled [batch, seq, 768] responses
-            arr = np.asarray(data, dtype=np.float32)
-            if arr.ndim == 3:
-                arr = arr.mean(axis=1)
-            if normalize_embeddings and len(arr) > 0:
-                norms = np.linalg.norm(arr, axis=1, keepdims=True)
-                arr = arr / np.maximum(norms, 1e-12)
-            all_vecs.extend(arr.tolist())
+            try:
+                res = self.pc.inference.embed(
+                    model=self.model,
+                    inputs=batch,
+                    parameters={"input_type": input_type, "truncate": "END"},
+                )
+            except Exception:
+                res = self.pc.inference.embed(
+                    model="llama-text-embed-v2",
+                    inputs=batch,
+                    parameters={"input_type": input_type, "truncate": "END", "dimension": 768},
+                )
+            for item in res.data:
+                vec = np.asarray(item["values"], dtype=np.float32)
+                if normalize_embeddings:
+                    norm = np.linalg.norm(vec)
+                    if norm > 1e-12:
+                        vec = vec / norm
+                all_vecs.append(vec.tolist())
         return np.asarray(all_vecs, dtype=np.float32)
 
 
 @lru_cache(maxsize=1)
 def get_embedder():
     settings = get_settings()
-    hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACEHUB_API_TOKEN")
-    # Use lightweight remote API when running in cloud or when HF_TOKEN is set
-    if hf_token or os.getenv("USE_REMOTE_EMBEDDINGS", "1") == "1":
-        return _HFRemoteEmbedder(settings.EMBEDDING_MODEL, api_token=hf_token)
+    pc_key = os.getenv("PINECONE_API_KEY") or settings.PINECONE_API_KEY
+    if pc_key:
+        return _PineconeRemoteEmbedder(api_key=pc_key, model_name=settings.EMBEDDING_MODEL)
 
     try:
         from sentence_transformers import SentenceTransformer
         return SentenceTransformer(settings.EMBEDDING_MODEL)
     except ImportError:
-        return _HFRemoteEmbedder(settings.EMBEDDING_MODEL, api_token=hf_token)
+        return _PineconeRemoteEmbedder(api_key=pc_key or "", model_name=settings.EMBEDDING_MODEL)
 
 
 def embed_texts(
@@ -69,6 +68,15 @@ def embed_texts(
     if not texts:
         return []
     embedder = get_embedder()
+    if isinstance(embedder, _PineconeRemoteEmbedder):
+        vectors = embedder.encode(
+            texts,
+            batch_size=batch_size,
+            normalize_embeddings=True,
+            input_type="query" if is_query else "passage",
+        )
+        return vectors.tolist()
+
     formatted = (
         [f"Represent this sentence for searching relevant passages: {t}" for t in texts]
         if is_query

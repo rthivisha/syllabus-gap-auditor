@@ -62,10 +62,10 @@ def classify_semantic_intent(
     except Exception:
         ql = q.lower()
         if "youtube.com/" in ql or "youtu.be/" in ql or "audit" in ql:
-            return "audit"
-        if any(w in ql for w in ("project", "architecture", "how does this work", "hi", "hello", "hey", "help")):
+            return "gap_audit"
+        if any(w in ql for w in ("project", "architecture", "how does this", "hi", "hello", "hey")):
             return "project_guide"
-        return "pdf_qa" if has_active_doc else "project_guide"
+        return "rag_qa"
 
     # 3. Borderline semantic tie -> 0.25s Groq classification
     if not has_active_doc:
