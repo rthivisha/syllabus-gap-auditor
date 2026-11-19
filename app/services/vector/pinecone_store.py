@@ -13,7 +13,7 @@ def upsert_document_chunks(
     """
     High-speed Pinecone indexer built for both small syllabi and 100MB+ textbooks:
       - Automatically scales chunk window (1,500 chars for <80 pages, 2,800 chars for 80+ pages)
-      - Enables full multi-core PyTorch CPU threading + max_seq_length=256
+      - Uses hosted Pinecone Inference for zero-RAM 768-dim embeddings
       - Upserts in batches of 100 vectors
     """
     if not chunks:
@@ -48,21 +48,10 @@ def upsert_document_chunks(
     if progress_cb:
         progress_cb(f"Embedding {len(merged_chunks)} consolidated sections...")
 
-    import torch
-    torch.set_num_threads(max(4, os.cpu_count() or 4))
-
-    from app.services.vector.embeddings import get_embedding_model
-    model = get_embedding_model()
-    if hasattr(model, "max_seq_length"):
-        model.max_seq_length = 256
+    from app.services.retrieval.embedding import embed_texts
 
     texts = [c["text"] for c in merged_chunks]
-    embeddings = model.encode(
-        texts,
-        batch_size=128,
-        show_progress_bar=False,
-        normalize_embeddings=True,
-    )
+    embeddings = embed_texts(texts, is_query=False, batch_size=32)
 
     if progress_cb:
         progress_cb(f"Upserting {len(merged_chunks)} vectors into Pinecone...")
@@ -72,7 +61,7 @@ def upsert_document_chunks(
         vectors.append(
             {
                 "id": f"{doc_id}-c{idx:04d}",
-                "values": vec.tolist() if hasattr(vec, "tolist") else list(vec),
+                "values": vec if isinstance(vec, list) else (vec.tolist() if hasattr(vec, "tolist") else list(vec)),
                 "metadata": {
                     "doc_id": doc_id,
                     "filename": filename,
