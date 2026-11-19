@@ -7,33 +7,8 @@ image = (
         "SENTENCE_TRANSFORMERS_HOME": "/root/.cache/huggingface",
         "TOKENIZERS_PARALLELISM": "false",
     })
-    .pip_install(
-        "fastapi[standard]",
-        "uvicorn",
-        "python-multipart",
-        "python-dotenv",
-        "pydantic>=2.0",
-        "pydantic-settings",
-        "sqlalchemy",
-        "psycopg[binary]",
-        "langgraph",
-        "langchain",
-        "langchain-core",
-        "langchain-groq",
-        "langchain-google-genai",
-        "langsmith",
-        "google-genai",
-        "pinecone",
-        "rank-bm25",
-        "flashrank",
-        "sentence-transformers",
-        "pymupdf",
-        "youtube-transcript-api",
-        "numpy",
-        "httpx",
-        "requests",
-        "sse-starlette",
-    )
+    .pip_install_from_requirements("requirements-modal.txt")
+    .pip_install("fastapi[standard]", "uvicorn")
     .run_commands(
         "python -c \"from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-base-en-v1.5')\"",
         "python -c \"from flashrank import Ranker; Ranker(model_name='ms-marco-MiniLM-L-12-v2')\"",
@@ -59,10 +34,23 @@ app = modal.App("syllabus-gap-audit-backend", image=image)
 def fastapi_app():
     import os
     import sys
+    import traceback
 
     os.environ["HF_HUB_OFFLINE"] = "1"
     sys.path.insert(0, "/root/project")
     os.chdir("/root/project")
 
-    from app.main import app as web_app
-    return web_app
+    try:
+        from app.main import app as web_app
+        return web_app
+    except Exception:
+        from fastapi import FastAPI
+        err = traceback.format_exc()
+        print(err)
+        fallback = FastAPI(title="Startup Diagnostic")
+
+        @fallback.get("/{path:path}")
+        def show_error(path: str):
+            return {"status": "startup_error", "traceback": err}
+
+        return fallback
