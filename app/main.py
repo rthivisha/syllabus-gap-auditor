@@ -368,8 +368,10 @@ def health() -> Dict[str, str]:
 def _get_total_llm_turns(user_id: str) -> int:
     try:
         return count_completed_llm_turns(user_id)
-    except Exception:
+    except Exception as exc:
+        logger.warning("Quota DB lookup unavailable for %s (%s); defaulting to 0.", user_id, exc)
         try:
+            from app.services.db.database import init_db
             init_db()
         except Exception:
             pass

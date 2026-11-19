@@ -1,21 +1,7 @@
-import json
 import os
-import sys
-import threading
-import time
-import uuid
-from pathlib import Path
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-
-import requests
 import streamlit as st
-import uvicorn
-import importlib
 
-# 1. Inject all Streamlit Cloud secrets into os.environ BEFORE FastAPI/settings loads
+# MUST run at the very top of ui/app.py BEFORE any `from app...` or `uvicorn.run("app.main:app")`!
 try:
     for k, v in st.secrets.items():
         if isinstance(v, (str, int, float, bool)):
@@ -27,6 +13,20 @@ try:
 except Exception:
     pass
 
+import importlib
+import json
+import sys
+import threading
+import time
+import uuid
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+import requests
+import uvicorn
 from ui.components import architecture_board
 importlib.reload(architecture_board)
 from ui.components.architecture_board import render_live_ingestion_board
