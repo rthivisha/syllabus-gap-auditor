@@ -1,9 +1,19 @@
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from typing import Any, Callable, Dict, List, Optional
+from pinecone import Pinecone
+from app.config import get_settings
 from app.services.retrieval.embedding import embed_texts
-from app.services.retrieval.pinecone_service import PineconeService, get_pinecone_index
+
+
+@lru_cache(maxsize=1)
+def get_pinecone_index():
+    settings = get_settings()
+    api_key = os.getenv("PINECONE_API_KEY") or settings.PINECONE_API_KEY
+    index_name = os.getenv("PINECONE_INDEX_NAME") or settings.PINECONE_INDEX_NAME
+    return Pinecone(api_key=api_key).Index(index_name)
 
 
 def upsert_document_chunks(
@@ -145,7 +155,6 @@ def fetch_scoped_chunks_with_vectors(
 
 
 __all__ = [
-    "PineconeService",
     "fetch_scoped_chunks_with_vectors",
     "get_pinecone_index",
     "upsert_document_chunks",
