@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -11,10 +12,37 @@ if str(ROOT_DIR) not in sys.path:
 
 import requests
 import streamlit as st
+import uvicorn
 import importlib
 from ui.components import architecture_board
 importlib.reload(architecture_board)
 from ui.components.architecture_board import render_live_ingestion_board
+
+
+@st.cache_resource
+def start_embedded_backend():
+    try:
+        if requests.get("http://127.0.0.1:8000/docs", timeout=1).status_code == 200:
+            return True
+    except Exception:
+        pass
+
+    def _run():
+        uvicorn.run("app.main:app", host="127.0.0.1", port=8000, log_level="warning")
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    # Wait up to 15s for FastAPI to accept connections
+    for _ in range(30):
+        try:
+            if requests.get("http://127.0.0.1:8000/docs", timeout=1).status_code == 200:
+                return True
+        except Exception:
+            time.sleep(0.5)
+    return False
+
+
+start_embedded_backend()
 
 def _get_api_base() -> str:
     for key in ("API_BASE_URL", "BACKEND_URL"):
