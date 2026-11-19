@@ -157,21 +157,26 @@ def _is_substantive_section(sec: Dict[str, Any]) -> bool:
 def _select_gap_candidates(
     candidates: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    substantive = [s for s in candidates if _is_substantive_section(s)] or candidates
-    # Keep all sections where video coverage is weak (< 0.68), evenly sampled across the entire PDF
+    substantive = [s for s in candidates if _is_substantive_section(s)]
+    if not substantive:
+        return []
+
+    # True omissions have both low dense similarity (< 0.54) and low reranker score (< 0.45)
     gap_pool = [
         s for s in substantive
-        if s.get("flashrank_score", s.get("rerank_score", s.get("best_video_similarity", 1.0))) < 0.68
-    ] or substantive
-    gap_pool.sort(key=lambda x: int(x.get("page_number") or 1))
+        if float(s.get("bi_encoder_score", 1.0)) < 0.54
+        and float(s.get("rerank_score", 1.0)) < 0.45
+    ]
 
-    # Evenly sample up to 12 sections across the full page range so the whole PDF is represented!
-    if len(gap_pool) > 12:
-        step = len(gap_pool) / 12.0
-        selected_sections = [gap_pool[int(i * step)] for i in range(12)]
-    else:
-        selected_sections = gap_pool
-    return selected_sections
+    # NEVER fall back to `or substantive` — if 0 sections are below threshold, 0 topics were missed!
+    if not gap_pool:
+        return []
+
+    # Rank by lowest coverage first, then preserve page order across up to 10 genuine gaps
+    gap_pool.sort(key=lambda x: (float(x.get("rerank_score", 1.0)), int(x.get("page_number") or 1)))
+    top_gaps = gap_pool[:10]
+    top_gaps.sort(key=lambda x: int(x.get("page_number") or 1))
+    return top_gaps
 
 
 def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
@@ -195,6 +200,13 @@ def retrieve_syllabus_evidence_node(state: AuditGraphState) -> Dict[str, Any]:
     else:
         scoped_titles = set(raw_scoped)
     video_windows = state.get("video_windows", [])
+    total_transcript_chars = sum(
+        len(str(w.get("combined_text") or "").strip()) for w in video_windows
+    )
+    if not video_windows or total_transcript_chars < 120:
+        raise ValueError(
+            "No spoken transcript could be extracted from this YouTube video (captions may be disabled or blocked on cloud IP)."
+        )
 
     pc = PineconeService()
     t0 = time.perf_counter()

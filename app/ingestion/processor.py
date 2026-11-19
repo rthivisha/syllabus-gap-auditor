@@ -171,11 +171,27 @@ def get_or_parse_video(source: str, force_refresh: bool = False) -> Dict[str, An
             ).fetchone()
             if row:
                 data = json.loads(row[0])
-                data["from_cache"] = True
-                return data
+                cached_windows = data.get("windows") or []
+                cached_chars = sum(
+                    len(str(w.get("combined_text") or "").strip()) for w in cached_windows
+                )
+                if not data.get("passed_guard") or cached_chars >= 120:
+                    data["from_cache"] = True
+                    return data
 
     parsed = parse_video_source(source)
     parsed["from_cache"] = False
+
+    windows = parsed.get("windows") or []
+    transcript_chars = sum(
+        len(str(w.get("combined_text") or "").strip()) for w in windows
+    )
+    if parsed.get("passed_guard") and transcript_chars < 120:
+        parsed["passed_guard"] = False
+        parsed["guard_reason"] = (
+            "YouTube captions could not be fetched from this server (captions disabled or cloud IP blocked). "
+            "Try a video with English captions enabled."
+        )
 
     if parsed.get("passed_guard"):
         payload_str = json.dumps(parsed, indent=2)
