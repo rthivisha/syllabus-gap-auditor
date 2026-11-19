@@ -7,7 +7,10 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import cv2
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 import imagehash
 import pytesseract
 import yt_dlp
@@ -50,6 +53,8 @@ def _extract_compressed_audio(video_file: Path, audio_out: Path) -> None:
 def _extract_unique_slide_ocr(
     video_file: Path, min_conf: float = 0.65, sample_every_sec: int = 8
 ) -> tuple[List[Dict[str, Any]], float]:
+    if cv2 is None:
+        return [], 0.0
     cap = cv2.VideoCapture(str(video_file))
     slides: List[Dict[str, Any]] = []
     confs: List[float] = []

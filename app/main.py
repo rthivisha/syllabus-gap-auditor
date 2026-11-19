@@ -33,8 +33,6 @@ from app.ingestion.processor import (
 from app.agents.nodes.scope_router import resolve_audit_scope
 from app.config import get_settings
 from app.guardrails.rails import YOUTUBE_URL_RE, sanitize_transcript_text
-from app.services.retrieval.embedding import get_embedder
-from app.services.retrieval.ranking_service import get_flashranker
 from app.services.db.database import init_db
 from app.services.db.repository import (
     count_completed_llm_turns,
@@ -51,24 +49,12 @@ from app.services.db.repository import (
 )
 from app.services.job_tracker import get_job_state, set_job_stage
 
-def _background_warmup() -> None:
-    try:
-        get_embedder()
-        get_flashranker()
-        from app.agents.nodes.intent_router import _get_anchor_vectors
-        _get_anchor_vectors()
-        print("[Warmup] BGE-base & FlashRank models preloaded in background.")
-    except Exception as exc:
-        print(f"[Warmup] Skipped/failed: {exc}")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         init_db()
     except Exception as exc:
         logger.warning("DB init error: %s", exc)
-    threading.Thread(target=_background_warmup, daemon=True).start()
     yield
 
 
