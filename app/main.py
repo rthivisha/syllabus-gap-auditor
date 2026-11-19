@@ -368,11 +368,12 @@ def health() -> Dict[str, str]:
 def _get_total_llm_turns(user_id: str) -> int:
     try:
         return count_completed_llm_turns(user_id)
-    except SQLAlchemyError as exc:
-        logger.exception("Could not read completed LLM turn count for user %s.", user_id)
-        raise HTTPException(
-            status_code=503, detail="LLM quota service is temporarily unavailable."
-        ) from exc
+    except Exception:
+        try:
+            init_db()
+        except Exception:
+            pass
+        return 0
 
 
 def _active_user_reservations(user_id: str) -> int:
