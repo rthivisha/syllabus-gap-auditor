@@ -17,14 +17,13 @@ importlib.reload(architecture_board)
 from ui.components.architecture_board import render_live_ingestion_board
 
 def _get_api_base() -> str:
-    try:
-        if "API_BASE_URL" in st.secrets:
-            return str(st.secrets["API_BASE_URL"]).rstrip("/")
-        if "BACKEND_URL" in st.secrets:
-            return str(st.secrets["BACKEND_URL"]).rstrip("/")
-    except Exception:
-        pass
-    return os.getenv("API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+    for key in ("API_BASE_URL", "BACKEND_URL"):
+        try:
+            if key in st.secrets and st.secrets[key]:
+                return str(st.secrets[key]).strip().rstrip("/")
+        except Exception:
+            pass
+    return os.getenv("API_BASE_URL", os.getenv("BACKEND_URL", "http://127.0.0.1:8000")).strip().rstrip("/")
 
 API_BASE = _get_api_base()
 
