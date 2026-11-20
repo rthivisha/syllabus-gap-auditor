@@ -118,7 +118,15 @@ def pdf_qa_node(state: AuditGraphState) -> Dict[str, Any]:
 
     outline_block = ""
     if sections_list:
-        clean_outline = [s for s in sections_list if "table of contents" not in s.lower()][:25]
+        raw_titles = [
+            s.get("section_title", "") if isinstance(s, dict) else str(s)
+            for s in sections_list
+        ]
+        clean_outline = [
+            t.strip()
+            for t in raw_titles
+            if t and t.strip() and "table of contents" not in t.strip().lower()
+        ][:25]
         if clean_outline:
             outline_block = f"INDEXED DOCUMENT SECTIONS: {', '.join(clean_outline)}\n"
 
