@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -20,10 +21,11 @@ def upsert_document_chunks(
     doc_id: str,
     filename: str,
     chunks: List[Dict[str, Any]],
-    upsert_batch_size: int = 200,
+    max_batch_bytes: int = 1_400_000,  # Stay safely under Pinecone's 2MB hard limit
+    max_batch_vectors: int = 50,
     progress_cb: Optional[Callable[[str], None]] = None,
 ) -> int:
-    """Embeds chunks in parallel 96-text batches via Pinecone Inference (no torch) and upserts in parallel."""
+    """Embeds chunks in parallel 96-text batches and upserts in <1.4MB byte-bounded batches."""
     if not chunks:
         return 0
 
@@ -37,43 +39,56 @@ def upsert_document_chunks(
 
     clean_chunks, clean_texts = zip(*valid_pairs)
 
-    # 1. Parallel 96-batch hosted embedding via Pinecone Inference API (no local PyTorch)
+    # 1. Parallel 96-batch hosted embedding via Pinecone Inference API (no torch)
     vectors = embed_texts(list(clean_texts), is_query=False, batch_size=96)
 
-    # 2. Build Pinecone records
-    records = []
+    # 2. Build Pinecone records & pack into byte-safe (<1.4MB) batches
+    upsert_batches: List[List[Dict[str, Any]]] = []
+    current_batch: List[Dict[str, Any]] = []
+    current_bytes = 0
+    total_records = 0
+
     for idx, (chunk, text, vec) in enumerate(zip(clean_chunks, clean_texts, vectors)):
-        records.append(
-            {
-                "id": f"{doc_id}_p{chunk.get('page_number', idx + 1)}_{idx}",
-                "values": vec,
-                "metadata": {
-                    "doc_id": doc_id,
-                    "doc_name": filename,
-                    "filename": filename,
-                    "section_title": str(chunk.get("section_title") or "Overview")[:120],
-                    "chapter": str(chunk.get("chapter") or chunk.get("section_title") or "Overview")[:120],
-                    "page_number": int(chunk.get("page_number") or (idx + 1)),
-                    "text": text[:3500],
-                    "parent_text": str(chunk.get("parent_text") or text)[:3500],
-                },
-            }
-        )
+        record = {
+            "id": f"{doc_id}_p{chunk.get('page_number', idx + 1)}_{idx}",
+            "values": vec,
+            "metadata": {
+                "doc_id": doc_id,
+                "doc_name": filename,
+                "filename": filename,
+                "section_title": str(chunk.get("section_title") or "Overview")[:120],
+                "chapter": str(chunk.get("chapter") or chunk.get("section_title") or "Overview")[:120],
+                "page_number": int(chunk.get("page_number") or (idx + 1)),
+                "text": text[:2800],
+                "parent_text": str(chunk.get("parent_text") or text)[:2800],
+            },
+        }
+        rec_bytes = len(json.dumps(record).encode("utf-8"))
 
-    # 3. Parallel Pinecone upsert in 200-vector batches
+        if current_batch and (
+            current_bytes + rec_bytes > max_batch_bytes
+            or len(current_batch) >= max_batch_vectors
+        ):
+            upsert_batches.append(current_batch)
+            current_batch = []
+            current_bytes = 0
+
+        current_batch.append(record)
+        current_bytes += rec_bytes
+        total_records += 1
+
+    if current_batch:
+        upsert_batches.append(current_batch)
+
+    # 3. Parallel Pinecone upsert across byte-safe batches
     index = get_pinecone_index()
-    upsert_batches = [
-        records[i : i + upsert_batch_size]
-        for i in range(0, len(records), upsert_batch_size)
-    ]
-
     if len(upsert_batches) == 1:
         index.upsert(vectors=upsert_batches[0])
     else:
-        with ThreadPoolExecutor(max_workers=min(4, len(upsert_batches))) as pool:
+        with ThreadPoolExecutor(max_workers=min(5, len(upsert_batches))) as pool:
             list(pool.map(lambda b: index.upsert(vectors=b), upsert_batches))
 
-    return len(records)
+    return total_records
 
 
 def fetch_scoped_chunks_with_vectors(
