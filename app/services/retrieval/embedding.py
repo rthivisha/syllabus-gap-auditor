@@ -43,7 +43,7 @@ class _PineconeRemoteEmbedder:
     def encode(
         self,
         texts: List[str],
-        batch_size: int = 96,
+        batch_size: int = 32,
         normalize_embeddings: bool = True,
         show_progress_bar: bool = False,
         input_type: str = "passage",
@@ -51,12 +51,29 @@ class _PineconeRemoteEmbedder:
         if not texts:
             return np.zeros((0, 768), dtype=np.float32)
 
-        # Pinecone hosted inference maximum batch size is 96
-        effective_batch = min(max(batch_size, 64), 96)
-        batches = [
-            texts[i : i + effective_batch]
-            for i in range(0, len(texts), effective_batch)
-        ]
+        # Build byte-safe (<900 KB) and count-safe (<=48) batches for Pinecone Inference (2MB hard limit)
+        max_batch_items = min(max(batch_size, 1), 48)
+        max_batch_bytes = 900_000
+        batches: List[List[str]] = []
+        cur_batch: List[str] = []
+        cur_bytes = 0
+
+        for t in texts:
+            # Truncate individual embedding input to 4,000 chars (~512 BGE tokens max anyway)
+            safe_t = t[:4000]
+            t_bytes = len(safe_t.encode("utf-8"))
+            if cur_batch and (
+                len(cur_batch) >= max_batch_items
+                or cur_bytes + t_bytes > max_batch_bytes
+            ):
+                batches.append(cur_batch)
+                cur_batch = []
+                cur_bytes = 0
+            cur_batch.append(safe_t)
+            cur_bytes += t_bytes
+
+        if cur_batch:
+            batches.append(cur_batch)
 
         if len(batches) == 1:
             all_vecs = self._embed_batch(batches[0], input_type, normalize_embeddings)
