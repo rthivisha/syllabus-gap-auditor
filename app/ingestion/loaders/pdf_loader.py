@@ -53,12 +53,18 @@ def _is_toc_or_front_matter(page_text: str) -> bool:
 
 
 def _extract_markdown_tables(page: fitz.Page) -> Tuple[str, List[fitz.Rect]]:
-    """Deterministically extracts native PDF tables as Markdown and returns their bounding boxes."""
+    """Fast-guarded deterministic table extraction: skips pages without vector grid lines."""
+    # Skip expensive find_tables() geometric scan on pages with < 6 vector line drawings
+    if len(page.get_drawings()) < 6:
+        return "", []
+
     md_blocks: List[str] = []
     bboxes: List[fitz.Rect] = []
     try:
         finder = page.find_tables()
         for tbl in finder.tables:
+            if tbl.row_count < 2 or tbl.col_count < 2:
+                continue
             md = tbl.to_markdown().strip()
             if md and len(md) >= 25:
                 md_blocks.append(f"\n[TABLE]\n{md}\n[/TABLE]\n")
@@ -148,7 +154,22 @@ def load_pdf_sections(pdf_path: Path, max_ocr_pages: int = 25) -> Dict[str, Any]
             pix = page.get_pixmap(dpi=150, colorspace=fitz.csGRAY, alpha=False)
             ocr_candidates.append((rec, pix.tobytes("png")))
 
+    raw_toc: List[Any] = []
+    try:
+        raw_toc = doc.get_toc() or []
+    except Exception:
+        raw_toc = []
+
     doc.close()
+
+    toc_map: Dict[int, str] = {}
+    if raw_toc:
+        for item in raw_toc:
+            if len(item) >= 3:
+                lvl, title, p_num = item[0], str(item[1]).strip(), int(item[2])
+                if lvl <= 2 and title and len(title) >= 3 and not _is_toc_or_front_matter(title):
+                    if p_num not in toc_map:
+                        toc_map[p_num] = title
 
     # Run selective OCR in parallel threads (releases GIL in Tesseract C++)
     if ocr_candidates:
@@ -178,31 +199,48 @@ def load_pdf_sections(pdf_path: Path, max_ocr_pages: int = 25) -> Dict[str, Any]
         if len(txt) < 60:
             continue
 
-        first_lines = [
-            ln.strip()
-            for ln in txt.splitlines()[:5]
-            if not ln.startswith("[TABLE]") and not ln.startswith("[OCR_")
-        ]
-        for candidate in first_lines:
-            if (
-                5 <= len(candidate) <= 85
-                and not candidate.endswith(".")
-                and "table of contents" not in candidate.lower()
-            ):
-                if current_pages and candidate != current_title:
-                    sections.append(
-                        {
-                            "section_title": current_title,
-                            "chapter": current_title,
-                            "start_page": current_pages[0]["page_number"],
-                            "end_page": current_pages[-1]["page_number"],
-                            "pages": current_pages,
-                            "text": "\n\n".join(p["text"] for p in current_pages),
-                        }
-                    )
-                    current_pages = []
-                current_title = candidate
-                break
+        p_num = rec["page_number"]
+        if toc_map and p_num in toc_map:
+            candidate = toc_map[p_num]
+            if current_pages and candidate != current_title:
+                sections.append(
+                    {
+                        "section_title": current_title,
+                        "chapter": current_title,
+                        "start_page": current_pages[0]["page_number"],
+                        "end_page": current_pages[-1]["page_number"],
+                        "pages": current_pages,
+                        "text": "\n\n".join(p["text"] for p in current_pages),
+                    }
+                )
+                current_pages = []
+            current_title = candidate
+        elif not toc_map:
+            first_lines = [
+                ln.strip()
+                for ln in txt.splitlines()[:5]
+                if not ln.startswith("[TABLE]") and not ln.startswith("[OCR_")
+            ]
+            for candidate in first_lines:
+                if (
+                    5 <= len(candidate) <= 85
+                    and not candidate.endswith(".")
+                    and "table of contents" not in candidate.lower()
+                ):
+                    if current_pages and candidate != current_title:
+                        sections.append(
+                            {
+                                "section_title": current_title,
+                                "chapter": current_title,
+                                "start_page": current_pages[0]["page_number"],
+                                "end_page": current_pages[-1]["page_number"],
+                                "pages": current_pages,
+                                "text": "\n\n".join(p["text"] for p in current_pages),
+                            }
+                        )
+                        current_pages = []
+                    current_title = candidate
+                    break
 
         current_pages.append(rec)
 

@@ -81,9 +81,15 @@ def resolve_audit_scope(
             "scoped_section_titles": [],
         }
 
-    available_titles = [s["section_title"] for s in doc_sections]
+    available_titles = [
+        s.get("section_title", "") if isinstance(s, dict) else str(s)
+        for s in doc_sections
+    ]
+    available_titles = [t.strip() for t in available_titles if t.strip()]
     toc_preview = "\n".join(
-        f"- {s['section_title']} (Pages {s.get('start_page', 1)}-{s.get('end_page', 1)})"
+        f"- {s.get('section_title', str(s))} (Pages {s.get('start_page', 1)}-{s.get('end_page', 1)})"
+        if isinstance(s, dict)
+        else f"- {s}"
         for s in doc_sections[:30]
     )
 

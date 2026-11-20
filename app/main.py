@@ -1001,6 +1001,14 @@ def api_chat_turn_stream(req: ChatTurnRequest) -> StreamingResponse:
 
 def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
     doc = get_document(req.doc_id) if req.doc_id else None
+    if doc:
+        raw_sections = doc.get("sections") or []
+        clean_sections = [
+            s.get("section_title", "") if isinstance(s, dict) else str(s)
+            for s in raw_sections
+        ]
+        doc["sections"] = [t.strip() for t in clean_sections if t and t.strip()]
+
     sanitized_msg = sanitize_transcript_text(req.message)
     clean_msg = _strip_mode_tag(sanitized_msg)
     message_url = _extract_url_from_text(clean_msg)
@@ -1084,7 +1092,10 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
             and not has_scope_hint
         ):
             toc_examples = (
-                ", ".join(s["section_title"] for s in doc["sections"][:3])
+                ", ".join(
+                    s.get("section_title", "") if isinstance(s, dict) else str(s)
+                    for s in doc["sections"][:3]
+                )
                 or "Chapter 1"
             )
             reply = (
