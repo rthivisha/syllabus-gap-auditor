@@ -583,6 +583,19 @@ else:
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            missed = msg.get("missed_topics") or msg.get("gap_topics") or []
+            if missed and isinstance(missed, list) and len(missed) > 0:
+                with st.expander(f"⚠️ Uncovered Syllabus Gaps ({len(missed)})", expanded=True):
+                    for g in missed[:10]:
+                        if isinstance(g, dict):
+                            sec = g.get("section_title") or f"Page {g.get('page_number', '?')}"
+                            desc = g.get("summary") or g.get("description") or g.get("reason") or g.get("explanation") or ""
+                            pg = g.get("page_number", "")
+                            pg_str = f" (p. {pg})" if pg else ""
+                            st.markdown(f"- **{sec}{pg_str}**: {desc}")
+                        elif isinstance(g, str):
+                            st.markdown(f"- {g}")
+
             sources = msg.get("sources") or msg.get("citations") or []
             if sources:
                 st.caption("📚 Verified Document Sources")
@@ -613,9 +626,9 @@ if active_prompt:
         st.markdown(active_prompt)
 
     with st.chat_message("assistant"):
-        with st.status("Running LangGraph Inverse-RAG pipeline...", expanded=True) as run_status:
-            t0 = time.perf_counter()
-            final_payload, err_msg = None, None
+        t0 = time.perf_counter()
+        final_payload, err_msg = None, None
+        with st.status("🚀 Starting chat turn...", expanded=True) as status:
             payload = {
                 "session_id": st.session_state.session_id,
                 "user_id": st.session_state.visitor_id,
@@ -652,7 +665,7 @@ if active_prompt:
 
                             evt_type = evt.get("type", "")
                             if evt_type == "stage":
-                                run_status.update(label=evt.get("text", "Processing..."), state="running")
+                                status.update(label=evt.get("text", "Processing..."), state="running")
                             elif evt_type in ("done", "result", "final"):
                                 final_payload = evt.get("payload") if isinstance(evt.get("payload"), dict) else evt
                             elif evt_type == "error":
@@ -675,81 +688,102 @@ if active_prompt:
 
             elapsed = round(time.perf_counter() - t0, 2)
             if err_msg:
-                run_status.update(label=f"Failed ({elapsed}s)", state="error")
-                st.error(err_msg)
+                status.update(label=f"Failed ({elapsed:.2f}s)", state="error")
             elif final_payload is not None:
-                has_byok = bool(st.session_state.get("byok_gemini_key") or st.session_state.get("byok_groq_key"))
-                if not has_byok:
-                    st.session_state.guest_calls_used += 1
-
-                final_answer = (
-                    final_payload.get("reply")
-                    or final_payload.get("chat_response")
-                    or final_payload.get("answer")
-                    or final_payload.get("final_answer")
-                    or final_payload.get("response")
-                    or final_payload.get("message")
-                    or final_payload.get("content")
-                    or ""
-                ).strip()
-
-                final_sources = (
-                    final_payload.get("citations")
-                    or final_payload.get("sources")
-                    or final_payload.get("retrieved_evidence")
-                    or final_payload.get("cited_chunks")
-                    or []
-                )
-
-                final_missed_topics = (
-                    final_payload.get("missed_topics")
-                    or final_payload.get("gap_topics")
-                    or final_payload.get("missed_gaps")
-                    or []
-                )
-
-                if not final_answer:
-                    error_detail = (
-                        final_payload.get("error")
-                        or final_payload.get("detail")
-                        or "Audit pipeline returned an empty response."
-                    )
-                    run_status.update(label=f"Failed ({elapsed}s)", state="error")
-                    st.error(f"⚠️ {error_detail}")
-                else:
-                    run_status.update(label=f"Completed in {elapsed}s", state="complete", expanded=False)
-                    trace_data = final_payload.get("trace") or {}
-                    st.session_state.last_audit_trace = {
-                        "elapsed_sec": elapsed,
-                        "latency_ms": trace_data.get("latency_ms", elapsed * 1000),
-                        "windows_count": trace_data.get("windows_count", 0),
-                        "sections_checked": trace_data.get("sections_checked", 0),
-                        "evaluator_status": trace_data.get("evaluator_status", "passed"),
-                        "retry_count": trace_data.get("retry_count", 0),
-                    }
-                    st.markdown(final_answer)
-                    if final_sources:
-                        st.caption("📚 Verified Document Sources")
-                        s_cols = st.columns(min(3, len(final_sources)))
-                        for s_idx, src in enumerate(final_sources[:3]):
-                            with s_cols[s_idx]:
-                                with st.container(border=True):
-                                    st.markdown(f"**Page {src.get('page_number', '?')}** · *{src.get('section_title', '')[:42]}*")
-                                    quote = (src.get("text") or src.get("evidence_quote") or src.get("snippet") or src.get("parent_text") or "")[:180]
-                                    st.caption(f"{quote}...")
-
-                    st.session_state["messages"].append(
-                        {
-                            "role": "assistant",
-                            "content": final_answer,
-                            "sources": final_sources,
-                            "missed_topics": final_missed_topics,
-                        }
-                    )
-                    st.session_state.awaiting_scope = (
-                        "would you like to analyze this video" in final_answer.lower()
-                        or bool(final_payload.get("awaiting_scope"))
-                    )
+                status.update(label=f"Completed in {elapsed:.2f}s", state="complete", expanded=False)
             else:
-                run_status.update(label=f"Failed ({elapsed}s)", state="error")
-                st.error("⚠️ Connection closed without returning a response.")
+                status.update(label=f"Failed ({elapsed:.2f}s)", state="error")
+
+        # Render final response OUTSIDE st.status so it stays openly visible!
+        if err_msg:
+            st.error(err_msg)
+        elif final_payload is not None:
+            has_byok = bool(st.session_state.get("byok_gemini_key") or st.session_state.get("byok_groq_key"))
+            if not has_byok:
+                st.session_state.guest_calls_used += 1
+
+            final_answer = (
+                final_payload.get("reply")
+                or final_payload.get("chat_response")
+                or final_payload.get("answer")
+                or final_payload.get("final_answer")
+                or final_payload.get("response")
+                or final_payload.get("message")
+                or final_payload.get("content")
+                or ""
+            ).strip()
+
+            final_sources = (
+                final_payload.get("citations")
+                or final_payload.get("sources")
+                or final_payload.get("retrieved_evidence")
+                or final_payload.get("cited_chunks")
+                or []
+            )
+
+            final_missed_topics = (
+                final_payload.get("missed_topics")
+                or final_payload.get("gap_topics")
+                or final_payload.get("missed_gaps")
+                or []
+            )
+
+            if not final_answer:
+                error_detail = (
+                    final_payload.get("error")
+                    or final_payload.get("detail")
+                    or "Audit pipeline returned an empty response."
+                )
+                st.error(f"⚠️ {error_detail}")
+            else:
+                trace_data = final_payload.get("trace") or {}
+                st.session_state.last_audit_trace = {
+                    "elapsed_sec": elapsed,
+                    "latency_ms": trace_data.get("latency_ms", elapsed * 1000),
+                    "windows_count": trace_data.get("windows_count", 0),
+                    "sections_checked": trace_data.get("sections_checked", 0),
+                    "evaluator_status": trace_data.get("evaluator_status", "passed"),
+                    "retry_count": trace_data.get("retry_count", 0),
+                }
+
+                # 1. Final Answer
+                st.markdown(final_answer)
+
+                # 2. Missed Topics Table / Expander
+                if final_missed_topics and isinstance(final_missed_topics, list) and len(final_missed_topics) > 0:
+                    with st.expander(f"⚠️ Uncovered Syllabus Gaps ({len(final_missed_topics)})", expanded=True):
+                        for g in final_missed_topics[:10]:
+                            if isinstance(g, dict):
+                                sec = g.get("section_title") or f"Page {g.get('page_number', '?')}"
+                                desc = g.get("summary") or g.get("description") or g.get("reason") or g.get("explanation") or ""
+                                pg = g.get("page_number", "")
+                                pg_str = f" (p. {pg})" if pg else ""
+                                st.markdown(f"- **{sec}{pg_str}**: {desc}")
+                            elif isinstance(g, str):
+                                st.markdown(f"- {g}")
+
+                # 3. Verified Document Sources Cards
+                if final_sources:
+                    st.caption("📚 Verified Document Sources")
+                    s_cols = st.columns(min(3, len(final_sources)))
+                    for s_idx, src in enumerate(final_sources[:3]):
+                        with s_cols[s_idx]:
+                            with st.container(border=True):
+                                st.markdown(f"**Page {src.get('page_number', '?')}** · *{src.get('section_title', '')[:42]}*")
+                                quote = (src.get("text") or src.get("evidence_quote") or src.get("snippet") or src.get("parent_text") or "")[:180]
+                                st.caption(f"{quote}...")
+
+                st.session_state["messages"].append(
+                    {
+                        "role": "assistant",
+                        "content": final_answer,
+                        "sources": final_sources,
+                        "missed_topics": final_missed_topics,
+                    }
+                )
+                st.session_state.awaiting_scope = (
+                    "would you like to analyze this video" in final_answer.lower()
+                    or bool(final_payload.get("awaiting_scope"))
+                )
+        else:
+            st.error("⚠️ Connection closed without returning a response.")
