@@ -139,17 +139,18 @@ def resolve_audit_scope(
         kw_low = kw.lower().strip()
         num_match = re.search(r"\b(\d+)\b", kw_low)
         for title in available_titles:
-            t_low = title.lower().strip()
+            raw_title = title.get("section_title", "") if isinstance(title, dict) else str(title or "")
+            t_low = raw_title.lower().strip()
             if num_match:
                 ch_num = num_match.group(1)
                 # Match "Chapter 1 ...", "Unit 1 ...", or sub-sections "1.1 ...", "1.2 ..." ONLY
                 if re.match(rf"^(chapter|unit|module)\s+0?{ch_num}\b", t_low) or re.match(
                     rf"^0?{ch_num}\.\d+\b", t_low
                 ):
-                    if title not in matched:
-                        matched.append(title)
-            elif kw_low in t_low and title not in matched:
-                matched.append(title)
+                    if raw_title not in matched:
+                        matched.append(raw_title)
+            elif kw_low in t_low and raw_title not in matched:
+                matched.append(raw_title)
 
 
 

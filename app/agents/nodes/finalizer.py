@@ -21,7 +21,10 @@ def finalize_and_escalate_node(state: AuditGraphState) -> Dict[str, Any]:
     )
     verdict = state.get("evaluator_verdict", "FAIL")
     attempt = state.get("attempt", 0)
-    flagged_set = {t.lower() for t in state.get("flagged_topics", [])}
+    flagged_set = {
+        (t.get("topic_title", "") if isinstance(t, dict) else str(t)).lower()
+        for t in state.get("flagged_topics", [])
+    }
     eval_passed = verdict == "PASS"
     final_verdict = "passed" if eval_passed else "failed"
 
