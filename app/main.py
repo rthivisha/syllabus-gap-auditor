@@ -1001,13 +1001,14 @@ def api_chat_turn_stream(req: ChatTurnRequest) -> StreamingResponse:
 
 def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
     doc = get_document(req.doc_id) if req.doc_id else None
+    raw_secs = (doc or {}).get("sections") or []
+    clean_secs = [
+        s.get("section_title", "") if isinstance(s, dict) else str(s)
+        for s in raw_secs
+    ]
+    clean_secs = [t.strip() for t in clean_secs if t and t.strip()]
     if doc:
-        raw_sections = doc.get("sections") or []
-        clean_sections = [
-            s.get("section_title", "") if isinstance(s, dict) else str(s)
-            for s in raw_sections
-        ]
-        doc["sections"] = [t.strip() for t in clean_sections if t and t.strip()]
+        doc["sections"] = clean_secs
 
     sanitized_msg = sanitize_transcript_text(req.message)
     clean_msg = _strip_mode_tag(sanitized_msg)
@@ -1163,6 +1164,7 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
                 "user_id": req.user_id,
                 "doc_id": doc["doc_id"],
                 "doc_name": doc["doc_name"],
+                "sections": clean_secs,
                 "video_url": detected_url,
                 "raw_transcript": req.raw_transcript,
                 "user_query": sanitized_msg,
@@ -1312,6 +1314,7 @@ def _process_chat_turn(req: ChatTurnRequest) -> Dict[str, Any]:
             "doc_name": doc["doc_name"] if doc else "",
             "page_count": doc.get("page_count", 0) if doc else 0,
             "chunk_count": doc.get("chunk_count", 0) if doc else 0,
+            "sections": clean_secs,
             "user_query": sanitized_msg,
             "video_url": "",
             "prior_clarification_asked": False,
