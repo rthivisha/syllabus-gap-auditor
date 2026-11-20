@@ -1,14 +1,37 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 from langchain_core.messages import HumanMessage, SystemMessage
 from app.agents.state import AuditGraphState
 from app.gateway.client import get_fast_groq_llm
+from app.services.db.repository import get_document
 from app.services.job_tracker import set_job_stage
-from app.services.vector.embeddings import batch_encode_texts
+from app.services.retrieval.embedding import embed_texts
 from app.services.vector.pinecone_store import get_pinecone_index
+
+_OVERVIEW_KEYWORDS = (
+    "topic",
+    "topics",
+    "about",
+    "contain",
+    "contains",
+    "summary",
+    "summarize",
+    "overview",
+    "chapter",
+    "chapters",
+    "outline",
+    "table of contents",
+    "what is this pdf",
+    "what does this pdf",
+)
+
+
+def _is_overview_query(query: str) -> bool:
+    q = query.lower().strip()
+    return any(kw in q for kw in _OVERVIEW_KEYWORDS)
 
 
 def pdf_qa_node(state: AuditGraphState) -> Dict[str, Any]:
-    """Sub-2s grounded PDF Q&A: single Pinecone HNSW query (no FlashRank) + Groq synthesis."""
+    """Grounded PDF Q&A: asymmetric BGE query embedding, TOC filtering, full parent context, and section outline."""
     session_id = state.get("session_id", "")
     doc_id = state.get("doc_id", "")
     doc_name = state.get("doc_name") or "Active PDF"
@@ -22,39 +45,82 @@ def pdf_qa_node(state: AuditGraphState) -> Dict[str, Any]:
         }
 
     set_job_stage(session_id, f"⚡ Querying {doc_name}...")
-    q_vec = batch_encode_texts([query])[0].tolist()
+
+    doc_meta = get_document(doc_id) or {}
+    if page_count == "unknown" and doc_meta.get("page_count"):
+        page_count = doc_meta["page_count"]
+    indexed_chunks_count = doc_meta.get("chunk_count", "unknown")
+    sections_list: List[str] = doc_meta.get("sections") or []
+
+    is_overview = _is_overview_query(query)
+    # Use asymmetric query embedding (input_type="query") instead of passage encoding
+    q_vec = embed_texts([query], is_query=True, batch_size=1)[0]
+
     res = get_pinecone_index().query(
         vector=q_vec,
         filter={"doc_id": {"$eq": doc_id}},
-        top_k=5,
+        top_k=12 if is_overview else 8,
         include_metadata=True,
         include_values=False,
     )
 
     matches = res.get("matches", []) if isinstance(res, dict) else getattr(res, "matches", [])
-    chunks = []
+    chunks: List[Dict[str, Any]] = []
+    seen_pages_sections = set()
+
     for m in matches:
         meta = m.get("metadata", {}) if isinstance(m, dict) else (getattr(m, "metadata", None) or {})
+        sec_title = str(meta.get("section_title") or "").strip()
+        full_text = str(
+            meta.get("parent_text")
+            or meta.get("text")
+            or meta.get("child_text")
+            or ""
+        ).strip()
+
+        if not full_text:
+            continue
+
+        # Skip TOC / dot-leader stub chunks so real chapter content surfaces first
+        if "table of contents" in sec_title.lower() or full_text.count("....") >= 3:
+            continue
+
+        dedup_key = (meta.get("page_number", 1), sec_title, full_text[:80])
+        if dedup_key in seen_pages_sections:
+            continue
+        seen_pages_sections.add(dedup_key)
+
         chunks.append(
             {
                 "chunk_id": m.get("id") if isinstance(m, dict) else getattr(m, "id", ""),
                 "page_number": meta.get("page_number", 1),
-                "section_title": meta.get("section_title", ""),
-                "text": meta.get("text", "") or meta.get("parent_text", "") or meta.get("child_text", ""),
-                "bi_encoder_score": round(float(m.get("score") if isinstance(m, dict) else getattr(m, "score", 0.0) or 0.0), 3),
+                "section_title": sec_title,
+                "text": full_text,
+                "bi_encoder_score": round(
+                    float(m.get("score") if isinstance(m, dict) else getattr(m, "score", 0.0) or 0.0),
+                    3,
+                ),
             }
         )
 
     if not chunks:
         return {
-            "chat_response": f"No indexed chunks found for **{doc_name}**. Try re-ingesting the PDF in Step 1.",
+            "chat_response": f"No substantive indexed chunks found for **{doc_name}**. Try re-ingesting the PDF in Step 1.",
             "route_taken": "pdf_qa",
         }
 
-    context_block = "\n".join(
-        f"- [Page {c['page_number']} | {c['section_title']}]: {c['text'][:280]}"
-        for c in chunks
+    selected_chunks = chunks[:6] if is_overview else chunks[:5]
+    # Pass up to 1,400 chars per chunk (instead of 280) so full paragraphs, tables, and OCR blocks are readable
+    context_block = "\n\n".join(
+        f"[Page {c['page_number']} | {c['section_title']}]\n{c['text'][:1400]}"
+        for c in selected_chunks
     )
+
+    outline_block = ""
+    if sections_list:
+        clean_outline = [s for s in sections_list if "table of contents" not in s.lower()][:25]
+        if clean_outline:
+            outline_block = f"INDEXED DOCUMENT SECTIONS: {', '.join(clean_outline)}\n"
 
     llm = get_fast_groq_llm(
         user_groq_key=state.get("user_groq_key"),
@@ -65,10 +131,12 @@ def pdf_qa_node(state: AuditGraphState) -> Dict[str, Any]:
             SystemMessage(
                 content=(
                     f"You are the Syllabus Gap Audit AI assistant.\n"
-                    f"ACTIVE PDF: '{doc_name}' ({page_count} pages).\n"
-                    "Answer concisely using ONLY the retrieved excerpts below and cite exact page numbers (e.g., Page 12).\n"
+                    f"ACTIVE PDF: '{doc_name}' ({page_count} pages, {indexed_chunks_count} indexed chunks).\n"
+                    f"{outline_block}"
+                    "Answer clearly and thoroughly using ONLY the retrieved excerpts and indexed sections below, citing exact page numbers (e.g., Page 12).\n"
+                    "If the user asks what topics or chapters the PDF covers, synthesize a clear structured overview from the indexed sections and excerpts.\n"
                     "End with a 1-sentence follow-up inviting the user to paste a YouTube lecture URL to audit missed topics.\n\n"
-                    f"=== EXCERPTS ===\n{context_block}"
+                    f"=== RETRIEVED EXCERPTS ===\n{context_block}"
                 )
             ),
             HumanMessage(content=query),
@@ -78,7 +146,7 @@ def pdf_qa_node(state: AuditGraphState) -> Dict[str, Any]:
     answer = resp.content if isinstance(resp.content, str) else str(resp.content)
     return {
         "chat_response": answer,
-        "retrieved_evidence": chunks[:3],
-        "cited_chunks": chunks[:3],
+        "retrieved_evidence": selected_chunks[:3],
+        "cited_chunks": selected_chunks[:3],
         "route_taken": "pdf_qa",
     }

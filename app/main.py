@@ -580,7 +580,7 @@ async def api_upload_document_stream(
 
             content_hash = hashlib.sha256(raw_bytes).hexdigest()[:10]
             stem = Path(filename).stem.lower().replace(" ", "-")
-            doc_id = f"{stem}-v2-{content_hash}"
+            doc_id = f"{stem}-v3-{content_hash}"
 
             from app.services.db.repository import get_document
             existing_doc = get_document(doc_id)
