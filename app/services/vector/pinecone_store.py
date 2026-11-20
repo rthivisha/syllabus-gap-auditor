@@ -61,6 +61,8 @@ def upsert_document_chunks(
                 "page_number": int(chunk.get("page_number") or (idx + 1)),
                 "text": text[:2800],
                 "parent_text": str(chunk.get("parent_text") or text)[:2800],
+                "has_tables": bool(chunk.get("has_tables", False)),
+                "ocr_applied": bool(chunk.get("ocr_applied", False)),
             },
         }
         rec_bytes = len(json.dumps(record).encode("utf-8"))
@@ -159,6 +161,8 @@ def fetch_scoped_chunks_with_vectors(
                 or md.get("text", ""),
                 "score": round(float(score or 0.0), 4),
                 "values": values,
+                "has_tables": bool(md.get("has_tables", False)),
+                "ocr_applied": bool(md.get("ocr_applied", False)),
             }
         )
 

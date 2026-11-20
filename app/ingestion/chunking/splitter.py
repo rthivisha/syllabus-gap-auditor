@@ -13,50 +13,97 @@ def _split_sentences(text: str) -> List[str]:
     ]
 
 
-def _coalesce_child_chunks(
-    child_chunks: List[Dict[str, Any]], max_chars: int = 1500
-) -> List[Dict[str, Any]]:
-    if max_chars < 1:
-        raise ValueError("max_chars must be positive.")
+def _extract_page_blocks(text: str, max_atomic_chars: int = 2800) -> List[Dict[str, Any]]:
+    """
+    Extracts atomic blocks from page text:
+    - [TABLE]...[/TABLE] blocks are kept atomic (only force-split if exceeding max_atomic_chars)
+    - [OCR_DIAGRAM_TEXT]... blocks are kept atomic (only force-split if exceeding max_atomic_chars)
+    - Normal paragraphs are split on \\n\\n
+    """
+    if not text:
+        return []
 
-    merged: List[Dict[str, Any]] = []
-    for chunk in child_chunks:
-        text = str(chunk.get("child_text") or "").strip()
-        if not text:
+    # Regex to split on [TABLE]...[/TABLE] blocks while keeping them intact
+    table_pattern = re.compile(r"(\[TABLE\][\s\S]*?\[/TABLE\])", re.IGNORECASE)
+    parts = table_pattern.split(text)
+    blocks: List[Dict[str, Any]] = []
+
+    for part in parts:
+        raw_part = part.strip()
+        if not raw_part:
             continue
 
-        parts: List[str] = []
-        while len(text) > max_chars:
-            split_at = text.rfind(" ", 0, max_chars + 1)
-            if split_at <= 0:
-                split_at = max_chars
-            parts.append(text[:split_at].strip())
-            text = text[split_at:].strip()
-        if text:
-            parts.append(text)
-
-        for part_idx, part in enumerate(parts):
-            part_chunk = dict(chunk)
-            if part_idx:
-                part_chunk["chunk_id"] = f"{chunk['chunk_id']}-part{part_idx + 1}"
-            part_chunk["child_text"] = part
-
-            previous = merged[-1] if merged else None
-            combined = (
-                f"{previous['child_text']}\n{part}" if previous is not None else part
-            )
-            if (
-                previous is not None
-                and previous["section_title"] == part_chunk["section_title"]
-                and previous["page_number"] == part_chunk["page_number"]
-                and len(combined) <= max_chars
-            ):
-                previous["child_text"] = combined
-                if previous["parent_id"] != part_chunk["parent_id"]:
-                    previous["parent_text"] = combined
+        if raw_part.upper().startswith("[TABLE]") and raw_part.upper().endswith("[/TABLE]"):
+            # Table block: indivisible unit
+            if len(raw_part) <= max_atomic_chars:
+                blocks.append({
+                    "text": raw_part,
+                    "is_table": True,
+                    "is_ocr": "[OCR_" in raw_part,
+                })
             else:
-                merged.append(part_chunk)
+                # Force-split oversized table exceeding 2,800 chars line-by-line
+                lines = raw_part.splitlines()
+                cur_t = ""
+                for ln in lines:
+                    if cur_t and (len(cur_t) + len(ln) + 1 > max_atomic_chars):
+                        blocks.append({"text": cur_t.strip(), "is_table": True, "is_ocr": "[OCR_" in cur_t})
+                        cur_t = ln
+                    else:
+                        cur_t = f"{cur_t}\n{ln}" if cur_t else ln
+                if cur_t:
+                    blocks.append({"text": cur_t.strip(), "is_table": True, "is_ocr": "[OCR_" in cur_t})
+        else:
+            # Regular text: split paragraphs on \n\n
+            paras = [p.strip() for p in re.split(r"\n\s*\n", raw_part) if p.strip()]
+            for p in paras:
+                if len(p) <= max_atomic_chars:
+                    blocks.append({
+                        "text": p,
+                        "is_table": "[TABLE]" in p,
+                        "is_ocr": "[OCR_" in p,
+                    })
+                else:
+                    # Force-split oversized paragraph on sentences
+                    sents = _split_sentences(p)
+                    cur_p = ""
+                    for s in sents:
+                        if cur_p and (len(cur_p) + len(s) + 1 > max_atomic_chars):
+                            blocks.append({"text": cur_p.strip(), "is_table": False, "is_ocr": "[OCR_" in cur_p})
+                            cur_p = s
+                        else:
+                            cur_p = f"{cur_p} {s}" if cur_p else s
+                    if cur_p:
+                        blocks.append({"text": cur_p.strip(), "is_table": False, "is_ocr": "[OCR_" in cur_p})
 
+    return blocks
+
+
+def _coalesce_child_chunks(
+    child_chunks: List[Dict[str, Any]], max_chars: int = 2800
+) -> List[Dict[str, Any]]:
+    """Coalesces small adjacent chunks without slicing tables or exceeding max_chars."""
+    merged: List[Dict[str, Any]] = []
+    for chunk in child_chunks:
+        if not merged:
+            merged.append(dict(chunk))
+            continue
+        prev = merged[-1]
+        # Merge adjacent small chunks from same section & page if under max_chars
+        if (
+            prev.get("section_title") == chunk.get("section_title")
+            and prev.get("page_number") == chunk.get("page_number")
+            and len(prev.get("child_text", "")) + len(chunk.get("child_text", "")) + 2 <= max_chars
+            and len(prev.get("child_text", "")) < 1200
+            and not (prev.get("has_tables") and chunk.get("has_tables"))
+        ):
+            combined = f"{prev['child_text']}\n\n{chunk['child_text']}"
+            prev["child_text"] = combined
+            prev["text"] = combined
+            prev["has_tables"] = bool(prev.get("has_tables") or chunk.get("has_tables"))
+            prev["ocr_applied"] = bool(prev.get("ocr_applied") or chunk.get("ocr_applied"))
+        else:
+            merged.append(dict(chunk))
     return merged
 
 
@@ -68,105 +115,144 @@ def build_hierarchical_chunks(
     child_overlap_sentences: int = 1,
 ) -> List[Dict[str, Any]]:
     """
-    Produces Hierarchical Parent-Child Chunks:
-      - Parent (~650 words / ~900 tokens): Full concept/example context fed to the Auditor LLM.
-      - Child (~140 words / ~180 tokens): Granular vector chunk embedded in Pinecone with parent_text attached.
+    Produces Hierarchical Parent-Child Chunks with atomic table and OCR preservation:
+      - Parent (~650 words / ~900 tokens): Full concept context fed to Auditor LLM.
+      - Child (1.5k–2.8k chars): Granular vector chunks embedded in Pinecone with parent_text attached.
+      - Keeps [TABLE]...[/TABLE] and [OCR_DIAGRAM_TEXT]... blocks indivisible.
+      - Preserves has_tables and ocr_applied provenance flags in metadata.
     """
     child_records: List[Dict[str, Any]] = []
     parent_counter = 0
 
     for sec in sections:
-        sec_title = sec["section_title"]
+        sec_title = sec.get("section_title", "Overview")
+        chapter = sec.get("chapter", sec_title)
         pages = sec.get("pages", [])
         if not pages:
-            continue
-
-        # Flatten sentences across pages of this section while preserving exact page numbers
-        sentence_stream: List[tuple[int, str]] = []
-        for p in pages:
-            for sent in _split_sentences(p["text"]):
-                sentence_stream.append((p["page_number"], sent))
-
-        if not sentence_stream:
-            continue
-
-        # 1. Group sentence stream into Parent Chunks (~650 words)
-        parents: List[Dict[str, Any]] = []
-        cur_sents: List[tuple[int, str]] = []
-        cur_words = 0
-        start_page = sentence_stream[0][0]
-
-        for page_num, sent in sentence_stream:
-            w = len(sent.split())
-            if cur_sents and (cur_words + w) > parent_max_words:
-                parent_counter += 1
-                parents.append(
-                    {
-                        "parent_id": f"{doc_id}-p{parent_counter:04d}",
-                        "section_title": sec_title,
-                        "page_number": start_page,
-                        "parent_text": f"[{sec_title} | Page {start_page}]\n"
-                        + " ".join(sentence for _, sentence in cur_sents),
-                        "sentences": list(cur_sents),
-                    }
-                )
-                cur_sents = [(page_num, sent)]
-                cur_words = w
-                start_page = page_num
+            if sec.get("text"):
+                pages = [{
+                    "page_number": sec.get("start_page", 1),
+                    "text": sec["text"],
+                    "has_tables": "[TABLE]" in sec["text"],
+                    "ocr_applied": "[OCR_" in sec["text"],
+                }]
             else:
-                cur_sents.append((page_num, sent))
-                cur_words += w
+                continue
 
-        if cur_sents:
-            parent_counter += 1
-            parents.append(
-                {
+        # Extract atomic blocks across pages while preserving provenance
+        block_stream: List[Dict[str, Any]] = []
+        for p in pages:
+            page_num = p.get("page_number", 1)
+            page_has_tables = bool(p.get("has_tables", False))
+            page_ocr = bool(p.get("ocr_applied", False))
+            p_blocks = _extract_page_blocks(p.get("text", ""))
+            for blk in p_blocks:
+                block_stream.append({
+                    "page_number": page_num,
+                    "text": blk["text"],
+                    "is_table": blk["is_table"] or page_has_tables or ("[TABLE]" in blk["text"]),
+                    "is_ocr": blk["is_ocr"] or page_ocr or ("[OCR_" in blk["text"]),
+                })
+
+        if not block_stream:
+            continue
+
+        # 1. Group atomic block stream into Parent Chunks (~3,500-5,000 chars / ~650 words)
+        parents: List[Dict[str, Any]] = []
+        cur_parent_blocks: List[Dict[str, Any]] = []
+        cur_parent_chars = 0
+        parent_start_page = block_stream[0]["page_number"]
+
+        for blk in block_stream:
+            blk_len = len(blk["text"])
+            if cur_parent_blocks and (cur_parent_chars + blk_len > 4000):
+                parent_counter += 1
+                parent_text = f"[{sec_title} | Page {parent_start_page}]\n" + "\n\n".join(
+                    b["text"] for b in cur_parent_blocks
+                )
+                parents.append({
                     "parent_id": f"{doc_id}-p{parent_counter:04d}",
                     "section_title": sec_title,
-                    "page_number": start_page,
-                    "parent_text": f"[{sec_title} | Page {start_page}]\n"
-                    + " ".join(sentence for _, sentence in cur_sents),
-                    "sentences": list(cur_sents),
-                }
+                    "chapter": chapter,
+                    "page_number": parent_start_page,
+                    "parent_text": parent_text,
+                    "blocks": list(cur_parent_blocks),
+                })
+                cur_parent_blocks = [blk]
+                cur_parent_chars = blk_len
+                parent_start_page = blk["page_number"]
+            else:
+                cur_parent_blocks.append(blk)
+                cur_parent_chars += blk_len
+
+        if cur_parent_blocks:
+            parent_counter += 1
+            parent_text = f"[{sec_title} | Page {parent_start_page}]\n" + "\n\n".join(
+                b["text"] for b in cur_parent_blocks
             )
+            parents.append({
+                "parent_id": f"{doc_id}-p{parent_counter:04d}",
+                "section_title": sec_title,
+                "chapter": chapter,
+                "page_number": parent_start_page,
+                "parent_text": parent_text,
+                "blocks": list(cur_parent_blocks),
+            })
 
-        # 2. Split each Parent Chunk into overlapping Child Chunks (~140 words)
+        # 2. Split each Parent Chunk into 1.5k–2.8k char Child Chunks keeping atomic blocks intact
         for p_obj in parents:
-            sents = p_obj["sentences"]
-            idx = 0
+            p_blocks = p_obj["blocks"]
             c_idx = 0
-            while idx < len(sents):
-                chunk_sents: List[tuple[int, str]] = []
-                w_count = 0
-                j = idx
-                while j < len(sents):
-                    if chunk_sents and sents[j][0] != chunk_sents[0][0]:
-                        break
-                    sw = len(sents[j][1].split())
-                    if chunk_sents and (w_count + sw) > child_max_words:
-                        break
-                    chunk_sents.append(sents[j])
-                    w_count += sw
-                    j += 1
+            cur_child_blocks: List[Dict[str, Any]] = []
+            cur_child_chars = 0
 
-                c_idx += 1
-                child_text = f"{sec_title}: " + " ".join(
-                    sentence for _, sentence in chunk_sents
-                )
-                child_records.append(
-                    {
+            for blk in p_blocks:
+                blk_len = len(blk["text"])
+                # If adding blk exceeds 2,500 chars and we already have content, flush child chunk
+                if cur_child_blocks and (cur_child_chars + blk_len > 2500):
+                    c_idx += 1
+                    child_page = cur_child_blocks[0]["page_number"]
+                    child_text = f"{sec_title}: " + "\n\n".join(b["text"] for b in cur_child_blocks)
+                    has_tbl = any(b["is_table"] for b in cur_child_blocks)
+                    has_ocr = any(b["is_ocr"] for b in cur_child_blocks)
+                    child_records.append({
                         "chunk_id": f"{p_obj['parent_id']}-c{c_idx:02d}",
                         "parent_id": p_obj["parent_id"],
+                        "doc_id": doc_id,
                         "section_title": sec_title,
-                        "page_number": chunk_sents[0][0],
+                        "chapter": chapter,
+                        "page_number": child_page,
                         "child_text": child_text,
+                        "text": child_text,
                         "parent_text": p_obj["parent_text"],
-                    }
-                )
+                        "has_tables": has_tbl,
+                        "ocr_applied": has_ocr,
+                    })
+                    cur_child_blocks = [blk]
+                    cur_child_chars = blk_len
+                else:
+                    cur_child_blocks.append(blk)
+                    cur_child_chars += blk_len
 
-                if j >= len(sents):
-                    break
-                idx = max(idx + 1, j - child_overlap_sentences)
+            if cur_child_blocks:
+                c_idx += 1
+                child_page = cur_child_blocks[0]["page_number"]
+                child_text = f"{sec_title}: " + "\n\n".join(b["text"] for b in cur_child_blocks)
+                has_tbl = any(b["is_table"] for b in cur_child_blocks)
+                has_ocr = any(b["is_ocr"] for b in cur_child_blocks)
+                child_records.append({
+                    "chunk_id": f"{p_obj['parent_id']}-c{c_idx:02d}",
+                    "parent_id": p_obj["parent_id"],
+                    "doc_id": doc_id,
+                    "section_title": sec_title,
+                    "chapter": chapter,
+                    "page_number": child_page,
+                    "child_text": child_text,
+                    "text": child_text,
+                    "parent_text": p_obj["parent_text"],
+                    "has_tables": has_tbl,
+                    "ocr_applied": has_ocr,
+                })
 
     return _coalesce_child_chunks(child_records)
 

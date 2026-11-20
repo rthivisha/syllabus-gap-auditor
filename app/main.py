@@ -486,6 +486,8 @@ def api_get_document_chunks(doc_id: str, limit: int = 10) -> List[Dict[str, Any]
                 "section_title": ch.get("section_title", ""),
                 "chars": len(txt),
                 "text": txt,
+                "has_tables": bool(ch.get("has_tables", False)),
+                "ocr_applied": bool(ch.get("ocr_applied", False)),
             }
         )
     return out
@@ -609,6 +611,13 @@ async def api_upload_document_stream(
             parsed_pdf = load_pdf_sections(dest)
             sections = parsed_pdf["sections"]
             page_count = parsed_pdf["page_count"]
+            ocr_pages = parsed_pdf.get("ocr_pages_processed", 0)
+            step1_msg = (
+                f"Extracted {page_count} pages ({ocr_pages} image/diagram pages via OCR)..."
+                if ocr_pages
+                else f"Extracted {page_count} native pages..."
+            )
+            yield f"data: {json.dumps({'type': 'step', 'step': 1, 'ocr_pages': ocr_pages, 'text': step1_msg})}\n\n"
 
             yield f"data: {json.dumps({'type': 'step', 'step': 2, 'text': 'Filtering boilerplate, headers & stub pages...'})}\n\n"
 
@@ -677,6 +686,7 @@ async def api_upload_document_stream(
                 "doc_name": filename,
                 "page_count": page_count,
                 "chunk_count": chunk_count,
+                "ocr_pages_processed": ocr_pages,
                 "sections": section_titles[:12],
                 "suggested_questions": starter_prompts,
                 "elapsed_sec": round(time.perf_counter() - t0, 2),

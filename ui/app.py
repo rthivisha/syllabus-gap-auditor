@@ -349,8 +349,14 @@ with st.sidebar:
                     st.error(f"Could not fetch chunks: {exc}")
 
             for ch in inspected_map.get(active_id, []):
+                flags = []
+                if ch.get("has_tables"):
+                    flags.append("📊 [Table]")
+                if ch.get("ocr_applied"):
+                    flags.append("🖼️ [OCR]")
+                flag_str = f" · {' '.join(flags)}" if flags else ""
                 st.caption(
-                    f"`Page {ch.get('page_number', '?')}` · `{ch.get('id', '')}` · **{ch.get('chars', len(ch.get('text', '')))} chars**"
+                    f"`Page {ch.get('page_number', '?')}` · `{ch.get('id', '')}` · **{ch.get('chars', len(ch.get('text', '')))} chars**{flag_str}"
                 )
                 with st.container(border=True):
                     st.markdown(ch.get("text", "")[:450])
