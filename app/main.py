@@ -472,34 +472,23 @@ def api_list_documents() -> List[Dict[str, Any]]:
 
 
 @app.get("/documents/{doc_id}/chunks")
-def api_preview_pinecone_chunks(doc_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Fetches the first N stored Pinecone metadata chunks for the sidebar Chunk Inspector."""
-    from app.services.vector.pinecone_store import get_pinecone_index
-    res = get_pinecone_index().query(
-        vector=[0.0] * 768,
-        filter={"doc_id": {"$eq": doc_id}},
-        top_k=limit,
-        include_metadata=True,
-        include_values=False,
-    )
-    matches = res.get("matches", []) if isinstance(res, dict) else getattr(res, "matches", [])
-    chunks = []
-    for m in matches:
-        meta = m.get("metadata", {}) if isinstance(m, dict) else (getattr(m, "metadata", None) or {})
-        txt = meta.get("text", "") or meta.get("parent_text", "") or meta.get("child_text", "")
-        chunks.append(
+def api_get_document_chunks(doc_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    from app.services.vector.pinecone_store import fetch_scoped_chunks_with_vectors
+
+    chunks = fetch_scoped_chunks_with_vectors(doc_id=doc_id, top_k=max(limit, 50))
+    out: List[Dict[str, Any]] = []
+    for ch in chunks[:limit]:
+        txt = str(ch.get("text") or "").strip()
+        out.append(
             {
-                "id": m.get("id") if isinstance(m, dict) else getattr(m, "id", ""),
-                "filename": meta.get("filename", "") or meta.get("doc_name", ""),
-                "page_number": meta.get("page_number", 1),
-                "section_title": meta.get("section_title", ""),
+                "id": ch.get("chunk_id", ""),
+                "page_number": ch.get("page_number", 1),
+                "section_title": ch.get("section_title", ""),
                 "chars": len(txt),
-                "tokens": max(1, len(txt) // 4),
                 "text": txt,
             }
         )
-    chunks.sort(key=lambda c: (int(c["page_number"]), str(c["id"])))
-    return chunks
+    return out
 
 
 @app.post("/documents/clear-user-uploads")

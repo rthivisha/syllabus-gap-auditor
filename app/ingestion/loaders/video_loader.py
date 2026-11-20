@@ -188,8 +188,9 @@ def parse_video_source(
     source: str, browser_for_cookies: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    2-Tier Cloud-Safe Video Ingestion:
-    1. Fast `youtube-transcript-api` (~1.5s, 0 LLM tokens) -> 25s merged windows.
+    2-Tier Cloud-Safe Video Ingestion with Disk Cache:
+    0. Instant disk cache hit by video_id (~0.01s).
+    1. Fast `youtube-transcript-api` (~1.5s, 0 LLM tokens, skips slow yt-dlp).
     2. Automatic Fallback to Gemini 2.5 Flash native YouTube `file_uri` -> [MM:SS] 25s windows.
     """
     t_total = time.perf_counter()
@@ -198,43 +199,25 @@ def parse_video_source(
     settings = get_settings()
     video_id = extract_video_id(source)
     is_url = source.startswith(("http://", "https://"))
-    title = "YouTube Lecture"
+
+    # Tier 0: Instant cache hit by video_id
+    cache_path = Path(tempfile.gettempdir()) / f"sga_video_{video_id}.json"
+    if is_url and cache_path.exists():
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if cached.get("passed_guard") and cached.get("windows"):
+                cached.setdefault("step_timings", {})["cache_hit"] = True
+                cached["step_timings"]["total_ingestion_sec"] = round(
+                    time.perf_counter() - t_total, 3
+                )
+                return cached
+        except Exception:
+            pass
+
+    title = f"YouTube Lecture ({video_id})"
     duration = 0.0
 
-    # Step 1: Lightweight Metadata Check (8s timeout, skip_download)
-    t0 = time.perf_counter()
-    if is_url:
-        try:
-            base_opts: Dict[str, Any] = {
-                "quiet": True,
-                "no_warnings": True,
-                "skip_download": True,
-                "socket_timeout": 8,
-                "retries": 1,
-            }
-            if browser_for_cookies:
-                base_opts["cookiesfrombrowser"] = (browser_for_cookies,)
-            with yt_dlp.YoutubeDL(base_opts) as ydl:
-                info = ydl.extract_info(source, download=False)
-                duration = float(info.get("duration") or 0)
-                title = info.get("title", "YouTube Lecture")
-        except Exception as exc:
-            print(f"[METADATA WARN] Metadata lookup skipped ({exc}); proceeding to captions/Gemini.")
-    timings["metadata_fetch_sec"] = round(time.perf_counter() - t0, 2)
-
-    if is_url and duration > settings.MAX_VIDEO_DURATION_SEC:
-        return {
-            "video_id": video_id,
-            "title": title,
-            "duration_sec": duration,
-            "passed_guard": False,
-            "guard_reason": f"Duration {duration}s exceeds allowed limit ({settings.MAX_VIDEO_DURATION_SEC}s).",
-            "windows": [],
-            "ocr_slides": [],
-            "step_timings": timings,
-        }
-
-    # Step 2: Tier 1 Fast Captions -> Tier 2 Gemini Native YouTube Fallback
+    # Tier 1: Fast Captions first (skip slow yt-dlp metadata call on cloud IPs)
     t0 = time.perf_counter()
     raw_segs = _fetch_youtube_captions_fast(video_id) if is_url else None
     ocr_slides: List[Dict[str, Any]] = []
@@ -242,8 +225,19 @@ def parse_video_source(
     mean_lp = -0.10
 
     if raw_segs:
-        if duration <= 0:
-            duration = max((s["end_sec"] for s in raw_segs), default=600.0)
+        duration = max((s["end_sec"] for s in raw_segs), default=600.0)
+        if duration > settings.MAX_VIDEO_DURATION_SEC:
+            return {
+                "video_id": video_id,
+                "title": title,
+                "duration_sec": duration,
+                "passed_guard": False,
+                "guard_reason": f"Duration {duration}s exceeds allowed limit ({settings.MAX_VIDEO_DURATION_SEC}s).",
+                "windows": [],
+                "ocr_slides": [],
+                "step_timings": timings,
+            }
+
         guard = check_media_guard(duration, len(raw_segs), mean_lp)
         if not guard.passed:
             return {
@@ -286,12 +280,11 @@ def parse_video_source(
                 "ocr_slides": [],
                 "step_timings": timings,
             }
-        if duration <= 0:
-            duration = max((w["end_sec"] for w in windows), default=600.0)
+        duration = max((w["end_sec"] for w in windows), default=600.0)
 
     timings["total_ingestion_sec"] = round(time.perf_counter() - t_total, 2)
 
-    return {
+    result = {
         "video_id": video_id,
         "title": title,
         "duration_sec": duration,
@@ -303,6 +296,14 @@ def parse_video_source(
         "ocr_slides": ocr_slides,
         "step_timings": timings,
     }
+
+    if is_url:
+        try:
+            cache_path.write_text(json.dumps(result), encoding="utf-8")
+        except Exception:
+            pass
+
+    return result
 
 
 def parse_raw_transcript_text(

@@ -322,15 +322,38 @@ with st.sidebar:
     st.divider()
 
     # 3. Inspect Chunks (Under the Hood)
-    with st.expander("🔍 Inspect Chunks (Under the Hood)", expanded=False):
-        active_id = st.session_state.get("selected_doc_id")
-        if active_id and st.button("Load First 10 Pinecone Chunks", use_container_width=True):
-            c_res = requests.get(f"{API_BASE}/documents/{active_id}/chunks", params={"limit": 10}, timeout=8)
-            st.session_state["inspected_chunks"] = c_res.json() if c_res.ok else []
-        for ch in st.session_state.get("inspected_chunks", []):
-            st.caption(f"`Page {ch['page_number']}` · `{ch['id']}` · **{ch['chars']} chars**")
-            with st.container(border=True):
-                st.markdown(ch["text"][:450])
+    active_id = st.session_state.get("selected_doc_id")
+    inspected_map = st.session_state.setdefault("inspected_chunks_by_doc", {})
+    current_chunks = inspected_map.get(active_id, []) if active_id else []
+
+    with st.expander(
+        "🔍 Inspect Chunks (Under the Hood)",
+        expanded=bool(current_chunks),
+    ):
+        if not active_id:
+            st.caption("Select or upload a PDF first to inspect its Pinecone vectors.")
+        else:
+            if st.button("Load First 10 Pinecone Chunks", use_container_width=True, key="load_10_chunks_btn"):
+                try:
+                    c_res = requests.get(
+                        f"{API_BASE}/documents/{active_id}/chunks",
+                        params={"limit": 10},
+                        timeout=12,
+                    )
+                    if c_res.ok:
+                        inspected_map[active_id] = c_res.json()
+                        st.rerun()
+                    else:
+                        st.error(f"Chunk fetch failed ({c_res.status_code}).")
+                except Exception as exc:
+                    st.error(f"Could not fetch chunks: {exc}")
+
+            for ch in inspected_map.get(active_id, []):
+                st.caption(
+                    f"`Page {ch.get('page_number', '?')}` · `{ch.get('id', '')}` · **{ch.get('chars', len(ch.get('text', '')))} chars**"
+                )
+                with st.container(border=True):
+                    st.markdown(ch.get("text", "")[:450])
 
     # 4. Secure Inference Engine & 3-Call Free Quota
     with st.expander("⚙️ Inference Engine & Quota", expanded=False):
