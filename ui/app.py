@@ -571,9 +571,13 @@ if not st.session_state.selected_doc_id:
                 elapsed_sec=info.get("elapsed_sec"),
                 placeholder=board_slot,
             )
-            d_res = requests.get(f"{API_BASE}/documents", timeout=5)
-            if d_res.ok:
-                st.session_state.cached_docs = d_res.json()
+            try:
+                d_res = requests.get(f"{API_BASE}/documents", timeout=15)
+                if d_res.ok:
+                    st.session_state.cached_docs = d_res.json()
+            except Exception:
+                # Keep already-cached document list if FastAPI/Neon is briefly busy
+                st.session_state.setdefault("cached_docs", [])
             st.rerun()
 
 # ==============================================================================
