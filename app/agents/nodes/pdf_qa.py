@@ -56,6 +56,31 @@ def pdf_qa_node(state: AuditGraphState) -> Dict[str, Any]:
     # Use asymmetric query embedding (input_type="query") instead of passage encoding
     q_vec = embed_texts([query], is_query=True, batch_size=1)[0]
 
+    # 1. Detect if the user is explicitly asking about one of the indexed sections (e.g., "What are the key concepts in 'ABSTRACT'?")
+    q_lower = query.lower()
+    matched_section = None
+    for s in sections_list:
+        s_title = (s.get("section_title", "") if isinstance(s, dict) else str(s)).strip()
+        if len(s_title) >= 4 and s_title.lower() in q_lower:
+            # Prefer the longest matching section title
+            if matched_section is None or len(s_title) > len(matched_section):
+                matched_section = s_title
+
+    raw_matches = []
+    if matched_section:
+        sec_res = get_pinecone_index().query(
+            vector=q_vec,
+            filter={
+                "doc_id": {"$eq": doc_id},
+                "section_title": {"$eq": matched_section},
+            },
+            top_k=6,
+            include_metadata=True,
+            include_values=False,
+        )
+        sec_matches = sec_res.get("matches", []) if isinstance(sec_res, dict) else getattr(sec_res, "matches", [])
+        raw_matches.extend(sec_matches)
+
     res = get_pinecone_index().query(
         vector=q_vec,
         filter={"doc_id": {"$eq": doc_id}},
@@ -63,12 +88,13 @@ def pdf_qa_node(state: AuditGraphState) -> Dict[str, Any]:
         include_metadata=True,
         include_values=False,
     )
+    general_matches = res.get("matches", []) if isinstance(res, dict) else getattr(res, "matches", [])
+    raw_matches.extend(general_matches)
 
-    matches = res.get("matches", []) if isinstance(res, dict) else getattr(res, "matches", [])
     chunks: List[Dict[str, Any]] = []
     seen_pages_sections = set()
 
-    for m in matches:
+    for m in raw_matches:
         meta = m.get("metadata", {}) if isinstance(m, dict) else (getattr(m, "metadata", None) or {})
         sec_title = str(meta.get("section_title") or "").strip()
         full_text = str(
