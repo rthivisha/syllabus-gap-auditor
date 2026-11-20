@@ -154,30 +154,20 @@ st.markdown(
 )
 
 # --- Session State Initialization ---
-if "visitor_id" not in st.session_state:
-    st.session_state.visitor_id = f"guest_{uuid.uuid4().hex[:8]}"
-if "session_id" not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "selected_doc_id" not in st.session_state:
-    st.session_state.selected_doc_id = None  # Starts clean on first load!
-if "selected_doc_name" not in st.session_state:
-    st.session_state.selected_doc_name = None
-if "selected_doc_pages" not in st.session_state:
-    st.session_state.selected_doc_pages = None
-if "selected_doc_chunks" not in st.session_state:
-    st.session_state.selected_doc_chunks = None
-if "paired_sample_video" not in st.session_state:
-    st.session_state.paired_sample_video = None
-if "uploaded_doc_id" not in st.session_state:
-    st.session_state.uploaded_doc_id = None
-if "suggested_questions" not in st.session_state:
-    st.session_state.suggested_questions = []
-if "awaiting_scope" not in st.session_state:
-    st.session_state.awaiting_scope = False
-if "active_video_url" not in st.session_state:
-    st.session_state.active_video_url = None
+st.session_state.setdefault("visitor_id", f"guest_{uuid.uuid4().hex[:8]}")
+st.session_state.setdefault("session_id", str(uuid.uuid4()))
+st.session_state.setdefault("messages", [])
+st.session_state.setdefault("selected_doc_id", None)  # Starts clean on first load!
+st.session_state.setdefault("selected_doc_name", None)
+st.session_state.setdefault("selected_doc_pages", None)
+st.session_state.setdefault("selected_doc_chunks", None)
+st.session_state.setdefault("paired_sample_video", None)
+st.session_state.setdefault("uploaded_doc_id", None)
+st.session_state.setdefault("suggested_questions", [])
+st.session_state.setdefault("awaiting_scope", False)
+st.session_state.setdefault("active_video_url", None)
+st.session_state.setdefault("show_sidebar_uploader", False)
+st.session_state.setdefault("guest_calls_used", 0)
 
 if "cached_docs" not in st.session_state:
     try:
@@ -646,18 +636,40 @@ if active_prompt:
                             err_msg = f"HTTP {r.status_code}: {r.text}"
                     else:
                         for raw_line in r.iter_lines(decode_unicode=True):
-                            if not raw_line or not raw_line.startswith("data: "):
+                            if not raw_line:
                                 continue
+                            line_str = raw_line.strip()
+                            if line_str.startswith("data: "):
+                                json_str = line_str[6:].strip()
+                            else:
+                                json_str = line_str
                             try:
-                                evt = json.loads(raw_line[6:])
+                                evt = json.loads(json_str)
                             except Exception:
                                 continue
-                            if evt.get("type") == "stage":
+                            if not isinstance(evt, dict):
+                                continue
+
+                            evt_type = evt.get("type", "")
+                            if evt_type == "stage":
                                 run_status.update(label=evt.get("text", "Processing..."), state="running")
-                            elif evt.get("type") == "done":
-                                final_payload = evt.get("payload") or {}
-                            elif evt.get("type") == "error":
+                            elif evt_type in ("done", "result", "final"):
+                                final_payload = evt.get("payload") if isinstance(evt.get("payload"), dict) else evt
+                            elif evt_type == "error":
                                 err_msg = evt.get("text") or evt.get("detail") or evt.get("message") or "An error occurred during processing."
+                            elif any(k in evt for k in ("reply", "chat_response", "answer", "final_answer", "content", "payload")):
+                                final_payload = evt.get("payload") if isinstance(evt.get("payload"), dict) else evt
+
+                        if final_payload is None and not err_msg:
+                            try:
+                                raw_json = r.json()
+                                if isinstance(raw_json, dict):
+                                    if "error" in raw_json or "detail" in raw_json:
+                                        err_msg = raw_json.get("error") or raw_json.get("detail")
+                                    else:
+                                        final_payload = raw_json.get("payload") if isinstance(raw_json.get("payload"), dict) else raw_json
+                            except Exception:
+                                pass
             except Exception as exc:
                 err_msg = str(exc)
 
@@ -670,17 +682,33 @@ if active_prompt:
                 if not has_byok:
                     st.session_state.guest_calls_used += 1
 
-                reply = (
+                final_answer = (
                     final_payload.get("reply")
                     or final_payload.get("chat_response")
                     or final_payload.get("answer")
                     or final_payload.get("final_answer")
                     or final_payload.get("response")
                     or final_payload.get("message")
+                    or final_payload.get("content")
                     or ""
                 ).strip()
 
-                if not reply:
+                final_sources = (
+                    final_payload.get("citations")
+                    or final_payload.get("sources")
+                    or final_payload.get("retrieved_evidence")
+                    or final_payload.get("cited_chunks")
+                    or []
+                )
+
+                final_missed_topics = (
+                    final_payload.get("missed_topics")
+                    or final_payload.get("gap_topics")
+                    or final_payload.get("missed_gaps")
+                    or []
+                )
+
+                if not final_answer:
                     error_detail = (
                         final_payload.get("error")
                         or final_payload.get("detail")
@@ -699,19 +727,29 @@ if active_prompt:
                         "evaluator_status": trace_data.get("evaluator_status", "passed"),
                         "retry_count": trace_data.get("retry_count", 0),
                     }
-                    sources = (
-                        final_payload.get("citations")
-                        or final_payload.get("retrieved_evidence")
-                        or final_payload.get("cited_chunks")
-                        or []
+                    st.markdown(final_answer)
+                    if final_sources:
+                        st.caption("📚 Verified Document Sources")
+                        s_cols = st.columns(min(3, len(final_sources)))
+                        for s_idx, src in enumerate(final_sources[:3]):
+                            with s_cols[s_idx]:
+                                with st.container(border=True):
+                                    st.markdown(f"**Page {src.get('page_number', '?')}** · *{src.get('section_title', '')[:42]}*")
+                                    quote = (src.get("text") or src.get("evidence_quote") or src.get("snippet") or src.get("parent_text") or "")[:180]
+                                    st.caption(f"{quote}...")
+
+                    st.session_state["messages"].append(
+                        {
+                            "role": "assistant",
+                            "content": final_answer,
+                            "sources": final_sources,
+                            "missed_topics": final_missed_topics,
+                        }
                     )
-                    st.markdown(reply)
-                    st.session_state.messages.append({"role": "assistant", "content": reply, "sources": sources})
                     st.session_state.awaiting_scope = (
-                        "would you like to analyze this video" in reply.lower()
+                        "would you like to analyze this video" in final_answer.lower()
                         or bool(final_payload.get("awaiting_scope"))
                     )
-                    st.rerun()
             else:
                 run_status.update(label=f"Failed ({elapsed}s)", state="error")
                 st.error("⚠️ Connection closed without returning a response.")
